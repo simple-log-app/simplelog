@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      QT_QPA_PLATFORM: offscreen
+    command: sleep infinity

@@ -1,0 +1,170 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Linux ──────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build · Linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 libxkbcommon0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xfixes0 \
+            dpkg-dev fuse libfuse2
+
+      - name: Install Python deps
+        run: pip install pyinstaller -r requirements.txt
+
+      - name: Build AppImage + .deb
+        env:
+          VERSION: ${{ github.ref_name }}
+          QT_QPA_PLATFORM: offscreen
+        run: bash build/build_linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/simplelog-*.AppImage
+            dist/simplelog_amd64.deb
+
+  # ── macOS (x86_64 via Rosetta on ARM runner — runs natively on Intel,
+  #          via Rosetta 2 on Apple Silicon) ──────────────────────────────────
+  build-macos:
+    name: Build · macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python 3.11 universal2 from python.org
+        run: |
+          curl -fsSL -o /tmp/python.pkg \
+            https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg
+          sudo installer -pkg /tmp/python.pkg -target /
+
+      - name: Install Python deps (x86_64 via Rosetta)
+        run: |
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.11/bin/pip3.11 \
+            install pyinstaller -r requirements.txt
+
+      - name: Build x86_64 app with PyInstaller
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 \
+            -m PyInstaller simplelog.spec --noconfirm --clean
+
+      - name: Package as .dmg
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          DMG_STAGING="dist/dmg_staging"
+          rm -rf "$DMG_STAGING" && mkdir -p "$DMG_STAGING"
+          cp -r dist/SimpleLog.app "$DMG_STAGING/"
+          ln -sf /Applications "$DMG_STAGING/Applications"
+          for attempt in 1 2 3; do
+            hdiutil create \
+              -volname "SimpleLog ${VERSION#v}" \
+              -srcfolder "$DMG_STAGING" \
+              -ov -format UDZO \
+              -imagekey zlib-level=9 \
+              dist/SimpleLog-macOS.dmg && break
+            echo "hdiutil attempt ${attempt} failed, retrying in 10s…"
+            sleep 10
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal-dmg
+          path: dist/SimpleLog-macOS.dmg
+
+  # ── GitHub Release ─────────────────────────────────────────────────────────
+  release:
+    name: Publish Release
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: release-assets/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-universal-dmg
+          path: release-assets/
+
+      - name: Show artifacts
+        run: ls -lh release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          body: |
+            ## Install SimpleLog ${{ github.ref_name }}
+
+            ### macOS (Homebrew)
+            ```bash
+            brew tap simplelogdev/tap
+            brew install --cask simplelog
+            ```
+            Or download **SimpleLog-macOS-universal.dmg** below and drag **SimpleLog.app** to Applications.
+            Works on both Apple Silicon and Intel Macs.
+
+            ### Debian / Ubuntu
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            # or manually:
+            sudo dpkg -i simplelog_amd64.deb
+            ```
+
+            ### Other Linux (AppImage)
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            # or manually:
+            chmod +x simplelog-x86_64.AppImage && ./simplelog-x86_64.AppImage
+            ```
+
+            ### One-liner (all platforms)
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            ```
+
+      - name: Check Homebrew tap token
+        id: tap-token
+        run: echo "enabled=$( [ -n "$VAL" ] && echo true || echo false )" >> $GITHUB_OUTPUT
+        env:
+          VAL: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update Homebrew tap
+        if: steps.tap-token.outputs.enabled == 'true'
+        env:
+          GH_PAT: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: bash build/update_tap.sh "${VERSION#v}"
