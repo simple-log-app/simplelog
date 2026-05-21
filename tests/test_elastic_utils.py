@@ -134,3 +134,12 @@ def test_fetch_logs_with_search_after_included_in_body():
     req = mock_open.call_args[0][0]
     body = json.loads(req.data)
     assert body["search_after"] == ["val1", "val2"]
+
+
+def test_fetch_logs_since_iso_adds_range_clause():
+    payload = {"hits": {"hits": []}}
+    with patch("urllib.request.urlopen", return_value=_fake_urlopen(payload)) as mock_open:
+        elastic_utils.fetch_logs(BASE, "idx", "*", since_iso="2025-01-01T00:00:00Z")
+    body = json.loads(mock_open.call_args[0][0].data)
+    must = body["query"]["bool"]["must"]
+    assert any("range" in clause for clause in must)

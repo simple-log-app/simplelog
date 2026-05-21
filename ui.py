@@ -315,9 +315,7 @@ C_DEBUG      = "#5b8fff"
 C_TRACE      = "#b07cf0"
 C_TS         = "#50c8dc"
 
-# Backwards-compat aliases
-C_TOOLBAR  = C_PANEL
-C_DIVIDER  = C_BORDER
+C_DIVIDER  = C_BORDER  # alias used in painter pens
 
 
 # ── apply_style ────────────────────────────────────────────────────────────────
@@ -6894,7 +6892,6 @@ _ROW_H         = 24   # px — plain / JSON-collapsed row height (normal density
 _TABLE_HEAD_H  = 22   # px — table header row height
 _TABLE_ROW_H   = 18   # px — each key/value data row height
 _TABLE_PAD_B   = 6    # px — padding below last table row
-_ARROW_W       = 16   # px — width reserved for ▶/▼ toggle
 _BADGE_COL_W   = 52   # px — level badge column width
 _TS_COL_W      = 92   # px — timestamp column width
 

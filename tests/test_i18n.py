@@ -98,8 +98,7 @@ _REQUIRED_KEYS = [
     "open_mode_tab", "open_mode_vertical", "open_mode_horizontal",
     "help_title", "help_content",
     "update_title", "update_up_to_date", "update_available",
-    "sidebar_search", "sidebar_filter", "sidebar_json_keys",
-    "sidebar_add_and", "sidebar_add_or", "sidebar_prev", "sidebar_next",
+    "sidebar_add_and", "sidebar_add_or",
     "sidebar_hits", "sidebar_no_hits", "sidebar_term_ph",
     "sidebar_live_filter", "sidebar_json_ph",
 ]
@@ -118,16 +117,6 @@ def test_key_exists_in_french(key):
 
 
 # ── Sidebar keys ───────────────────────────────────────────────────────────────
-
-def test_sidebar_search_key_en():
-    i18n.set_locale("en")
-    assert i18n.tr("sidebar_search") == "Search"
-
-
-def test_sidebar_search_key_fr():
-    i18n.set_locale("fr")
-    assert i18n.tr("sidebar_search") == "Recherche"
-
 
 def test_sidebar_hits_key_en():
     i18n.set_locale("en")

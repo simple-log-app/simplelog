@@ -24,44 +24,34 @@ def _headers(api_token: str) -> dict:
     }
 
 
-def _get(path: str, api_token: str, timeout: int = 15) -> dict:
-    req = urllib.request.Request(_API_BASE + path, headers=_headers(api_token))
+def _request(path: str, api_token: str, *, method: str = "GET",
+             body: dict | None = None, timeout: int = 15) -> dict:
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(
+        _API_BASE + path, data=data,
+        headers=_headers(api_token), method=method,
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", errors="replace")
         try:
-            body = json.loads(raw)
-            msgs = [err.get("message", "") for err in body.get("errors", [])]
-            msg = "; ".join(m for m in msgs if m) or raw
+            errors = json.loads(raw).get("errors", [])
+            msg = "; ".join(err.get("message", "") for err in errors if err.get("message")) or raw
         except Exception:
             msg = raw
         raise RuntimeError(f"Cloudflare {e.code}: {msg}") from e
     except Exception as e:
         raise RuntimeError(str(e)) from e
+
+
+def _get(path: str, api_token: str, timeout: int = 15) -> dict:
+    return _request(path, api_token, timeout=timeout)
 
 
 def _post(path: str, api_token: str, body: dict | None = None) -> dict:
-    data = json.dumps(body or {}).encode()
-    req = urllib.request.Request(
-        _API_BASE + path, data=data,
-        headers=_headers(api_token), method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode("utf-8", errors="replace")
-        try:
-            body_resp = json.loads(raw)
-            msgs = [err.get("message", "") for err in body_resp.get("errors", [])]
-            msg = "; ".join(m for m in msgs if m) or raw
-        except Exception:
-            msg = raw
-        raise RuntimeError(f"Cloudflare {e.code}: {msg}") from e
-    except Exception as e:
-        raise RuntimeError(str(e)) from e
+    return _request(path, api_token, method="POST", body=body or {})
 
 
 def _delete(path: str, api_token: str) -> None:

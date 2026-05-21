@@ -305,6 +305,96 @@ def test_ws_send_frame_126_length():
     assert frame[1] & 0x7F == 126  # extended 16-bit length follows
 
 
+# ── _request general-exception path ────────────────────────────────────────────
+
+def test_request_general_exception_wrapped():
+    """Non-HTTPError exception in _request must be wrapped as RuntimeError."""
+    with patch("urllib.request.urlopen", side_effect=ConnectionError("net")):
+        try:
+            cloudflare_utils.list_workers("t", "a")
+            assert False
+        except RuntimeError as e:
+            assert "net" in str(e)
+
+
+# ── ws_recv_frame 64-bit length branch ─────────────────────────────────────────
+
+def test_ws_recv_frame_127_length_encoding():
+    """Frames >= 65536 bytes use the 8-byte (127) length encoding."""
+    payload = b"x" * 70000
+    frame = _build_server_frame(1, payload)
+    ssock = _FakeSocket(frame)
+    opcode, data = cloudflare_utils.ws_recv_frame(ssock)
+    assert opcode == 1
+    assert len(data) == 70000
+
+
+# ── ws_send_frame_unmasked ────────────────────────────────────────────────────
+
+def test_ws_send_frame_unmasked_no_mask_bit():
+    sock = _CaptureSendSocket()
+    cloudflare_utils.ws_send_frame_unmasked(sock, 1, b"hi")
+    frame = sock.sent[0]
+    assert frame[0] & 0x80  # FIN bit set
+    assert not (frame[1] & 0x80)  # mask bit must be CLEAR
+
+
+def test_ws_send_frame_unmasked_short_payload():
+    sock = _CaptureSendSocket()
+    cloudflare_utils.ws_send_frame_unmasked(sock, 1, b"x" * 50)
+    assert sock.sent[0][1] == 50  # length in second byte
+
+
+def test_ws_send_frame_unmasked_126_length():
+    sock = _CaptureSendSocket()
+    cloudflare_utils.ws_send_frame_unmasked(sock, 2, b"y" * 200)
+    assert sock.sent[0][1] == 126
+
+
+def test_ws_send_frame_unmasked_127_length():
+    sock = _CaptureSendSocket()
+    cloudflare_utils.ws_send_frame_unmasked(sock, 2, b"z" * 70000)
+    assert sock.sent[0][1] == 127
+
+
+def test_ws_send_frame_127_length():
+    sock = _CaptureSendSocket()
+    cloudflare_utils.ws_send_frame(sock, 2, b"z" * 70000)
+    assert sock.sent[0][1] & 0x7F == 127
+
+
+# ── ws_close ──────────────────────────────────────────────────────────────────
+
+def test_ws_close_sends_close_frame_and_closes():
+    sock = _CaptureSendSocket()
+    closed = {"called": False}
+    sock.close = lambda: closed.update(called=True)
+    cloudflare_utils.ws_close(sock)
+    assert closed["called"] is True
+    # Close opcode 8 in the first byte
+    assert sock.sent[0][0] & 0x0F == 8
+
+
+def test_ws_close_suppresses_send_errors():
+    """If sending the close frame fails, ws_close still closes the socket."""
+    class _Broken(_CaptureSendSocket):
+        def sendall(self, data):
+            raise OSError("broken pipe")
+
+    sock = _Broken()
+    closed = {"called": False}
+    sock.close = lambda: closed.update(called=True)
+    cloudflare_utils.ws_close(sock)
+    assert closed["called"] is True
+
+
+# ── h2_available ──────────────────────────────────────────────────────────────
+
+def test_h2_available_returns_bool():
+    # The actual return value depends on whether h2 is installed; either is fine.
+    assert isinstance(cloudflare_utils.h2_available(), bool)
+
+
 # ── parse_tail_event ──────────────────────────────────────────────────────────
 
 def _make_event(**kwargs) -> bytes:
