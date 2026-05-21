@@ -14,12 +14,11 @@ def _import_logic():
     from ui import (
         TermRow,
         _classify_line,
-        _extract_json_keys,
         _line_matches,
         _resolve_main_key,
         _try_parse_json,
     )
-    return TermRow, _line_matches, _extract_json_keys, _try_parse_json, _classify_line, _resolve_main_key
+    return TermRow, _line_matches, _try_parse_json, _classify_line, _resolve_main_key
 
 
 # ── TermRow ───────────────────────────────────────────────────────────────────
@@ -89,36 +88,6 @@ def test_empty_term_text_matches_all():
     TermRow, _line_matches, *_ = _import_logic()
     terms = [TermRow("", "")]  # empty text = match all
     assert _line_matches("anything", terms) is True
-
-
-# ── _extract_json_keys ────────────────────────────────────────────────────────
-
-def test_pure_json_object():
-    _, _, _extract_json_keys, *_ = _import_logic()
-    keys = _extract_json_keys('{"level": "ERROR", "msg": "fail", "userId": 42}')
-    assert keys == {"level", "msg", "userId"}
-
-
-def test_non_json_line_returns_empty_or_partial():
-    _, _, _extract_json_keys, *_ = _import_logic()
-    keys = _extract_json_keys("plain log line with no JSON")
-    assert isinstance(keys, set)  # may be empty or have false positives, that's OK
-
-
-def test_json_embedded_in_line():
-    _, _, _extract_json_keys, *_ = _import_logic()
-    line = '2024-01-01 ERROR {"requestId": "abc", "status": 500}'
-    keys = _extract_json_keys(line)
-    assert "requestId" in keys
-    assert "status" in keys
-
-
-def test_invalid_json_uses_fallback_regex():
-    _, _, _extract_json_keys, *_ = _import_logic()
-    # Not valid JSON but has "key": patterns
-    line = '{"userId": 1, broken}'
-    keys = _extract_json_keys(line)
-    assert "userId" in keys
 
 
 # ── KV matching ───────────────────────────────────────────────────────────────

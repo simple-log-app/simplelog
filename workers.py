@@ -27,23 +27,12 @@ import vercel_utils
 
 # ── Timestamp helpers ────────────────────────────────────────────────────────
 
-def _parse_docker_ts(line: str) -> tuple[int, str]:
-    """Parse docker --timestamps output: 'RFC3339 message text'.
+def _parse_rfc3339_prefix(line: str, fallback_ms: int) -> tuple[int, str]:
+    """Strip a leading RFC3339 timestamp from a log line.
 
-    Returns (ts_ms, message). Falls back to current time if parsing fails.
+    Returns (ts_ms, rest). Falls back to *fallback_ms* if the prefix can't
+    be parsed. Used for docker/kubectl --timestamps output.
     """
-    parts = line.split(" ", 1)
-    if len(parts) == 2:
-        try:
-            dt = datetime.fromisoformat(parts[0].replace("Z", "+00:00"))
-            return int(dt.timestamp() * 1000), parts[1]
-        except (ValueError, IndexError):
-            pass
-    return int(time.time() * 1000), line
-
-
-def _parse_k8s_line(line: str, fallback_ms: int) -> tuple[int, str]:
-    """Strip a leading RFC3339 timestamp from kubectl --timestamps output."""
     parts = line.split(" ", 1)
     if len(parts) == 2:
         try:
@@ -52,6 +41,16 @@ def _parse_k8s_line(line: str, fallback_ms: int) -> tuple[int, str]:
         except ValueError:
             pass
     return fallback_ms, line
+
+
+def _parse_docker_ts(line: str) -> tuple[int, str]:
+    """Docker variant: falls back to current time on parse failure."""
+    return _parse_rfc3339_prefix(line, int(time.time() * 1000))
+
+
+def _parse_k8s_line(line: str, fallback_ms: int) -> tuple[int, str]:
+    """Kubernetes variant: falls back to caller-provided *fallback_ms*."""
+    return _parse_rfc3339_prefix(line, fallback_ms)
 
 
 def _ts_ms_to_iso(ts_ms: int) -> str:

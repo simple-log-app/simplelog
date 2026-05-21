@@ -26,3 +26,4 @@ prime/
 stage/
 parts/
 *.snap
+coverage.json

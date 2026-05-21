@@ -1004,25 +1004,6 @@ class _ProfileBar(QWidget):
         self.reload()
 
 
-def _danger_btn(text: str = "") -> QPushButton:
-    """Create a danger (red outline) button."""
-    btn = QPushButton(text)
-    btn.setStyleSheet(f"""
-        QPushButton {{
-            background: transparent;
-            color: {C_ERR};
-            border: 1px solid rgba(240,120,120,77);
-            border-radius: 6px;
-            padding: 7px 14px;
-            font-size: 12px;
-        }}
-        QPushButton:hover {{
-            background: rgba(240,120,120,20);
-        }}
-    """)
-    return btn
-
-
 # ── Open-mode segmented button widget ─────────────────────────────────────────
 
 class OpenModeWidget(QWidget):
@@ -6717,18 +6698,6 @@ def _line_matches(line: str, terms: list[TermRow]) -> bool:
         hit = _term_hit(term)
         result = (result and hit) if term.operator == "AND" else (result or hit)
     return result
-
-
-def _extract_json_keys(line: str) -> set[str]:
-    """Extract top-level JSON keys from *line*. Best-effort; never raises."""
-    try:
-        obj = json.loads(line)
-        if isinstance(obj, dict):
-            return set(obj.keys())
-    except (json.JSONDecodeError, ValueError):
-        pass
-    # Fallback: regex for "key": patterns (handles JSON embedded in a longer line)
-    return set(re.findall(r'"([\w_-]+)"\s*:', line))
 
 
 # ── JSON parsing + line classification ─────────────────────────────────────────
