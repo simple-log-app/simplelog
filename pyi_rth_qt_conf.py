@@ -1,25 +1,44 @@
 import atexit
+import ctypes
 import os
 import sys
 
 if sys.platform == "darwin" and hasattr(sys, "_MEIPASS"):
-    import ctypes
-
     qt6_dir = os.path.join(sys._MEIPASS, "PyQt6", "Qt6")
     qtcore_lib = os.path.join(sys._MEIPASS, "QtCore")
 
     if os.path.isdir(qt6_dir) and os.path.isfile(qtcore_lib):
-        # Qt 6.11+ includes a static initializer in QtCore.abi3.so that calls
-        # QLibraryInfo::path() before QCoreApplication is created.  Qt then tries
-        # CFBundleCreate() on the PyInstaller Frameworks/ directory (not a .app
-        # bundle), gets NULL back, and crashes inside CFBundleCopyBundleURL(NULL).
+        # macOS dyld resolves <weak-def-coalesce> imports by searching the global
+        # symbol namespace.  When Qt framework dylibs are loaded with the default
+        # RTLD_LOCAL (e.g. via a ctypes.CDLL() call or as an indirect dependency
+        # of a Python extension), their weak_def exports are NOT visible for
+        # coalescing.  This causes QtNetwork (and other Qt modules) to fail with
+        # "Symbol not found: ... Expected as weak-def export from some loaded dylib"
+        # when they try to coalesce QMetaTypeInterfaceWrapper<T> symbols from QtCore.
         #
-        # Fix: pre-register :/qt/etc/qt.conf as a Qt resource *before* PyQt6.QtCore
-        # is imported (this hook runs before PyInstaller's pyi_rth_pyqt6 hook).
-        # Qt's findConfiguration() finds the resource, reads the correct prefix, and
-        # never reaches the CFBundle fallback.
+        # Fix: pre-load all Qt framework dylibs with RTLD_GLOBAL so their weak_def
+        # exports participate in coalescing.  We also register the qt.conf resource
+        # that tells Qt where its prefix is inside the bundle.
+
+        # Pre-load ALL Qt framework dylibs with RTLD_GLOBAL.
+        # This must happen before any PyQt6.Qt* extension is imported.
+        _qt_frameworks = [
+            "QtCore", "QtDBus", "QtGui", "QtNetwork",
+            "QtPdf", "QtSvg", "QtWidgets",
+        ]
+        for _fw in _qt_frameworks:
+            _fw_path = os.path.join(sys._MEIPASS, _fw)
+            if os.path.isfile(_fw_path):
+                try:
+                    ctypes.CDLL(_fw_path, ctypes.RTLD_GLOBAL)
+                except OSError:
+                    pass
+
+        # Register :/qt/etc/qt.conf as a Qt resource so Qt's findConfiguration()
+        # locates the correct prefix and never falls back to CFBundleCreate() on
+        # the Frameworks/ directory (which is not a .app bundle and would crash).
         try:
-            _qtcore = ctypes.CDLL(qtcore_lib)
+            _qtcore = ctypes.CDLL(qtcore_lib, ctypes.RTLD_GLOBAL)
 
             _prefix = qt6_dir.replace(os.sep, "/")
             _conf = f"[Paths]\nPrefix = {_prefix}\n".encode()
