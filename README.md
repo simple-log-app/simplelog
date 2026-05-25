@@ -23,7 +23,7 @@ A fast, Material Design log viewer for **AWS CloudWatch**, **local log files**, 
 ## Requirements
 
 - Python 3.11+
-- PyQt6 >= 6.6
+- PyQt6 >= 6.6, < 6.11 (6.11+ has a macOS dylib symbol mismatch bug)
 - AWS credentials configured (for CloudWatch only — `~/.aws/credentials` or environment variables)
 
 ---
