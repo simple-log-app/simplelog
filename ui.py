@@ -7449,6 +7449,8 @@ class LogViewer(QWidget):
         self._log_font.setPointSize(self._font_size)
         self._list_view.setFont(self._log_font)
         self._list_view.viewport().setFont(self._log_font)
+        self._list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._list_view.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self._list_view)
         self._list_view.focus_in.connect(self.pane_activated)
 
@@ -7534,6 +7536,23 @@ class LogViewer(QWidget):
 
     def focus_list(self) -> None:
         self._list_view.setFocus()
+
+    def _show_context_menu(self, pos) -> None:
+        index = self._list_view.indexAt(pos)
+        if index.isValid() and index not in self._list_view.selectedIndexes():
+            self._list_view.setCurrentIndex(index)
+
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            f"QMenu {{ background: {C_CARD}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
+            f" border-radius: 6px; padding: 4px; }}"
+            f"QMenu::item {{ padding: 4px 16px; border-radius: 4px; }}"
+            f"QMenu::item:selected {{ background: {C_SEL_BG}; }}"
+        )
+        copy_action = menu.addAction(i18n.tr("action_copy"))
+        copy_action.setEnabled(bool(self._list_view.selectedIndexes()))
+        copy_action.triggered.connect(self.copy)
+        menu.exec(self._list_view.mapToGlobal(pos))
 
     def copy(self) -> None:
         """Copy selected rows' text to clipboard."""
