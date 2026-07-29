@@ -7435,6 +7435,7 @@ class LogViewer(QWidget):
         self._list_view = _LogListView()
         self._list_view.setModel(self._model)
         self._list_view.setItemDelegate(self._delegate)
+        self._list_view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self._list_view.setUniformItemSizes(False)
         self._list_view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self._list_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
