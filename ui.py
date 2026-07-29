@@ -544,6 +544,16 @@ def apply_style(app: QApplication) -> None:
     """)
 
 
+# ── Combo box that ignores mouse wheel scrolling ──────────────────────────────
+
+class NoScrollComboBox(QComboBox):
+    """QComboBox that ignores wheel events so scrolling the page doesn't
+    accidentally change the selected value when hovering over a closed combo."""
+
+    def wheelEvent(self, event) -> None:  # noqa: N802
+        event.ignore()
+
+
 # ── Tab bar with close-button-on-active-tab only ──────────────────────────────
 
 class _TabCloseBtn(QPushButton):
@@ -948,7 +958,7 @@ class _ProfileBar(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
 
-        self._combo = QComboBox()
+        self._combo = NoScrollComboBox()
         self._combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self._combo.setMinimumWidth(100)
         self._combo.setStyleSheet(
@@ -1147,13 +1157,13 @@ class CloudWatchPanel(QWidget):
         self._connection_card_lay = cl
 
         self._lbl_auth_mode = _field_label("")
-        self._auth_mode_combo = QComboBox()
+        self._auth_mode_combo = NoScrollComboBox()
         self._auth_mode_combo.currentIndexChanged.connect(self._on_auth_mode_changed)
         cl.addWidget(self._lbl_auth_mode)
         cl.addWidget(self._auth_mode_combo)
 
         profiles = cloudwatch.list_profiles()
-        self.profile_combo = QComboBox()
+        self.profile_combo = NoScrollComboBox()
         self.profile_combo.addItem("(default)")
         self.profile_combo.addItems(list(profiles))
         self._lbl_profile = _field_label("")
@@ -1180,7 +1190,7 @@ class CloudWatchPanel(QWidget):
         rs_lay.setContentsMargins(0, 0, 0, 0)
         rs_lay.setSpacing(4)
         self._lbl_region = _field_label("")
-        self.region_combo = QComboBox()
+        self.region_combo = NoScrollComboBox()
         self.region_combo.addItems(self._REGIONS)
         self.region_combo.currentIndexChanged.connect(self._on_region_changed)
         rs_lay.addWidget(self._lbl_region)
@@ -1222,7 +1232,7 @@ class CloudWatchPanel(QWidget):
         card4, ol, self._lbl_options = make_card(i18n.tr("cw_card_options"))
         self._card_options = card4
 
-        self.lookback_combo = QComboBox()
+        self.lookback_combo = NoScrollComboBox()
         for label, secs in [
             ("15 min", 900), ("1 hour", 3600), ("6 hours", 21600),
             ("24 hours", 86400), ("3 days", 259200), ("7 days", 604800),
@@ -1787,7 +1797,7 @@ class SSHPanel(QWidget):
         self._lbl_auth.setStyleSheet(
             f"color: {C_MUTED}; font-size: 11px; background: transparent; border: none;"
         )
-        self._auth_combo = QComboBox()
+        self._auth_combo = NoScrollComboBox()
 
         # Key widgets
         self._lbl_keypath = QLabel()
@@ -2637,7 +2647,7 @@ class VercelPanel(QWidget):
         # ── Card: Deployment ─────────────────────────────────────────
         card_dep, lay_dep, _ = make_card(i18n.tr("vercel_card_deploy"))
 
-        self._target_combo = QComboBox()
+        self._target_combo = NoScrollComboBox()
         self._target_combo.addItems([
             i18n.tr("vercel_target_prod"),
             i18n.tr("vercel_target_preview"),
@@ -2921,7 +2931,7 @@ class GCPPanel(QWidget):
         # ── Card: Auth ───────────────────────────────────────────────
         card_auth, lay_auth, _ = make_card(i18n.tr("new_config"), help_key="help_gcp")
 
-        self._auth_combo = QComboBox()
+        self._auth_combo = NoScrollComboBox()
         self._auth_combo.addItems([i18n.tr("gcp_auth_adc"), i18n.tr("gcp_auth_sa")])
         self._auth_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -2958,7 +2968,7 @@ class GCPPanel(QWidget):
         proj_row.addWidget(self._list_proj_btn)
         lay_auth.addLayout(proj_row)
 
-        self._proj_combo = QComboBox()
+        self._proj_combo = NoScrollComboBox()
         self._proj_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
             f"border-radius: 4px; padding: 4px 8px; font-size: 12px;"
@@ -2987,7 +2997,7 @@ class GCPPanel(QWidget):
         card_filt, lay_filt, _ = make_card(i18n.tr("gcp_card_filter"))
 
         lay_filt.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_resource")))
-        self._resource_combo = QComboBox()
+        self._resource_combo = NoScrollComboBox()
         self._resource_combo.addItems(gcp_utils.RESOURCE_TYPES)
         self._resource_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -2996,7 +3006,7 @@ class GCPPanel(QWidget):
         lay_filt.addWidget(self._resource_combo)
 
         lay_filt.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_severity")))
-        self._severity_combo = QComboBox()
+        self._severity_combo = NoScrollComboBox()
         self._severity_combo.addItems(gcp_utils.SEVERITIES)
         self._severity_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -3580,7 +3590,7 @@ class LokiPanel(QWidget):
         self._url_input.setStyleSheet(field_style)
         lay_conn.addWidget(self._url_input)
 
-        self._auth_combo = QComboBox()
+        self._auth_combo = NoScrollComboBox()
         self._auth_combo.addItems([
             i18n.tr("loki_auth_none"),
             i18n.tr("loki_auth_basic"),
@@ -3864,7 +3874,7 @@ class DatadogPanel(QWidget):
         card_auth, lay_auth, _ = make_card(i18n.tr("new_config"), help_key="help_datadog")
 
         lay_auth.addWidget(self._lbl(lbl_style, i18n.tr("datadog_field_site")))
-        self._site_combo = QComboBox()
+        self._site_combo = NoScrollComboBox()
         self._site_combo.addItems(list(datadog_utils.DD_SITES.keys()))
         self._site_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -4092,7 +4102,7 @@ class ElasticPanel(QWidget):
         self._es_url_input.setStyleSheet(field_style)
         lay_conn.addWidget(self._es_url_input)
 
-        self._es_auth_combo = QComboBox()
+        self._es_auth_combo = NoScrollComboBox()
         self._es_auth_combo.addItems([
             i18n.tr("elastic_auth_none"),
             i18n.tr("elastic_auth_apikey"),
@@ -4157,7 +4167,7 @@ class ElasticPanel(QWidget):
         self._es_index_input = QLineEdit()
         self._es_index_input.setPlaceholderText("logs-*")
         self._es_index_input.setStyleSheet(field_style)
-        self._es_index_combo = QComboBox()
+        self._es_index_combo = NoScrollComboBox()
         self._es_index_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
             f"border-radius: 4px; padding: 4px 8px; font-size: 12px;"
@@ -4838,7 +4848,7 @@ class KubernetesPanel(QWidget):
         card_cluster, lay_cluster, _ = make_card(i18n.tr("kubernetes_card_cluster"), help_key="help_kubernetes")
 
         lay_cluster.addWidget(self._lbl(lbl_style, i18n.tr("kubernetes_field_context")))
-        self._k8s_context_combo = QComboBox()
+        self._k8s_context_combo = NoScrollComboBox()
         try:
             contexts = kubernetes_utils.list_contexts()
             current  = kubernetes_utils.current_context()
@@ -4871,7 +4881,7 @@ class KubernetesPanel(QWidget):
         card_pod, lay_pod, _ = make_card(i18n.tr("kubernetes_card_pod"))
 
         lay_pod.addWidget(self._lbl(lbl_style, i18n.tr("kubernetes_field_ns")))
-        self._k8s_ns_combo = QComboBox()
+        self._k8s_ns_combo = NoScrollComboBox()
         self._k8s_ns_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
             f"border-radius: 4px; padding: 4px 8px; font-size: 12px;"
@@ -9197,7 +9207,7 @@ def _field_label(text: str) -> QLabel:
 
 def _lookback_combo(default_idx: int = 1) -> QComboBox:
     """Standardized time-range QComboBox (same options as CloudWatch)."""
-    combo = QComboBox()
+    combo = NoScrollComboBox()
     for label, secs in [
         ("15 min", 900), ("1 h", 3600), ("3 h", 10800),
         ("6 h", 21600), ("12 h", 43200), ("1 day", 86400), ("7 days", 604800),
