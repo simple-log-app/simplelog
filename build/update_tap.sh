@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # build/update_tap.sh — Update the Homebrew cask after a release
 # Usage:  ./build/update_tap.sh <version>   e.g.  ./build/update_tap.sh 2.3.0
-# Env:    GH_PAT   — GitHub token with write access to simplelogdev/homebrew-tap
+# Env:    GH_PAT   — GitHub token with write access to simple-log-app/homebrew-tap
 set -euo pipefail
 
 VERSION=${1:?Usage: $0 <version>  e.g. $0 2.3.0}
-OWNER="simplelogdev"
+OWNER="simple-log-app"
 REPO="simplelog"
 TAP_REPO="homebrew-tap"
 DMG_URL="https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/SimpleLog-macOS.dmg"

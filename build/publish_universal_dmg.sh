@@ -5,7 +5,7 @@ set -euo pipefail
 
 VERSION="${1:?Usage: $0 <version> <universal_dmg_path>  e.g. $0 1.4.3 dist/SimpleLog-macOS-universal.dmg}"
 DMG_PATH="${2:?Missing DMG path}"
-OWNER="simplelogdev"
+OWNER="simple-log-app"
 REPO="simplelog"
 TAP_REPO="homebrew-tap"
 

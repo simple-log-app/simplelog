@@ -35,7 +35,7 @@ A fast, Material Design log viewer for **AWS CloudWatch**, **local log files**, 
 Detects your OS and installs the right package automatically:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
 ```
 
 ---
@@ -45,13 +45,13 @@ curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/instal
 **Via Homebrew (recommended):**
 
 ```bash
-brew tap simplelogdev/tap
+brew tap simple-log-app/tap
 brew install --cask simplelog
 ```
 
 **Via .dmg:**
 
-Download [SimpleLog-macOS.dmg](https://github.com/simplelogdev/simplelog/releases/latest/download/SimpleLog-macOS.dmg) and drag the app to `/Applications`.
+Download [SimpleLog-macOS.dmg](https://github.com/simple-log-app/simplelog/releases/latest/download/SimpleLog-macOS.dmg) and drag the app to `/Applications`.
 
 > If macOS blocks the app: right-click → **Open** → **Open**
 
@@ -64,13 +64,13 @@ Requires macOS 12 Monterey or later. Apple Silicon and Intel both supported.
 **One-liner:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
 ```
 
 **Manual .deb install:**
 
 ```bash
-curl -LO https://github.com/simplelogdev/simplelog/releases/latest/download/simplelog_amd64.deb
+curl -LO https://github.com/simple-log-app/simplelog/releases/latest/download/simplelog_amd64.deb
 sudo dpkg -i simplelog_amd64.deb
 ```
 
@@ -83,13 +83,13 @@ Requires Ubuntu 22.04+ or Debian 12+, x86-64.
 **One-liner:**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
 ```
 
 **AppImage:**
 
 ```bash
-curl -LO https://github.com/simplelogdev/simplelog/releases/latest/download/simplelog-x86_64.AppImage
+curl -LO https://github.com/simple-log-app/simplelog/releases/latest/download/simplelog-x86_64.AppImage
 chmod +x simplelog-x86_64.AppImage
 ./simplelog-x86_64.AppImage
 ```
@@ -99,7 +99,7 @@ chmod +x simplelog-x86_64.AppImage
 ### From source
 
 ```bash
-git clone https://github.com/simplelogdev/simplelog.git
+git clone https://github.com/simple-log-app/simplelog.git
 cd simplelog
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

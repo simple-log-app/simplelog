@@ -227,7 +227,7 @@ class UpdateWorker(QThread):
     up_to_date       = pyqtSignal(str)       # (current_version)
     error            = pyqtSignal(str)
 
-    _API = "https://api.github.com/repos/sindus/simplelog/releases/latest"
+    _API = "https://api.github.com/repos/simple-log-app/simplelog/releases/latest"
 
     def __init__(self, current_version: str):
         super().__init__()

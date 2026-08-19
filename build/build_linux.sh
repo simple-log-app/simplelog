@@ -119,8 +119,8 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Depends: libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libdbus-1-3, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-xinerama0, libxcb-xkb1, libxcb-cursor0
-Maintainer: SimpleLog <https://github.com/sindus/simplelog>
-Homepage: https://github.com/sindus/simplelog
+Maintainer: SimpleLog <https://github.com/simple-log-app/simplelog>
+Homepage: https://github.com/simple-log-app/simplelog
 Description: Multi-source log viewer for CloudWatch, files and stdin
  SimpleLog is a fast, Material Design log viewer that unifies AWS CloudWatch
  streams, local log files, and piped stdin in a single tabbed interface.

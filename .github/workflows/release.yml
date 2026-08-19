@@ -131,7 +131,7 @@ jobs:
 
             ### macOS (Homebrew)
             ```bash
-            brew tap simplelogdev/tap
+            brew tap simple-log-app/tap
             brew install --cask simplelog
             ```
             Or download **SimpleLog-macOS-universal.dmg** below and drag **SimpleLog.app** to Applications.
@@ -139,21 +139,21 @@ jobs:
 
             ### Debian / Ubuntu
             ```bash
-            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
             # or manually:
             sudo dpkg -i simplelog_amd64.deb
             ```
 
             ### Other Linux (AppImage)
             ```bash
-            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
             # or manually:
             chmod +x simplelog-x86_64.AppImage && ./simplelog-x86_64.AppImage
             ```
 
             ### One-liner (all platforms)
             ```bash
-            curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
             ```
 
       - name: Check Homebrew tap token

@@ -8529,7 +8529,7 @@ class MainWindow(QMainWindow):
 
     def _auto_update_asset_url(self, tag: str) -> str | None:
         """Return the direct download URL for this platform+tag, or None if auto-update is unsupported."""
-        base = f"https://github.com/sindus/simplelog/releases/download/{tag}"
+        base = f"https://github.com/simple-log-app/simplelog/releases/download/{tag}"
         if os.environ.get("APPIMAGE"):
             return f"{base}/simplelog-x86_64.AppImage"
         if getattr(sys, "frozen", False) and platform.system() == "Darwin":

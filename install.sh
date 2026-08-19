@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # SimpleLog — one-liner installer
-# Usage:  curl -sSL https://raw.githubusercontent.com/simplelogdev/simplelog/master/install.sh | bash
+# Usage:  curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
 set -euo pipefail
 
-REPO="simplelogdev/simplelog"
+REPO="simple-log-app/simplelog"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
