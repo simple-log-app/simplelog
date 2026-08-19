@@ -3,4 +3,4 @@ PyQt6-Qt6==6.9.1
 boto3>=1.34.0
 botocore>=1.34.0
 paramiko>=3.0.0
-cryptography>=41.0.0
+cryptography>=41.0.0,<49  # 49.0.0 dropped macOS x86_64/universal2 wheels (arm64-only); needed for the Rosetta cross-build in release.yml
