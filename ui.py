@@ -1321,6 +1321,26 @@ class CloudWatchPanel(QWidget):
         region_idx = self.region_combo.findText(p.get("region", ""))
         if region_idx >= 0:
             self.region_combo.setCurrentIndex(region_idx)
+        lookback_idx = self.lookback_combo.findData(p.get("lookback"))
+        if lookback_idx >= 0:
+            self.lookback_combo.setCurrentIndex(lookback_idx)
+        if p.get("interval"):
+            self.interval_spin.setValue(p["interval"])
+        self.filter_input.setText(p.get("filter", ""))
+
+    def _restore_saved_target(self, group: str, stream: str) -> None:
+        """Connect and re-select the saved log group / stream."""
+        self._on_connect()
+        if not self._client or not group:
+            return
+        items = self.group_list.findItems(group, Qt.MatchFlag.MatchExactly)
+        if not items:
+            return
+        self.group_list.setCurrentItem(items[0])
+        if stream:
+            streams = self.stream_list.findItems(stream, Qt.MatchFlag.MatchExactly)
+            if streams:
+                self.stream_list.setCurrentItem(streams[0])
 
     def _on_save_cw_profile(self) -> None:
         name, ok = QInputDialog.getText(self, "Save Profile", "Profile name:", text="My account")
@@ -5301,6 +5321,52 @@ _PROVIDER_FIELDS: dict[str, list[tuple[str, str, str, bool]]] = {
 }
 
 
+def _widget_state(w: QWidget):
+    """Snapshot the user-visible value of an input widget."""
+    if isinstance(w, QListWidget):
+        item = w.currentItem()
+        return item.text() if item else ""
+    if isinstance(w, QComboBox):
+        return w.currentText()
+    if isinstance(w, QSpinBox):
+        return w.value()
+    if isinstance(w, QTabWidget):
+        return w.currentIndex()
+    if isinstance(w, QTextEdit):
+        return w.toPlainText()
+    return w.text()
+
+
+def _restore_widget_state(w: QWidget, value) -> bool:
+    """Apply a saved value. Returns False while the saved item is not (yet) listed."""
+    if isinstance(w, QListWidget):
+        if not value:
+            return True
+        # Compare names only: "pod-1  (Running)" must match "pod-1  (Pending)"
+        key = value.strip().split("  ")[0]
+        for i in range(w.count()):
+            if w.item(i).text().strip().split("  ")[0] == key:
+                w.setCurrentItem(w.item(i))
+                return True
+        return False
+    if isinstance(w, QComboBox):
+        if not value:
+            return True
+        idx = w.findText(value)
+        if idx < 0:
+            return False
+        w.setCurrentIndex(idx)
+    elif isinstance(w, QSpinBox):
+        w.setValue(value)
+    elif isinstance(w, QTabWidget):
+        w.setCurrentIndex(value)
+    elif isinstance(w, QTextEdit):
+        w.setPlainText(value)
+    else:
+        w.setText(value)
+    return True
+
+
 class AddConnectionDialog(QDialog):
     """Two-step modal: step 1 = provider picker, step 2 = credential form."""
 
@@ -5328,6 +5394,10 @@ class AddConnectionDialog(QDialog):
         self._embedded_trigger: object = None
         self._embedded_get_save_data: object = None
         self._ready_timer: QTimer | None = None
+        self._embedded_state_attrs: list[str] = []
+        self._restore_queue: list = []
+        self._restore_connected: object = None
+        self._restore_ticks_left: int = 0
         self._prefill_profile: dict | None = prefill_profile
         self._is_existing: bool = prefill_profile is not None
         _key = id(self)
@@ -5593,6 +5663,7 @@ class AddConnectionDialog(QDialog):
         self._embedded_trigger = None
         self._embedded_get_save_data = None
         self._embedded_save_pending = False
+        self._restore_queue = []
         self.setMaximumHeight(16777215)
         self.adjustSize()
         self._stack.setCurrentIndex(0)
@@ -5649,6 +5720,14 @@ class AddConnectionDialog(QDialog):
         panel.group_list.currentTextChanged.connect(lambda _: self._cw_update_footer_btns())
         self._cw_embedded_panel = panel
         self._step2_layout.addWidget(panel, 1)
+
+        # Saved connection: prefill credentials, then connect once the dialog is shown
+        if self._prefill_profile is not None:
+            prefill = self._prefill_profile
+            panel._load_cw_profile(prefill)
+            QTimer.singleShot(0, lambda: panel._restore_saved_target(
+                prefill.get("group", ""), prefill.get("stream", "")
+            ))
 
         # ── Footer ────────────────────────────────────────────────────────────
         footer = QWidget()
@@ -5718,6 +5797,9 @@ class AddConnectionDialog(QDialog):
         _configs = {
             "ssh": dict(
                 factory=SSHPanel,
+                connect=lambda p: p._on_connect() if p._auth_combo.currentIndex() == 0 else None,
+                connected=lambda p: p._client is not None,
+                state=["_tail_spin"],
                 load=lambda p, d: p._load_ssh_profile(d),
                 open_ready=lambda p: p._file_card_frame.isVisible() and bool(p._path_input.text().strip()),
                 trigger=lambda p: p._on_open(),
@@ -5756,6 +5838,9 @@ class AddConnectionDialog(QDialog):
             ),
             "vercel": dict(
                 factory=VercelPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_proj.isHidden(),
+                state=["_interval_spin", "_lookback_combo_vercel", "_target_combo", "_project_list"],
                 load=lambda p, d: p._load_vercel_profile(d),
                 open_ready=lambda p: p._open_btn.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5767,6 +5852,9 @@ class AddConnectionDialog(QDialog):
             ),
             "gcp": dict(
                 factory=GCPPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_filt.isHidden(),
+                state=["_resource_combo", "_severity_combo", "_custom_input", "_lookback_combo_gcp", "_interval_spin_gcp"],
                 load=lambda p, d: p._load_gcp_profile(d),
                 open_ready=lambda p: p._open_btn_gcp.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5782,6 +5870,9 @@ class AddConnectionDialog(QDialog):
             ),
             "azure": dict(
                 factory=AzurePanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: p._logs_client is not None,
+                state=["_tabs", "_timespan_combo", "_interval_spin_az_t", "_kql_edit", "_timespan_combo_kql", "_interval_spin_az_k", "_table_list"],
                 load=lambda p, d: p._load_az_profile(d),
                 open_ready=lambda p: p._open_btn_az_t.isEnabled() or p._open_btn_az_k.isEnabled(),
                 trigger=lambda p: p._on_open_table() if p._tabs.currentIndex() == 0 else p._on_open_kql(),
@@ -5798,6 +5889,9 @@ class AddConnectionDialog(QDialog):
             ),
             "loki": dict(
                 factory=LokiPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_query.isHidden(),
+                state=["_query_input", "_lookback_combo_loki", "_interval_spin"],
                 load=lambda p, d: p._load_loki_profile(d),
                 open_ready=lambda p: p._open_btn_loki.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5815,6 +5909,9 @@ class AddConnectionDialog(QDialog):
             ),
             "datadog": dict(
                 factory=DatadogPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: p._connected,
+                state=["_dd_query_input", "_lookback_combo_dd", "_interval_spin_dd"],
                 load=lambda p, d: p._load_datadog_profile(d),
                 open_ready=lambda p: p._open_btn_dd.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5830,6 +5927,9 @@ class AddConnectionDialog(QDialog):
             ),
             "elastic": dict(
                 factory=ElasticPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_query_es.isHidden(),
+                state=["_es_index_input", "_es_ts_input", "_es_query_input", "_lookback_combo_es", "_interval_spin_es", "_es_index_combo"],
                 load=lambda p, d: p._load_elastic_profile(d),
                 open_ready=lambda p: p._open_btn_es.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5847,6 +5947,9 @@ class AddConnectionDialog(QDialog):
             ),
             "railway": dict(
                 factory=RailwayPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_proj.isHidden(),
+                state=["_interval_spin_railway", "_lookback_combo_railway", "_project_list", "_service_list"],
                 load=lambda p, d: p._load_railway_profile(d),
                 open_ready=lambda p: p._open_btn_railway.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5858,6 +5961,9 @@ class AddConnectionDialog(QDialog):
             ),
             "flyio": dict(
                 factory=FlyioPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_app_flyio.isHidden(),
+                state=["_interval_spin_flyio", "_lookback_combo_flyio", "_flyio_app_list"],
                 load=lambda p, d: p._load_flyio_profile(d),
                 open_ready=lambda p: p._open_btn_flyio.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5869,6 +5975,9 @@ class AddConnectionDialog(QDialog):
             ),
             "kubernetes": dict(
                 factory=KubernetesPanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_pod.isHidden(),
+                state=["_k8s_container_input", "_lookback_combo_k8s", "_k8s_ns_combo", "_k8s_pod_list"],
                 load=lambda p, d: p._load_k8s_profile(d),
                 open_ready=lambda p: p._open_btn_k8s.isEnabled() if hasattr(p, '_open_btn_k8s') else False,
                 trigger=lambda p: p._on_open(),
@@ -5882,6 +5991,9 @@ class AddConnectionDialog(QDialog):
             ),
             "cloudflare": dict(
                 factory=CloudflarePanel,
+                connect=lambda p: p._do_connect(),
+                connected=lambda p: not p._card_wk.isHidden(),
+                state=["_cf_worker_list"],
                 load=lambda p, d: p._load_cloudflare_profile(d),
                 open_ready=lambda p: p._open_btn_cf.isEnabled(),
                 trigger=lambda p: p._on_open(),
@@ -5922,9 +6034,19 @@ class AddConnectionDialog(QDialog):
         # Connect open_tab signal
         panel.open_tab.connect(self._on_embedded_panel_tab)
 
-        # Prefill if a profile was provided
+        self._embedded_state_attrs = cfg.get("state", [])
+
+        # Prefill if a profile was provided, then reconnect and restore the saved selection
         if self._prefill_profile is not None:
             cfg["load"](panel, self._prefill_profile)
+            saved = self._prefill_profile.get("state", {})
+            self._restore_queue = [
+                (getattr(panel, a), saved[a]) for a in self._embedded_state_attrs if a in saved
+            ]
+            self._restore_connected = lambda: cfg["connected"](panel)
+            self._restore_ticks_left = 150  # give up after ~30 s once connected
+            if "connect" in cfg:
+                cfg["connect"](panel)
 
         self.setFixedHeight(680)
         self._step2_layout.addWidget(panel, 1)
@@ -6004,9 +6126,21 @@ class AddConnectionDialog(QDialog):
 
         self._stack.setCurrentIndex(1)
 
+    def _pump_restore(self) -> None:
+        """Re-apply saved widget values in order, waiting for async lists to load."""
+        if not self._restore_queue or not self._restore_connected():
+            return
+        self._restore_ticks_left -= 1
+        if self._restore_ticks_left < 0:
+            self._restore_queue = []
+            return
+        while self._restore_queue and _restore_widget_state(*self._restore_queue[0]):
+            self._restore_queue.pop(0)
+
     def _sync_embedded_footer(self) -> None:
         if not self._embedded_get_ready:
             return
+        self._pump_restore()
         ready = self._embedded_get_ready()
         name_ok = bool(self._fields.get("name") and self._fields["name"].text().strip())
         if self._open_btn:
@@ -6020,6 +6154,10 @@ class AddConnectionDialog(QDialog):
             name = name_edit.text().strip() if name_edit else ""
             if name and self._provider_id:
                 data = self._embedded_get_save_data()
+                data["state"] = {
+                    a: _widget_state(getattr(self._embedded_panel, a))
+                    for a in self._embedded_state_attrs
+                }
                 profiles_store.upsert(self._provider_id, name, data)
         self._embedded_save_pending = False
         self.tab_requested.emit(cfg, mode)
@@ -6047,6 +6185,8 @@ class AddConnectionDialog(QDialog):
                     creds["secret_key"]    = p.secret_key_input.text().strip()
                 else:
                     creds["aws_profile"] = p.profile_combo.currentText()
+                for key in ("group", "stream", "filter", "interval", "lookback"):
+                    creds[key] = cfg[key]
                 profiles_store.upsert("cloudwatch", name, creds)
             self.tab_requested.emit(cfg, mode)
             self.done(QDialog.DialogCode.Accepted)
