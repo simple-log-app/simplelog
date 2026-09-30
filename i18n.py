@@ -47,6 +47,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "lang_chinese":          "中文",
         "action_help_ref":       "CLI Reference",
         "action_about":          "About SimpleLog",
+        "action_changelog":      "What's New",
         # ── Help dialog ───────────────────────────────────────────────
         "help_title":            "CLI Reference — SimpleLog",
         "help_content": (
@@ -481,6 +482,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "lang_chinese":          "中文",
         "action_help_ref":       "Référence CLI",
         "action_about":          "À propos de SimpleLog",
+        "action_changelog":      "Nouveautés",
         # ── Help dialog ───────────────────────────────────────────────
         "help_title":            "Référence CLI — SimpleLog",
         "help_content": (
@@ -915,6 +917,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "lang_chinese":          "中文",
         "action_help_ref":       "CLI-Referenz",
         "action_about":          "Über SimpleLog",
+        "action_changelog":      "Neuigkeiten",
         # ── Help dialog ───────────────────────────────────────────────
         "help_title":            "CLI-Referenz — SimpleLog",
         "help_content": (
@@ -1230,6 +1233,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "lang_chinese":          "中文",
         "action_help_ref":       "Referencia CLI",
         "action_about":          "Acerca de SimpleLog",
+        "action_changelog":      "Novedades",
         # ── Help dialog ───────────────────────────────────────────────
         "help_title":            "Referencia CLI — SimpleLog",
         "help_content": (
@@ -1545,6 +1549,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "lang_chinese":          "中文",
         "action_help_ref":       "CLI 参考",
         "action_about":          "关于 SimpleLog",
+        "action_changelog":      "更新内容",
         # ── Help dialog ───────────────────────────────────────────────
         "help_title":            "CLI 参考 — SimpleLog",
         "help_content": (

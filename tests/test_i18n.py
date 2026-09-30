@@ -97,7 +97,7 @@ _REQUIRED_KEYS = [
     "viewer_autoscroll", "viewer_clear", "viewer_stop",
     "open_mode_tab", "open_mode_vertical", "open_mode_horizontal",
     "help_title", "help_content",
-    "update_title", "update_up_to_date", "update_available",
+    "update_title", "update_up_to_date", "update_available", "action_changelog",
     "sidebar_add_and", "sidebar_add_or",
     "sidebar_hits", "sidebar_no_hits", "sidebar_term_ph",
     "sidebar_live_filter", "sidebar_json_ph",

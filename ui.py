@@ -95,6 +95,7 @@ except ImportError:
     _HAS_SVG = False
 
 import azure_utils
+import changelog
 import cloudflare_utils
 import cloudwatch
 import datadog_utils
@@ -8368,6 +8369,31 @@ class FilterSearchSidebar(QWidget):
 
 # ── MainWindow ────────────────────────────────────────────────────────────────
 
+class ChangelogDialog(QDialog):
+    """Shows changelog markdown, optionally under a header and with an action button."""
+
+    def __init__(self, parent, title: str, markdown: str,
+                 header: str = "", action_label: str = "") -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.resize(600, 500)
+        lay = QVBoxLayout(self)
+        if header:
+            header_lbl = QLabel(header)
+            header_lbl.setWordWrap(True)
+            lay.addWidget(header_lbl)
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setMarkdown(markdown)
+        lay.addWidget(self.browser, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        if action_label:
+            buttons.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -8566,6 +8592,10 @@ class MainWindow(QMainWindow):
         self._act_help_ref.triggered.connect(self._action_help)
         self._menu_help.addAction(self._act_help_ref)
 
+        self._act_changelog = QAction(self)
+        self._act_changelog.triggered.connect(self._action_changelog)
+        self._menu_help.addAction(self._act_changelog)
+
         self._menu_help.addSeparator()
 
         self._act_about = QAction(self)
@@ -8598,6 +8628,7 @@ class MainWindow(QMainWindow):
         self._menu_help.setTitle(i18n.tr("menu_help"))
         self._act_help_ref.setText(i18n.tr("action_help_ref"))
         self._act_about.setText(i18n.tr("action_about"))
+        self._act_changelog.setText(i18n.tr("action_changelog"))
 
     # ── Menu action handlers ───────────────────────────────────────────────────
 
@@ -8619,7 +8650,7 @@ class MainWindow(QMainWindow):
         from version import __version__
         from workers import UpdateWorker
 
-        self._update_worker = UpdateWorker(__version__)
+        self._update_worker = UpdateWorker(__version__, i18n.get_locale())
         self._update_worker.up_to_date.connect(self._on_up_to_date)
         self._update_worker.update_available.connect(self._on_update_available)
         self._update_worker.error.connect(
@@ -8630,6 +8661,14 @@ class MainWindow(QMainWindow):
         self._act_update.setEnabled(False)
         self._update_worker.finished.connect(lambda: self._act_update.setEnabled(True))
         self._update_worker.start()
+
+    def _action_changelog(self) -> None:
+        """Help → What's New: show the bundled changelog (online one if not bundled)."""
+        text = changelog.local_text(i18n.get_locale())
+        if not text:
+            QDesktopServices.openUrl(QUrl(changelog.ONLINE_URL))
+            return
+        ChangelogDialog(self, i18n.tr("action_changelog"), text).exec()
 
     def _action_about(self) -> None:
         from version import __version__
@@ -8647,21 +8686,26 @@ class MainWindow(QMainWindow):
             i18n.tr("update_up_to_date", version=version),
         )
 
-    def _on_update_available(self, latest: str, url: str) -> None:
+    def _on_update_available(self, latest: str, url: str, notes: str = "") -> None:
         from version import __version__
-        box = QMessageBox(self)
-        box.setWindowTitle(i18n.tr("update_title"))
-        box.setText(i18n.tr("update_available", latest=latest, current=__version__))
-
+        header = i18n.tr("update_available", latest=latest, current=__version__)
         can_auto = self._auto_update_asset_url(latest) is not None
-        if can_auto:
-            action_btn = box.addButton(i18n.tr("update_install"), QMessageBox.ButtonRole.AcceptRole)
+        action_label = i18n.tr("update_install") if can_auto else i18n.tr("update_download")
+
+        if notes:
+            dlg = ChangelogDialog(self, i18n.tr("update_title"), notes,
+                                  header=header, action_label=action_label)
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                return
         else:
-            action_btn = box.addButton(i18n.tr("update_download"), QMessageBox.ButtonRole.AcceptRole)
-        box.addButton(QMessageBox.StandardButton.Close)
-        box.exec()
-        if box.clickedButton() is not action_btn:
-            return
+            box = QMessageBox(self)
+            box.setWindowTitle(i18n.tr("update_title"))
+            box.setText(header)
+            action_btn = box.addButton(action_label, QMessageBox.ButtonRole.AcceptRole)
+            box.addButton(QMessageBox.StandardButton.Close)
+            box.exec()
+            if box.clickedButton() is not action_btn:
+                return
         if can_auto:
             self._install_update(latest)
         else:

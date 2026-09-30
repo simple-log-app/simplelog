@@ -121,40 +121,48 @@ jobs:
       - name: Show artifacts
         run: ls -lh release-assets/
 
+      - name: Build release notes
+        run: |
+          python3 changelog.py "$GITHUB_REF_NAME" > release-notes.md
+          cat >> release-notes.md <<'EOF'
+
+          ## Install SimpleLog __VERSION__
+
+          ### macOS (Homebrew)
+          ```bash
+          brew tap simple-log-app/tap
+          brew install --cask simplelog
+          ```
+          Or download **SimpleLog-macOS-universal.dmg** below and drag **SimpleLog.app** to Applications.
+          Works on both Apple Silicon and Intel Macs.
+
+          ### Debian / Ubuntu
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
+          # or manually:
+          sudo dpkg -i simplelog_amd64.deb
+          ```
+
+          ### Other Linux (AppImage)
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
+          # or manually:
+          chmod +x simplelog-x86_64.AppImage && ./simplelog-x86_64.AppImage
+          ```
+
+          ### One-liner (all platforms)
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
+          ```
+          EOF
+          sed -i "s/__VERSION__/$GITHUB_REF_NAME/g" release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release-assets/*
           generate_release_notes: true
-          body: |
-            ## Install SimpleLog ${{ github.ref_name }}
-
-            ### macOS (Homebrew)
-            ```bash
-            brew tap simple-log-app/tap
-            brew install --cask simplelog
-            ```
-            Or download **SimpleLog-macOS-universal.dmg** below and drag **SimpleLog.app** to Applications.
-            Works on both Apple Silicon and Intel Macs.
-
-            ### Debian / Ubuntu
-            ```bash
-            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
-            # or manually:
-            sudo dpkg -i simplelog_amd64.deb
-            ```
-
-            ### Other Linux (AppImage)
-            ```bash
-            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
-            # or manually:
-            chmod +x simplelog-x86_64.AppImage && ./simplelog-x86_64.AppImage
-            ```
-
-            ### One-liner (all platforms)
-            ```bash
-            curl -sSL https://raw.githubusercontent.com/simple-log-app/simplelog/master/install.sh | bash
-            ```
+          body_path: release-notes.md
 
       - name: Check Homebrew tap token
         id: tap-token

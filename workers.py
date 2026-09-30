@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from PyQt6.QtCore import QThread, pyqtSignal
 
 import azure_utils
+import changelog
 import cloudflare_utils
 import cloudwatch
 import datadog_utils
@@ -223,15 +224,31 @@ def _version_tuple(v: str) -> tuple:
 
 class UpdateWorker(QThread):
     """Checks GitHub releases for a newer version."""
-    update_available = pyqtSignal(str, str)  # (latest_tag, html_url)
+    update_available = pyqtSignal(str, str, str)  # (latest_tag, html_url, changelog_md)
     up_to_date       = pyqtSignal(str)       # (current_version)
     error            = pyqtSignal(str)
 
     _API = "https://api.github.com/repos/simple-log-app/simplelog/releases/latest"
 
-    def __init__(self, current_version: str):
+    def __init__(self, current_version: str, locale: str = "en"):
         super().__init__()
         self._current = current_version
+        self._locale = locale
+
+    def _fetch_notes(self, tag: str) -> str:
+        """Changes between the current version and *tag*; "" if unavailable."""
+        for locale in dict.fromkeys((self._locale, "en")):
+            try:
+                req = urllib.request.Request(
+                    changelog.raw_url(tag, locale),
+                    headers={"User-Agent": f"SimpleLog/{self._current}"},
+                )
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    text = resp.read().decode("utf-8")
+                return changelog.notes_between(text, self._current, tag)
+            except Exception:
+                continue
+        return ""
 
     def run(self):
         try:
@@ -243,7 +260,9 @@ class UpdateWorker(QThread):
                 data = json.loads(resp.read())
             latest = data.get("tag_name", "")
             if latest and _version_tuple(latest) > _version_tuple(self._current):
-                self.update_available.emit(latest, data.get("html_url", ""))
+                self.update_available.emit(
+                    latest, data.get("html_url", ""), self._fetch_notes(latest)
+                )
             else:
                 self.up_to_date.emit(self._current)
         except Exception as exc:

@@ -4,6 +4,7 @@ PyInstaller spec for SimpleLog.
   Linux : produces dist/simplelog/ (directory) + wrapped into AppImage / .deb
   macOS : produces dist/SimpleLog.app  (bundle)  + wrapped into .dmg
 """
+import glob
 import os
 import sys
 
@@ -14,7 +15,7 @@ a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
-    datas=[],
+    datas=[(f, ".") for f in glob.glob("CHANGELOG*.md")],
     hiddenimports=[
         "boto3",
         "botocore",

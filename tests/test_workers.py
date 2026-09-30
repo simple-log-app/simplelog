@@ -164,7 +164,7 @@ def test_update_worker_emits_update_available():
     from workers import UpdateWorker
     worker = UpdateWorker("1.0.0")
     received = []
-    worker.update_available.connect(lambda tag, url: received.append(tag))
+    worker.update_available.connect(lambda tag, url, notes: received.append(tag))
 
     with patch("urllib.request.urlopen", return_value=_fake_urlopen("v1.1.0")):
         worker.run()
@@ -201,7 +201,7 @@ def test_update_worker_lexicographic_fix():
     from workers import UpdateWorker
     worker = UpdateWorker("1.9.0")
     received = []
-    worker.update_available.connect(lambda tag, url: received.append(tag))
+    worker.update_available.connect(lambda tag, url, notes: received.append(tag))
 
     with patch("urllib.request.urlopen", return_value=_fake_urlopen("v1.10.0")):
         worker.run()
@@ -219,3 +219,79 @@ def test_update_worker_emits_error_on_network_failure():
         worker.run()
 
     assert errors and "timeout" in errors[0]
+
+
+_CHANGELOG = """# Changelog
+
+## [1.2.0] - 2026-02-01
+- two
+
+## [1.1.0] - 2026-01-01
+- one
+
+## [1.0.0] - 2025-12-01
+- zero
+"""
+
+
+def _fake_text(text: str):
+    resp = MagicMock()
+    resp.read.return_value = text.encode()
+    resp.__enter__ = lambda s: s
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
+def test_update_worker_sends_changes_since_current_version_in_user_language():
+    from workers import UpdateWorker
+    worker = UpdateWorker("1.0.0", "fr")
+    received = []
+    worker.update_available.connect(lambda tag, url, notes: received.append(notes))
+    urls = []
+
+    def fake_urlopen(req, timeout=None):
+        urls.append(req.full_url)
+        return _fake_urlopen("v1.2.0") if "api.github.com" in req.full_url else _fake_text(_CHANGELOG)
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        worker.run()
+
+    assert urls[1].endswith("/v1.2.0/CHANGELOG.fr.md")
+    assert "- two" in received[0] and "- one" in received[0]
+    assert "- zero" not in received[0]
+
+
+def test_update_worker_falls_back_to_english_changelog():
+    from workers import UpdateWorker
+    worker = UpdateWorker("1.1.0", "de")
+    received = []
+    worker.update_available.connect(lambda tag, url, notes: received.append(notes))
+
+    def fake_urlopen(req, timeout=None):
+        if "api.github.com" in req.full_url:
+            return _fake_urlopen("v1.2.0")
+        if req.full_url.endswith("CHANGELOG.de.md"):
+            raise OSError("404")
+        return _fake_text(_CHANGELOG)
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        worker.run()
+
+    assert received == ["## [1.2.0] - 2026-02-01\n- two"]
+
+
+def test_update_worker_still_reports_update_without_changelog():
+    from workers import UpdateWorker
+    worker = UpdateWorker("1.0.0", "fr")
+    received = []
+    worker.update_available.connect(lambda tag, url, notes: received.append((tag, notes)))
+
+    def fake_urlopen(req, timeout=None):
+        if "api.github.com" in req.full_url:
+            return _fake_urlopen("v1.2.0")
+        raise OSError("404")
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        worker.run()
+
+    assert received == [("v1.2.0", "")]
