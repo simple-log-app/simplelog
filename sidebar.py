@@ -645,11 +645,11 @@ class FilterSearchSidebar(QWidget):
     def retranslate(self) -> None:
         self._btn_add_search_and.setText(i18n.tr("sidebar_add_and"))
         self._btn_add_search_or.setText(i18n.tr("sidebar_add_or"))
-        self._btn_prev.setText("▲ Prev")
-        self._btn_next.setText("▼ Next")
+        self._btn_prev.setText(i18n.tr("sidebar_prev"))
+        self._btn_next.setText(i18n.tr("sidebar_next"))
         self._btn_add_filter_and.setText(i18n.tr("sidebar_add_and"))
         self._btn_add_filter_or.setText(i18n.tr("sidebar_add_or"))
-        self._btn_add_filter_kv.setText("+ key=val")
+        self._btn_add_filter_kv.setText(i18n.tr("sidebar_add_kv"))
         self._cb_live.setText(i18n.tr("sidebar_live_filter"))
         self._lbl_json_ph.setText(i18n.tr("sidebar_json_ph"))
         for w in self._search_term_widgets + self._filter_term_widgets:

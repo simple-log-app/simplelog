@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import i18n
 
 _API_BASE = "https://api.cloudflare.com/client/v4"
+_MAX_FRAME = 16 << 20   # a tail event is a few KB: refuse anything absurd
 
 
 def _headers(api_token: str) -> dict:
@@ -97,13 +98,13 @@ def delete_tail(api_token: str, account_id: str, script_name: str, tail_id: str)
 # ── Minimal WebSocket client (no external deps) ──────────────────────────────
 
 def _recv_exact(ssock: ssl.SSLSocket, n: int) -> bytes:
-    buf = b""
+    buf = bytearray()
     while len(buf) < n:
         chunk = ssock.recv(n - len(buf))
         if not chunk:
             raise EOFError(i18n.tr("err_ws_closed"))
         buf += chunk
-    return buf
+    return bytes(buf)
 
 
 def ws_connect(ws_url: str, api_token: str = "", timeout: int = 30) -> ssl.SSLSocket:
@@ -160,6 +161,8 @@ def ws_recv_frame(ssock: ssl.SSLSocket) -> tuple[int, bytes]:
     elif length == 127:
         length = struct.unpack(">Q", _recv_exact(ssock, 8))[0]
 
+    if length > _MAX_FRAME:
+        raise OSError(f"WebSocket frame too large ({length} bytes)")
     mask = _recv_exact(ssock, 4) if masked else b""
     data = _recv_exact(ssock, length)
 

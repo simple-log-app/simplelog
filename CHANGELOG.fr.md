@@ -21,6 +21,17 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Les mises à jour sont désormais vérifiées avec l'empreinte publiée avec la version, et un téléchargement corrompu est supprimé.
 
 ### Corrigé
+- L'application ne plante plus quand une connexion échoue juste après la fermeture de son onglet, ni quand votre fichier de configuration AWS contient un profil en double.
+- Fichier → Ouvrir (Ctrl+O) n'ouvre plus le fichier en double.
+- Les logs Docker, Kubernetes, SSH et ceux reçus par pipe ne s'arrêtent plus silencieusement sur une ligne contenant des caractères invalides.
+- Charger un très gros lot de lignes (par exemple `cat gros.log | simplelog`) ne laisse plus de lignes fantômes dans la vue.
+- Fly.io : un token invalide ou une application inconnue affichent désormais une erreur au lieu d'un log vide sans fin.
+- Azure : les conditions supplémentaires de votre requête (par exemple sur la sévérité) sont conservées pendant le suivi, et les lignes ingérées en retard ne sont plus manquées.
+- Kubernetes : un pod qui affiche beaucoup d'avertissements ne bloque plus le flux de logs.
+- La mise à jour automatique sous Linux (AppImage) fonctionne désormais quand le chemin d'installation contient une apostrophe.
+- Une mise à jour est refusée quand les sommes de contrôle publiées ne listent pas le fichier téléchargé.
+- Le titre « Erreur » et les boutons « Préc./Suiv. » et « + clé=val » suivent désormais la langue choisie.
+- Les filtres clé=valeur sont environ 2× plus rapides sur les logs JSON.
 - macOS : la mise à jour intégrée pouvait supprimer tout le dossier Applications au lieu de remplacer seulement SimpleLog. Elle ne remplace désormais que l'app SimpleLog, et conserve l'ancienne en cas de problème. La mise à jour s'exécutant depuis la version déjà installée, la 1.0.8 et les versions antérieures ne peuvent plus se mettre à jour toutes seules sur macOS : téléchargez la nouvelle version une fois depuis le site ou avec Homebrew.
 - Kubernetes : les logs apparaissent immédiatement au lieu de seulement après 200 lignes.
 - Loki, GCP, Datadog et Fly.io : les mêmes lignes de log ne réapparaissent plus en boucle pendant le suivi d'une source.

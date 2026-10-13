@@ -21,6 +21,17 @@ All notable changes to SimpleLog are documented in this file.
 - Updates are now checked against the checksum published with the release, and a corrupted download is discarded.
 
 ### Fixed
+- The application no longer crashes when a connection fails right after you close its tab, or when your AWS configuration file has a duplicated profile.
+- File → Open (Ctrl+O) no longer opens the file twice.
+- Docker, Kubernetes, SSH and piped logs no longer stop silently on a line containing invalid characters.
+- Loading a very large batch of lines (for example `cat big.log | simplelog`) no longer leaves ghost rows in the log view.
+- Fly.io: an invalid token or an unknown app now shows an error instead of an endless empty log.
+- Azure: the extra conditions of your query (for example on the severity) are now kept while following, and rows ingested late are no longer missed.
+- Kubernetes: a pod that prints many warnings no longer blocks the log stream.
+- Automatic update on Linux (AppImage) now works when the install path contains a quote.
+- Updates are refused when the published checksums do not list the downloaded file.
+- The “Error” title, “Prev/Next” and “+ key=val” buttons now follow the chosen language.
+- Key=value filters are about twice as fast on JSON logs.
 - macOS: the in-app update could delete the whole Applications folder instead of replacing only SimpleLog. It now replaces only the SimpleLog app, and keeps the old one if anything goes wrong. Because the update runs from the version you already have, 1.0.8 and earlier can no longer self-update on macOS: download the new version once from the website or with Homebrew.
 - Kubernetes: logs now appear right away instead of only after 200 lines.
 - Loki, GCP, Datadog and Fly.io: the same log lines no longer appear again and again while following a source.

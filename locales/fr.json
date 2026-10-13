@@ -352,5 +352,9 @@
   "provider_desc_flyio": "Logs d'applications Fly.io",
   "provider_desc_kubernetes": "Logs de pods Kubernetes",
   "provider_desc_cloudflare": "Logs en temps réel des Cloudflare Workers",
-  "err_checksum_mismatch": "La mise à jour téléchargée ne correspond pas à son empreinte publiée et a été supprimée."
+  "err_checksum_mismatch": "La mise à jour téléchargée ne correspond pas à son empreinte publiée et a été supprimée.",
+  "err_title": "Erreur",
+  "sidebar_prev": "▲ Préc.",
+  "sidebar_next": "▼ Suiv.",
+  "sidebar_add_kv": "+ clé=val"
 }

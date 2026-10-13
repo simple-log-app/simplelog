@@ -27,8 +27,9 @@ You can expect an acknowledgement within **72 hours** and a resolution or status
 SimpleLog is a desktop log viewer. The main attack surfaces to consider are:
 
 - **Local file parsing** — maliciously crafted log files could trigger unexpected behavior in the parser or UI renderer
-- **AWS CloudWatch credentials** — SimpleLog reads AWS credentials from `~/.aws/credentials` or environment variables; it does not store or transmit them beyond the AWS SDK
-- **Workspace files** — workspace configs saved in `~/.config/simplelog/workspaces.json` contain file paths and CloudWatch source references
+- **Saved connections** — when you save a connection, its credentials (API tokens, keys, passwords) are stored in clear text in `~/.config/simplelog/profiles_*.json`, readable only by your user account (0600). Do not save connections on shared machines
+- **AWS credentials** — profiles are read from `~/.aws/credentials` or environment variables; access keys typed in the form are only stored if you save the connection
+- **Workspace files** — saved connections in `~/.config/simplelog/` contain hostnames and the credentials described above
 
 ## Out of Scope
 

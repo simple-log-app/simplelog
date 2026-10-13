@@ -124,7 +124,7 @@ class _SftpBrowserDialog(QDialog):
         if gen != self._nav_gen:
             return
         self._list.setEnabled(True)
-        QMessageBox.warning(self, "Error", msg)
+        QMessageBox.warning(self, i18n.tr("err_title"), msg)
 
     def _on_listed(self, gen: int, path: str, entries: list) -> None:
         if gen != self._nav_gen:
@@ -184,7 +184,7 @@ class _SSHConnectWorker(QThread):
             self.success.emit(client)
         except ssh_utils.UnknownHostKeyError as e:
             self.unknown_host.emit(e.host, e.key_type, e.fingerprint)
-        except RuntimeError as e:
+        except Exception as e:
             self.failure.emit(str(e))
 
 

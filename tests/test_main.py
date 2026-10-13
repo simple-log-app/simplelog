@@ -106,7 +106,6 @@ def test_try_forward_writes_payload_when_connected():
 def test_socket_name_uses_dev_when_env_set(monkeypatch):
     # The value is computed at import time so we just check the actual value
     # matches whatever env state was in effect.
-    if os.environ.get("SIMPLELOG_DEV"):
-        assert main._SOCKET_NAME == "simplelog-ipc-dev"
-    else:
-        assert main._SOCKET_NAME == "simplelog-ipc-v1"
+    # One socket per user, so another account of the machine cannot take it over
+    base = "simplelog-ipc-dev" if os.environ.get("SIMPLELOG_DEV") else "simplelog-ipc-v1"
+    assert main._SOCKET_NAME == f"{base}-{os.getuid()}"

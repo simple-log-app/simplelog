@@ -352,5 +352,9 @@
   "provider_desc_flyio": "Fly.io app logs",
   "provider_desc_kubernetes": "Kubernetes pod logs",
   "provider_desc_cloudflare": "Cloudflare Workers real-time logs",
-  "err_checksum_mismatch": "The downloaded update does not match its published checksum and was discarded."
+  "err_checksum_mismatch": "The downloaded update does not match its published checksum and was discarded.",
+  "err_title": "Error",
+  "sidebar_prev": "▲ Prev",
+  "sidebar_next": "▼ Next",
+  "sidebar_add_kv": "+ key=val"
 }

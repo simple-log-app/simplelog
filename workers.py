@@ -206,7 +206,7 @@ class FileWorker(LogWorker):
                         f = open(self._path, "rb")  # noqa: SIM115
                         inode = os.fstat(f.fileno()).st_ino
                         continue
-                    raw = f.read()
+                    raw = f.read(1 << 20)   # bounded: a huge append is shown in several steps
                     if raw:
                         idle_ms = 0
                         *complete, pending = (pending + raw).split(b"\n")
@@ -227,6 +227,8 @@ class StdinWorker(StreamWorker):
     def run(self):
         self.status.emit(i18n.tr("msg_stdin_reading"))
         try:
+            with contextlib.suppress(Exception):
+                sys.stdin.reconfigure(errors="replace")
             self._pump(sys.stdin, clean_lines)
             if not self._stop:
                 self.status.emit(i18n.tr("msg_stdin_closed"))
@@ -316,7 +318,7 @@ class DownloadWorker(QThread):
             digest, _, entry = line.strip().partition(" ")
             if entry.strip().lstrip("*") == name:
                 return digest.lower()
-        return None
+        raise OSError(i18n.tr("err_checksum_mismatch"))   # sums published, asset not in them
 
     def run(self):
         try:
@@ -362,10 +364,10 @@ class DebInstallWorker(QThread):
     def run(self) -> None:
         # No output capture: polkit has to show its authentication dialog
         import tempfile
-        log_path = os.path.join(tempfile.gettempdir(), "simplelog-update.log")
+        fd, log_path = tempfile.mkstemp(prefix="simplelog-update-", suffix=".log")
         detail = ""
         try:
-            with open(log_path, "w") as log_f:
+            with os.fdopen(fd, "w") as log_f:
                 result = subprocess.run(  # noqa: S603
                     ["pkexec", "dpkg", "-i", self._deb], stdout=log_f, stderr=log_f,
                 )
@@ -381,10 +383,24 @@ class DebInstallWorker(QThread):
             code, detail = 1, str(e)
         with contextlib.suppress(OSError):
             os.unlink(self._deb)
+        with contextlib.suppress(OSError):
+            os.unlink(log_path)
         self.done.emit(code, detail)
 
 
 # ── SSH worker ────────────────────────────────────────────────────────────────
+
+def _lenient(lines):
+    """Iterate *lines* without dying on a line that is not valid UTF-8 (shown as U+FFFD)."""
+    it = iter(lines)
+    while True:
+        try:
+            yield next(it)
+        except StopIteration:
+            return
+        except UnicodeDecodeError:
+            yield "\ufffd"
+
 
 class SSHWorker(StreamWorker):
     def __init__(self, client, remote_path: str, tail_lines: int = 100) -> None:
@@ -412,7 +428,7 @@ class SSHWorker(StreamWorker):
             self._channel = stdout.channel
             self.status.emit(i18n.tr("msg_tailing", path=self._remote_path))
             self._pump(
-                stdout, lambda batch: clean_lines(batch, "\n\r"),
+                _lenient(stdout), lambda batch: clean_lines(batch, "\n\r"),
                 is_stopped=lambda: self._stop or self._channel.closed,
             )
             if not self._stop:
@@ -540,7 +556,7 @@ class KubernetesWorker(ProcessStreamWorker):
 
     def _finish(self) -> None:
         if self._proc.poll() != 0 and not self._stop:  # type: ignore[union-attr]
-            err = (self._proc.stderr.read() or "").strip()  # type: ignore[union-attr]
+            err = self._stderr_output().strip()
             if err:
                 self.error.emit(err)
 
@@ -636,6 +652,7 @@ class AzureWorker(PollingWorker):
     """Polls Azure Monitor Log Analytics and emits new log rows."""
 
     _SRC = "Azure"
+    _LATE_MS = 60_000   # Log Analytics ingests rows up to a minute after their TimeGenerated
 
     def __init__(self, logs_client, workspace_id: str, query: str,
                  label: str = "", lookback_s: float = 3600.0,
@@ -646,7 +663,7 @@ class AzureWorker(PollingWorker):
         self._query        = query
         self._label        = label or workspace_id[:8]
         self._timespan_h   = lookback_s / 3600
-        self._dedup        = Dedup()
+        self._dedup        = Dedup(window_ms=self._LATE_MS)
         self._ctx          = {"label": self._label}
 
     def _fetch_history(self):
@@ -661,7 +678,8 @@ class AzureWorker(PollingWorker):
 
     def _fetch_new(self):
         events = self._dedup.new(azure_utils.fetch_logs_since(
-            self._client, self._workspace_id, self._query, self._last_dt,
+            self._client, self._workspace_id, self._query,
+            self._last_dt - timedelta(milliseconds=self._LATE_MS),
         ))
         if events:
             self._last_dt = datetime.fromtimestamp(events[-1][0] / 1000, tz=UTC)
@@ -909,12 +927,11 @@ class CloudflareWorker(LogWorker):
 
         # Send init message unmasked — wrangler uses {mask: false, binary: false}
         init = json.dumps({"debug": False}).encode()
-        cloudflare_utils.ws_send_frame_unmasked(self._sock, 1, init)
-
-        self.history_done.emit(0)
-        self.status.emit(i18n.tr("msg_cf_waiting", name=label))
 
         try:
+            cloudflare_utils.ws_send_frame_unmasked(self._sock, 1, init)
+            self.history_done.emit(0)
+            self.status.emit(i18n.tr("msg_cf_waiting", name=label))
             while not self._stop:
                 try:
                     opcode, payload = cloudflare_utils.ws_recv_frame(self._sock)

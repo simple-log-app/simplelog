@@ -173,7 +173,8 @@ class PollingWorker(LogWorker):
         """Record a failed poll. Returns True when the worker should give up."""
         self._fails += 1
         if self._fails >= self._MAX_FAILS:
-            self.error.emit(str(exc))
+            if not self._stop:
+                self.error.emit(str(exc))
             return True
         self.status.emit(i18n.tr("msg_poll_retry", fails=self._fails,
                                  max=self._MAX_FAILS, error=exc))
@@ -184,7 +185,8 @@ class PollingWorker(LogWorker):
         try:
             events = self._fetch_history()
         except RuntimeError as e:
-            self.error.emit(str(e))
+            if not self._stop:
+                self.error.emit(str(e))
             return
         self._emit(events)
         self.history_done.emit(len(events))
@@ -237,6 +239,8 @@ class ProcessStreamWorker(StreamWorker):
     def __init__(self) -> None:
         super().__init__()
         self._proc: subprocess.Popen | None = None
+        self._stderr_text = ""
+        self._stderr_thread: threading.Thread | None = None
 
     def stop(self) -> None:
         super().stop()
@@ -246,6 +250,17 @@ class ProcessStreamWorker(StreamWorker):
                 proc.terminate()
 
     # ── to implement ──────────────────────────────────────────────────────────
+
+    def _drain_stderr(self) -> None:
+        with suppress(Exception):
+            self._stderr_text = self._proc.stderr.read() or ""   # type: ignore[union-attr]
+
+    def _stderr_output(self) -> str:
+        """What the process wrote on stderr (once it is over)."""
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(2)
+            return self._stderr_text
+        return (self._proc.stderr.read() or "") if self._proc and self._proc.stderr else ""
 
     def _command(self) -> list[str]:
         raise NotImplementedError
@@ -271,8 +286,14 @@ class ProcessStreamWorker(StreamWorker):
                 self._command(),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT if self._MERGE_STDERR else subprocess.PIPE,
-                text=True, bufsize=1,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
             )
+            if self._stop:
+                self._proc.terminate()   # stop() came before the process existed
+            if not self._MERGE_STDERR:
+                # Drained meanwhile: a full pipe (64 KB of warnings) would block the process
+                self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
+                self._stderr_thread.start()
             for batch in _batched(self._proc.stdout, lambda: self._stop):
                 if self._stop:
                     break

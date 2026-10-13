@@ -21,6 +21,17 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Updates werden jetzt mit der zur Version veröffentlichten Prüfsumme geprüft; ein beschädigter Download wird verworfen.
 
 ### Behoben
+- Die Anwendung stürzt nicht mehr ab, wenn eine Verbindung direkt nach dem Schließen ihres Tabs fehlschlägt oder wenn Ihre AWS-Konfigurationsdatei ein doppeltes Profil enthält.
+- Datei → Öffnen (Strg+O) öffnet die Datei nicht mehr doppelt.
+- Docker-, Kubernetes-, SSH- und Pipe-Logs brechen bei einer Zeile mit ungültigen Zeichen nicht mehr stillschweigend ab.
+- Das Laden eines sehr großen Zeilenblocks (z. B. `cat big.log | simplelog`) hinterlässt keine Geisterzeilen mehr in der Ansicht.
+- Fly.io: Ein ungültiges Token oder eine unbekannte App zeigt jetzt einen Fehler statt eines endlos leeren Logs.
+- Azure: Die zusätzlichen Bedingungen Ihrer Abfrage (z. B. zur Schwere) bleiben beim Verfolgen erhalten, und verspätet eingespielte Zeilen gehen nicht mehr verloren.
+- Kubernetes: Ein Pod mit vielen Warnungen blockiert den Log-Strom nicht mehr.
+- Die automatische Aktualisierung unter Linux (AppImage) funktioniert jetzt auch, wenn der Installationspfad ein Anführungszeichen enthält.
+- Aktualisierungen werden abgelehnt, wenn die veröffentlichten Prüfsummen die heruntergeladene Datei nicht auflisten.
+- Der Titel „Fehler“ sowie die Schaltflächen „Zurück/Weiter“ und „+ Schlüssel=Wert“ folgen jetzt der gewählten Sprache.
+- Schlüssel=Wert-Filter sind bei JSON-Logs etwa doppelt so schnell.
 - macOS: Das integrierte Update konnte den gesamten Programme-Ordner löschen, statt nur SimpleLog zu ersetzen. Jetzt wird nur noch die SimpleLog-App ersetzt, und die alte bleibt bei Problemen erhalten. Da das Update von der bereits installierten Version ausgeführt wird, können sich 1.0.8 und frühere Versionen unter macOS nicht mehr selbst aktualisieren: Laden Sie die neue Version einmalig von der Website oder mit Homebrew herunter.
 - Kubernetes: Logs erscheinen jetzt sofort statt erst nach 200 Zeilen.
 - Loki, GCP, Datadog und Fly.io: Dieselben Logzeilen erscheinen beim Verfolgen einer Quelle nicht mehr immer wieder.

@@ -382,8 +382,7 @@ class MainWindow(QMainWindow):
             i18n.tr("filter_log_files"),
         )
         if path and os.path.isfile(path):
-            self.open_file_tab(path)
-            # Also update FilePanel's recent list
+            # Updates FilePanel's recent list and opens the tab (open_tab signal)
             self._file_panel._open_path(path)
 
     def _action_check_update(self) -> None:
@@ -515,10 +514,10 @@ class MainWindow(QMainWindow):
             script = (
                 f"#!/bin/sh\n"
                 f"while kill -0 {pid} 2>/dev/null; do sleep 0.2; done\n"
-                f"cp -f '{tmp_path}' '{old_path}'\n"
-                f"chmod +x '{old_path}'\n"
-                f"rm -f '{tmp_path}'\n"
-                f"setsid '{old_path}' >/dev/null 2>&1 &\n"
+                f"cp -f {shlex.quote(tmp_path)} {shlex.quote(old_path)}\n"
+                f"chmod +x {shlex.quote(old_path)}\n"
+                f"rm -f {shlex.quote(tmp_path)}\n"
+                f"setsid {shlex.quote(old_path)} >/dev/null 2>&1 &\n"
                 f"rm -- \"$0\"\n"
             )
         else:
@@ -948,6 +947,8 @@ class MainWindow(QMainWindow):
         self._stopping.discard(worker)
 
     def _on_error(self, msg: str, viewer: LogViewer):
+        if id(viewer) not in self._workers:
+            return   # tab closed or worker stopped: its late error is of no interest
         self._stop_viewer(viewer)
         self._status.showMessage(i18n.tr("err_prefix", msg=msg))
         QMessageBox.critical(self, i18n.tr("err_worker"), msg)

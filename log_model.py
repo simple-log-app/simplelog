@@ -23,8 +23,11 @@ class TermRow:
     key: str = ""  # non-empty → JSON key=value match mode
 
 
-def _line_matches(line: str, terms: list[TermRow]) -> bool:
-    """Return True if *line* satisfies the AND/OR chain of *terms* (case-insensitive)."""
+def _line_matches(line: str, terms: list[TermRow], json_data: dict | None = None) -> bool:
+    """Return True if *line* satisfies the AND/OR chain of *terms* (case-insensitive).
+
+    *json_data* is the already parsed line, when the caller has it (saves a parse per term).
+    """
     if not terms:
         return True
 
@@ -34,15 +37,15 @@ def _line_matches(line: str, terms: list[TermRow]) -> bool:
             return term.text.lower() in line.lower()
         # Key=value match: parse line as JSON, check data[key] contains text
         # Try the full line first, then search for an embedded JSON object
-        data = None
+        data = json_data
         stripped = line.strip()
         try:
-            parsed = json.loads(stripped)
+            parsed = json.loads(stripped) if data is None else None
             if isinstance(parsed, dict):
                 data = parsed
         except (json.JSONDecodeError, ValueError):
             pass
-        if data is None:
+        if data is None and json_data is None:
             # Try to find an embedded JSON object in the line
             start = line.find("{")
             if start != -1:
@@ -193,7 +196,7 @@ class LogModel(QAbstractListModel):
                 is_json=json_data is not None,
                 json_data=json_data,
                 main_key=main_key,
-                visible=_line_matches(message, self._current_filter_terms),
+                visible=_line_matches(message, self._current_filter_terms, json_data),
             )
             self._items.append(item)
             appended.append(item)
@@ -201,8 +204,8 @@ class LogModel(QAbstractListModel):
                 new_keys |= set(json_data.keys())
 
         excess = len(self._items) - self._MAX_LINES
-        if excess >= self._MAX_LINES:
-            # The batch alone fills the buffer: nothing of the old content survives
+        if excess >= len(self._items) - len(appended):
+            # Everything that was there goes (the batch alone fills the buffer)
             self._items = self._items[-self._MAX_LINES:]
             self.beginResetModel()
             self._visible = [it for it in self._items if it.visible]
@@ -260,7 +263,8 @@ class LogModel(QAbstractListModel):
         self.beginResetModel()
         self._visible = []
         for item in self._items:
-            item.visible = item.is_break or _line_matches(item.message, self._current_filter_terms)
+            item.visible = item.is_break or _line_matches(
+                item.message, self._current_filter_terms, item.json_data)
             if item.visible:
                 self._visible.append(item)
         self.endResetModel()

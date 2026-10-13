@@ -82,6 +82,13 @@ def fetch_logs_sse(token: str, app_name: str,
                         break
                 except json.JSONDecodeError:
                     continue
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+        try:
+            msg = json.loads(raw).get("error", raw)
+        except Exception:
+            msg = raw or e.reason
+        raise RuntimeError(f"Fly.io {e.code}: {msg}") from e
     except (TimeoutError, OSError, urllib.error.URLError):
         pass
     except Exception as e:

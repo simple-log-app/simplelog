@@ -13,6 +13,8 @@ import json
 import os
 import stat
 import sys
+import threading
+import traceback
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
@@ -25,7 +27,20 @@ from version import __version__  # noqa: F401  (imported for UpdateWorker)
 
 # Unique socket name for this app's IPC channel
 # Use a different socket in dev mode so it doesn't conflict with the installed instance
-_SOCKET_NAME = "simplelog-ipc-dev" if os.environ.get("SIMPLELOG_DEV") else "simplelog-ipc-v1"
+# One socket per user: the name lives in a directory shared by every account of the machine
+_SOCKET_NAME = (
+    ("simplelog-ipc-dev" if os.environ.get("SIMPLELOG_DEV") else "simplelog-ipc-v1")
+    + (f"-{os.getuid()}" if hasattr(os, "getuid") else "")
+)
+
+
+def _install_excepthooks() -> None:
+    """Report an uncaught exception instead of letting PyQt abort the whole application."""
+    def _hook(exc_type, exc, tb):
+        traceback.print_exception(exc_type, exc, tb)
+
+    sys.excepthook = _hook
+    threading.excepthook = lambda args: _hook(args.exc_type, args.exc_value, args.exc_traceback)
 
 
 def _parse_args():
@@ -92,6 +107,7 @@ def _setup_ipc_server(window: MainWindow) -> QLocalServer:
     """Start the local IPC server so this instance can receive args from future invocations."""
     QLocalServer.removeServer(_SOCKET_NAME)  # clean up stale socket from a previous crash
     server = QLocalServer(window)
+    server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)   # not reachable by other users
     server.listen(_SOCKET_NAME)
 
     def _on_connection():
@@ -107,9 +123,14 @@ def _setup_ipc_server(window: MainWindow) -> QLocalServer:
                 msg = json.loads(buf.split(b"\n")[0])
             except (ValueError, KeyError):
                 return
+            if not isinstance(msg, dict):
+                return
+            tail, split = msg.get("tail", 100), msg.get("split", "tab")
+            if not isinstance(tail, int) or split not in ("tab", "vertical", "horizontal"):
+                return
             for path in msg.get("files", []):
-                if os.path.isfile(path):
-                    window.open_file_tab(path, msg.get("tail", 100), msg.get("split", "tab"))
+                if isinstance(path, str) and os.path.isfile(path):
+                    window.open_file_tab(path, tail, split)
             # Bring window to front
             window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
             window.raise_()
@@ -122,6 +143,7 @@ def _setup_ipc_server(window: MainWindow) -> QLocalServer:
 
 
 def main():
+    _install_excepthooks()
     args = _parse_args()
 
     # Rename process for macOS menu bar

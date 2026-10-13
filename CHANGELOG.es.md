@@ -21,6 +21,17 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Las actualizaciones ahora se comprueban con la suma de verificación publicada con la versión, y una descarga dañada se descarta.
 
 ### Corregido
+- La aplicación ya no se cierra cuando una conexión falla justo después de cerrar su pestaña, ni cuando su archivo de configuración de AWS tiene un perfil duplicado.
+- Archivo → Abrir (Ctrl+O) ya no abre el archivo dos veces.
+- Los logs de Docker, Kubernetes, SSH y los recibidos por pipe ya no se detienen en silencio ante una línea con caracteres no válidos.
+- Cargar un lote muy grande de líneas (por ejemplo `cat grande.log | simplelog`) ya no deja filas fantasma en la vista.
+- Fly.io: un token no válido o una aplicación desconocida ahora muestran un error en lugar de un log vacío interminable.
+- Azure: las condiciones adicionales de su consulta (por ejemplo, sobre la gravedad) se conservan durante el seguimiento, y las filas ingeridas con retraso ya no se pierden.
+- Kubernetes: un pod que imprime muchas advertencias ya no bloquea el flujo de logs.
+- La actualización automática en Linux (AppImage) ahora funciona cuando la ruta de instalación contiene una comilla.
+- Se rechazan las actualizaciones cuando las sumas de verificación publicadas no incluyen el archivo descargado.
+- El título «Error» y los botones «Ant./Sig.» y «+ clave=val» ahora siguen el idioma elegido.
+- Los filtros clave=valor son unas 2× más rápidos con logs JSON.
 - macOS: la actualización integrada podía borrar toda la carpeta Aplicaciones en lugar de reemplazar solo SimpleLog. Ahora solo reemplaza la app SimpleLog y conserva la anterior si algo falla. Como la actualización se ejecuta desde la versión ya instalada, la 1.0.8 y las anteriores ya no pueden actualizarse solas en macOS: descarga la nueva versión una vez desde la web o con Homebrew.
 - Kubernetes: los logs aparecen de inmediato en lugar de solo después de 200 líneas.
 - Loki, GCP, Datadog y Fly.io: las mismas líneas de log ya no reaparecen una y otra vez al seguir una fuente.

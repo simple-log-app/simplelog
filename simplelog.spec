@@ -36,7 +36,6 @@ a = Analysis(
         "docker_utils",
         "vercel_utils",
         "config_store",
-        "creds_store",
         "profiles_store",
         "gcp_utils",
         "azure_utils",

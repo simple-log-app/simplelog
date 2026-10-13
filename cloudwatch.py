@@ -24,8 +24,11 @@ def list_profiles() -> list[str]:
         path = os.path.expanduser(fpath)
         if not os.path.isfile(path):
             continue
-        cp = configparser.ConfigParser()
-        cp.read(path)
+        cp = configparser.ConfigParser(strict=False)   # tolerate duplicated sections
+        try:
+            cp.read(path)
+        except configparser.Error:
+            continue
         for section in cp.sections():
             name = section[len("profile "):].strip() if strip_prefix and section.startswith("profile ") else section
             if name and name.lower() != "default":

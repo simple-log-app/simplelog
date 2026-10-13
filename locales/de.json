@@ -339,5 +339,9 @@
   "provider_desc_flyio": "Fly.io-App-Logs",
   "provider_desc_kubernetes": "Kubernetes-Pod-Logs",
   "provider_desc_cloudflare": "Cloudflare-Workers-Echtzeit-Logs",
-  "err_checksum_mismatch": "Das heruntergeladene Update stimmt nicht mit seiner veröffentlichten Prüfsumme überein und wurde verworfen."
+  "err_checksum_mismatch": "Das heruntergeladene Update stimmt nicht mit seiner veröffentlichten Prüfsumme überein und wurde verworfen.",
+  "err_title": "Fehler",
+  "sidebar_prev": "▲ Zurück",
+  "sidebar_next": "▼ Weiter",
+  "sidebar_add_kv": "+ Schlüssel=Wert"
 }

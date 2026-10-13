@@ -183,6 +183,8 @@ def _run_query(client, workspace_id: str, query: str, timespan) -> list[tuple[in
 
 
 _ASC_SORT = re.compile(r"\b((?:order|sort)\s+by\s+[\w\[\]'\"]+)\s+asc\b", re.IGNORECASE)
+_TIME_BOUND = re.compile(
+    r"TimeGenerated\s*>=?\s*(?:ago\([^)]*\)|datetime\([^)]*\))", re.IGNORECASE)
 _PAGED = re.compile(r"\|\s*(?:take|limit|top)\b", re.IGNORECASE)
 
 
@@ -226,8 +228,11 @@ def fetch_logs_since(
     new_lines = []
     for line in lines:
         if line.strip().lower().startswith("| where timegenerated"):
-            new_lines.append(filter_clause)
-            injected = True
+            # Only the time bound is replaced: other conditions of the line stay
+            line, n = _TIME_BOUND.subn(f"TimeGenerated > datetime({ts})", line, count=1)
+            if n:
+                injected = True
+            new_lines.append(line)
         else:
             new_lines.append(line)
     merged = "\n".join(new_lines)
