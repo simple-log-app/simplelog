@@ -12,7 +12,7 @@ If you discover a security vulnerability in SimpleLog, please **do not open a pu
 
 Instead, report it privately by emailing:
 
-**sikander.ravate@gmail.com**
+**r.sik@hotmail.fr**
 
 Please include:
 - A description of the vulnerability
