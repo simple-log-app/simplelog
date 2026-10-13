@@ -5,6 +5,8 @@ import json
 import shutil
 import subprocess
 
+import i18n
+
 
 def is_available() -> bool:
     """Return True if kubectl is in PATH."""
@@ -14,7 +16,7 @@ def is_available() -> bool:
 def _run(args: list[str], timeout: int = 10) -> str:
     result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"kubectl exited {result.returncode}")
+        raise RuntimeError(result.stderr.strip() or i18n.tr("err_cmd_exit", cmd="kubectl", code=result.returncode))
     return result.stdout
 
 

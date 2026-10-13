@@ -14,6 +14,7 @@ from typing import Any
 
 import azure_utils
 import gcp_utils
+import i18n
 import ssh_utils
 from ui_theme import (
     _SVG_AZURE,
@@ -82,7 +83,9 @@ class Provider:
     # none yet): builds it from the cfg, which carries a ready one under *client_key*.
     connect: Callable[[dict], Any] | None = field(default=None, repr=False)
     client_key: str = "_client"
-    error_title: str = ""
+
+    def describe(self) -> str:
+        return i18n.tr(f"provider_desc_{self.id}")
 
     def panel_class(self) -> type:
         module, _, name = self.panel.partition(":")
@@ -262,15 +265,15 @@ PROVIDERS: tuple[Provider, ...] = (
     Provider("gcp", "Google Cloud", "⬡", "#4285f4", _SVG_GCP,
              "Google Cloud Logging", "panels.gcp:GCPPanel", _gcp,
              source_color=C_INFO, subtitle_key="project_id",
-             connect=_gcp_connect, error_title="GCP Error"),
+             connect=_gcp_connect),
     Provider("azure", "Azure Monitor", "△", "#0078d4", _SVG_AZURE,
              "Azure Monitor / Log Analytics", "panels.azure:AzurePanel", _azure,
              source_color=C_ACCENT, subtitle_key="workspace_id",
-             connect=_azure_connect, client_key="_logs_client", error_title="Azure Error"),
+             connect=_azure_connect, client_key="_logs_client"),
     Provider("ssh", "SSH", "⌥", "#56cf80", _SVG_SSH,
              "Remote log files over SSH", "panels.ssh:SSHPanel", _ssh,
              source_color=C_TRACE, subtitle_key="host",
-             connect=_ssh_connect, error_title="SSH Error"),
+             connect=_ssh_connect),
     Provider("docker", "Docker", "◈", "#2496ed", _SVG_DOCKER,
              "Remote Docker container logs", "panels.docker:DockerPanel", _docker,
              source_color=C_TS, subtitle_key="host",

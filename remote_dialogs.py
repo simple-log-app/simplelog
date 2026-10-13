@@ -234,7 +234,7 @@ class AddConnectionDialog(QDialog):
     def _make_provider_card(self, provider: providers.Provider) -> QPushButton:
         pid, name, icon_char, color = provider.id, provider.name, provider.icon, provider.color
         btn = QPushButton()
-        btn.setToolTip(provider.description)
+        btn.setToolTip(provider.describe())
         btn.setFixedSize(140, 105)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"""

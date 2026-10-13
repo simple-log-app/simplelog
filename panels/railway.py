@@ -7,7 +7,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -15,7 +14,6 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-import profiles_store
 import railway_utils
 from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
@@ -44,6 +42,8 @@ class _RailwayConnectWorker(BackgroundWorker):
 
 
 class RailwayPanel(ProviderPanel):
+    profile_type = "railway"
+    _profile_bar_attr = "_railway_profile_bar"
     def __init__(self, parent=None):
         super().__init__(parent)
         self._projects: list[dict] = []
@@ -69,8 +69,8 @@ class RailwayPanel(ProviderPanel):
         self._railway_token_input.setStyleSheet(FIELD_STYLE)
         lay_auth.addWidget(self._railway_token_input)
 
-        self._save_profile_btn_railway = _ghost_btn("Save as profile…")
-        self._save_profile_btn_railway.clicked.connect(self._on_save_railway_profile)
+        self._save_profile_btn_railway = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_railway.clicked.connect(self._save_profile)
         self._save_profile_btn_railway.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_railway)
 
@@ -104,6 +104,9 @@ class RailwayPanel(ProviderPanel):
         self._service_list = QListWidget()
         self._service_list.setMaximumHeight(120)
         self._service_list.setStyleSheet(LIST_STYLE)
+        self._service_list.itemSelectionChanged.connect(
+            lambda: self._open_btn_railway.setEnabled(self._service_list.currentRow() >= 0)
+        )
         lay_svc.addWidget(self._service_list)
 
         iv_row = QHBoxLayout()
@@ -179,11 +182,6 @@ class RailwayPanel(ProviderPanel):
         if services:
             for svc in services:
                 self._service_list.addItem(svc["name"])
-            self._service_list.itemSelectionChanged.connect(
-                lambda: self._open_btn_railway.setEnabled(
-                    self._service_list.currentRow() >= 0
-                )
-            )
             self._card_svc.setVisible(True)
         else:
             self._card_svc.setVisible(False)
@@ -191,15 +189,6 @@ class RailwayPanel(ProviderPanel):
 
     def _load_railway_profile(self, p: dict) -> None:
         self._railway_token_input.setText(p.get("token", ""))
-
-    def _on_save_railway_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text="railway")
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("railway", name.strip(), {
-            "token": self._railway_token_input.text().strip(),
-        })
-        self._railway_profile_bar.reload()
 
     def _on_open(self) -> None:
         token = self._railway_token_input.text().strip()

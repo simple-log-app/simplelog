@@ -5,8 +5,10 @@ import json
 import sys
 from pathlib import Path
 
+from config_store import CONFIG_DIR, read_json, write_json
+
 _locale: str = "en"
-_PREFS_PATH = Path.home() / ".config" / "simplelog" / "prefs.json"
+_PREFS_PATH = CONFIG_DIR / "prefs.json"
 
 # id(fn) -> callable — registered retranslate callbacks
 _callbacks: dict[int, object] = {}
@@ -41,6 +43,11 @@ def _load_strings() -> dict[str, dict[str, str]]:
 _STRINGS: dict[str, dict[str, str]] = _load_strings()
 
 
+def available_locales() -> list[tuple[str, str]]:
+    """``[(code, native name), ...]`` for every locales/<code>.json, English first."""
+    return [(code, strings.get("lang_name", code)) for code, strings in _STRINGS.items()]
+
+
 def tr(key: str, **kwargs: object) -> str:
     """Return translated string for *key* in the current locale."""
     lang = _STRINGS.get(_locale, _STRINGS["en"])
@@ -71,15 +78,11 @@ def load_locale() -> None:
 
 def save_locale() -> None:
     """Persist current locale to prefs file."""
+    prefs = read_json(_PREFS_PATH, {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+    prefs["locale"] = _locale
     try:
-        _PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            prefs = json.loads(_PREFS_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            prefs = {}
-        prefs["locale"] = _locale
-        tmp = _PREFS_PATH.with_suffix(".tmp")
-        tmp.write_text(json.dumps(prefs, indent=2, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(_PREFS_PATH)
-    except Exception:
+        write_json(_PREFS_PATH, prefs)
+    except OSError:
         pass

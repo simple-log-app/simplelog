@@ -35,6 +35,7 @@ a = Analysis(
         "ssh_utils",
         "docker_utils",
         "vercel_utils",
+        "config_store",
         "creds_store",
         "profiles_store",
         "gcp_utils",

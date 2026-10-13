@@ -8,7 +8,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -17,7 +16,6 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-import profiles_store
 import vercel_utils
 from panels.base import ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
@@ -79,6 +77,12 @@ class _VercelFetchDeployWorker(BackgroundWorker):
 
 
 class VercelPanel(ProviderPanel):
+    profile_type = "vercel"
+    _profile_bar_attr = "_vercel_profile_bar"
+    profile_required = ('token',)
+
+    def default_profile_name(self) -> str:
+        return f"vercel-{self._token_input.text().strip()[:8]}…"
     def __init__(self, parent=None):
         super().__init__(parent)
         self._token      = vercel_utils.load_token()
@@ -114,8 +118,8 @@ class VercelPanel(ProviderPanel):
         )
         lay_tok.addWidget(self._token_input)
 
-        self._save_profile_btn_vercel = _ghost_btn("Save as profile…")
-        self._save_profile_btn_vercel.clicked.connect(self._on_save_vercel_profile)
+        self._save_profile_btn_vercel = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_vercel.clicked.connect(self._save_profile)
         self._save_profile_btn_vercel.setEnabled(False)
         lay_tok.addWidget(self._save_profile_btn_vercel)
 
@@ -239,17 +243,6 @@ class VercelPanel(ProviderPanel):
 
     def _load_vercel_profile(self, p: dict) -> None:
         self._token_input.setText(p.get("token", ""))
-
-    def _on_save_vercel_profile(self) -> None:
-        token = self._token_input.text().strip()
-        if not token:
-            return
-        default_name = f"vercel-{token[:8]}…"
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text=default_name)
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("vercel", name.strip(), {"token": token})
-        self._vercel_profile_bar.reload()
 
     def _on_connect_fail(self, msg: str) -> None:
         self._status_lbl.setText(msg)

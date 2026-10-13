@@ -586,18 +586,18 @@ def test_forwarded_paths_are_absolute(tmp_path, monkeypatch):
 # ── credentials: atomic writes ───────────────────────────────────────────────
 
 def test_write_private_leaves_no_temp_file(tmp_path):
-    import creds_store
-    creds_store.write_private(tmp_path / "a.json", "{}")
+    import config_store
+    config_store.write_private(tmp_path / "a.json", "{}")
     assert [p.name for p in tmp_path.iterdir()] == ["a.json"]
 
 
 def test_a_failed_write_keeps_the_previous_file(tmp_path):
-    import creds_store
+    import config_store
     target = tmp_path / "a.json"
-    creds_store.write_private(target, '{"keep": 1}')
-    with patch("creds_store.os.replace", side_effect=OSError("disk full")), \
+    config_store.write_private(target, '{"keep": 1}')
+    with patch("config_store.os.replace", side_effect=OSError("disk full")), \
          pytest.raises(OSError):
-        creds_store.write_private(target, '{"new": 2')
+        config_store.write_private(target, '{"new": 2')
     assert target.read_text() == '{"keep": 1}'
     assert [p.name for p in tmp_path.iterdir()] == ["a.json"]      # temp file cleaned up
 
@@ -606,7 +606,7 @@ def test_profiles_survive_a_crash_while_saving(tmp_path, monkeypatch):
     import profiles_store
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     profiles_store.upsert("ssh", "prod", {"host": "h"})
-    with patch("creds_store.os.replace", side_effect=OSError("crash")), pytest.raises(OSError):
+    with patch("config_store.os.replace", side_effect=OSError("crash")), pytest.raises(OSError):
         profiles_store.upsert("ssh", "dev", {"host": "d"})
     assert [p["name"] for p in profiles_store.load_all("ssh")] == ["prod"]
 

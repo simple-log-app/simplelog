@@ -208,9 +208,9 @@ def test_vercel_worker(monkeypatch):
                         _stopper(w, [[(10, "a")], [(20, "b")]]))
     got = _run_to_end(w)
     assert got["lines"] == [[(10, "a")], [(20, "b")]]
-    assert got["status"][:3] == ["Loading logs for my-app…", "Tailing my-app — 1 events loaded",
-                                 "my-app — 1 new events"]
-    assert got["status"][3] == "Tailing my-app…"
+    assert got["status"][:3] == ["Loading Vercel logs for my-app…", "Vercel my-app — 1 entries loaded",
+                                 "Vercel my-app — 1 new entries"]
+    assert got["status"][3] == "Vercel my-app — tailing…"
     assert w._last_ts == 21
 
 
@@ -220,10 +220,10 @@ def test_cloudwatch_worker(monkeypatch):
     monkeypatch.setattr(cloudwatch, "fetch_events", _stopper(w, [[(5, "a")], [(9, "b")]]))
     got = _run_to_end(w)
     assert got["lines"] == [[(5, "a")], [(9, "b")]]
-    assert got["status"][0] == "Loading history…"
-    assert got["status"][1] == "Updated  —  1 new events"
-    assert got["status"][2] == "Tailing…  no new events"
-    assert w._last_ts == 10
+    assert got["status"][0] == "Loading CloudWatch logs for g…"
+    assert got["status"][2] == "CloudWatch g — 1 new entries"
+    assert got["status"][3] == "CloudWatch g — tailing…"
+    assert w._last_ts == 9
 
 
 def test_gcp_worker(monkeypatch):
@@ -244,8 +244,8 @@ def test_azure_worker(monkeypatch):
     monkeypatch.setattr(azure_utils, "fetch_logs_since", _stopper(w, [[(2000, "b")]]))
     got = _run_to_end(w)
     assert got["lines"] == [[(1000, "a")], [(2000, "b")]]
-    assert got["status"][:3] == ["Loading Azure logs — prod…", "Azure prod — 1 rows loaded",
-                                 "Azure prod — 1 new rows"]
+    assert got["status"][:3] == ["Loading Azure logs for prod…", "Azure prod — 1 entries loaded",
+                                 "Azure prod — 1 new entries"]
 
 
 def test_azure_worker_label_defaults_to_the_workspace():
@@ -258,7 +258,7 @@ def test_loki_worker_status_names_the_host(monkeypatch):
     w = workers.LokiWorker("https://loki.example.com:3100/path", "q", interval_s=0.001)
     monkeypatch.setattr(loki_utils, "fetch_logs", _stopper(w, [[(1, "a")], [(2, "b")]]))
     got = _run_to_end(w)
-    assert got["status"][0] == "Loading Loki logs from loki.example.com:3100…"
+    assert got["status"][0] == "Loading Loki logs for loki.example.com:3100…"
     assert got["status"][1] == "Loki loki.example.com:3100 — 1 entries loaded"
     assert got["status"][2] == "Loki loki.example.com:3100 — 1 new entries"
 
@@ -268,7 +268,7 @@ def test_datadog_worker_status_names_the_site(monkeypatch):
     w = workers.DatadogWorker("https://api.datadoghq.eu", "*", "k", "a", interval_s=0.001)
     monkeypatch.setattr(datadog_utils, "fetch_logs", _stopper(w, [[(1000, "a")], [(2000, "b")]]))
     got = _run_to_end(w)
-    assert got["status"][0] == "Loading Datadog logs from api.datadoghq.eu…"
+    assert got["status"][0] == "Loading Datadog logs for api.datadoghq.eu…"
     assert got["status"][2] == "Datadog api.datadoghq.eu — 1 new entries"
     assert w._last_iso.startswith("1970-01-01T00:00:02")
 
@@ -289,8 +289,8 @@ def test_elastic_worker_passes_its_options(monkeypatch):
 
     monkeypatch.setattr(elastic_utils, "fetch_logs", fetch)
     got = _run_to_end(w)
-    assert got["status"][1] == "Elastic es:9200/logs-* — 1 hits loaded"
-    assert got["status"][2] == "Elastic es:9200 — 1 new hits"
+    assert got["status"][1] == "Elastic es:9200/logs-* — 1 entries loaded"
+    assert got["status"][2] == "Elastic es:9200/logs-* — 1 new entries"
     assert all(c[3]["api_key"] == "K" and c[3]["ts_field"] == "ts" for c in calls)
     assert calls[0][3]["latest"] is True and calls[1][3]["inclusive"] is True
 
@@ -328,7 +328,7 @@ def test_railway_worker_follows_new_deployments(monkeypatch):
     got = _run_to_end(w)
     flat = [e for batch in got["lines"] for e in batch]
     assert flat == [(now, "old"), (now, "old"), (now + 1, "fresh")]   # d2 starts with a clean slate
-    assert got["status"][:2] == ["Loading Railway logs for p/s…", "Railway p/s — 1 lines loaded"]
+    assert got["status"][:2] == ["Loading Railway logs for p/s…", "Railway p/s — 1 entries loaded"]
     assert seen_deploy[0] == "d1" and "d2" in seen_deploy
 
 
@@ -404,7 +404,7 @@ DOCKER_CASES = [
     (lambda: workers.DockerComposeWorker("shop"),
      ["docker", "compose", "-p", "shop", "logs", "-f", "--timestamps", "--since=3600s"],
      "Streaming compose stack shop…", "Compose log stream ended",
-     "docker compose logs exited 3"),
+     "docker compose logs exited with code 3"),
     (lambda: workers.DockerExecFileWorker("abcdef1234567890", "/var/log/x", 500_000),
      ["docker", "exec", "abcdef1234567890", "tail", f"-n{HISTORY_CAP}", "-f", "/var/log/x"],
      "Tailing /var/log/x in abcdef123456…", "Container file stream ended",

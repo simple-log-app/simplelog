@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 
@@ -16,7 +15,6 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -29,8 +27,8 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-import profiles_store
 import ssh_utils
+from config_store import CONFIG_DIR, read_json, write_json
 from panels.base import ProviderPanel
 from ui_theme import C_ERR, C_INFO, C_MUTED, C_SIDE, C_TEXT
 from ui_widgets import (
@@ -46,15 +44,13 @@ from ui_workers import CallWorker
 # ── SSH recent connections manager ────────────────────────────────────────────
 
 class SSHRecentManager:
-    _path = Path.home() / ".config" / "simplelog" / "ssh_recents.json"
+    _path = CONFIG_DIR / "ssh_recents.json"
     _MAX  = 10
 
     @classmethod
     def load(cls) -> list[dict]:
-        try:
-            return json.loads(cls._path.read_text(encoding="utf-8"))
-        except Exception:
-            return []
+        entries = read_json(cls._path, [])
+        return entries if isinstance(entries, list) else []
 
     @classmethod
     def push(cls, entry: dict) -> None:
@@ -66,9 +62,8 @@ class SSHRecentManager:
         entries.insert(0, entry)
         entries = entries[:cls._MAX]
         try:
-            cls._path.parent.mkdir(parents=True, exist_ok=True)
-            cls._path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
-        except Exception:
+            write_json(cls._path, entries)
+        except OSError:
             pass
 
 
@@ -79,7 +74,7 @@ class _SftpBrowserDialog(QDialog):
 
     def __init__(self, client, start_path: str = "/", parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Browse remote files")
+        self.setWindowTitle(i18n.tr("ssh_browse_title"))
         self.resize(480, 400)
         self._client   = client
         self._selected : str | None = None
@@ -196,6 +191,11 @@ class _SSHConnectWorker(QThread):
 # ── SSHPanel ──────────────────────────────────────────────────────────────────
 
 class SSHPanel(ProviderPanel):
+    profile_type = "ssh"
+    _profile_bar_attr = "_ssh_profile_bar"
+
+    def default_profile_name(self) -> str:
+        return f"{self._user_input.text()}@{self._host_input.text()}"
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._client = None
@@ -250,7 +250,7 @@ class SSHPanel(ProviderPanel):
             f"color: {C_MUTED}; font-size: 11px; background: transparent; border: none;"
         )
         self._host_input = QLineEdit()
-        self._host_input.setPlaceholderText("hostname or IP")
+        self._host_input.setPlaceholderText(i18n.tr("ssh_host_placeholder"))
 
         # Port
         self._lbl_port = QLabel()
@@ -325,8 +325,8 @@ class SSHPanel(ProviderPanel):
         self._connect_btn = _primary_btn()
         self._connect_btn.clicked.connect(lambda: self._on_connect())
 
-        self._save_profile_btn_ssh = _ghost_btn("Save as profile…")
-        self._save_profile_btn_ssh.clicked.connect(self._on_save_ssh_profile)
+        self._save_profile_btn_ssh = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_ssh.clicked.connect(self._save_profile)
 
         cl.addWidget(self._lbl_host)
         cl.addWidget(self._host_input)
@@ -448,7 +448,8 @@ class SSHPanel(ProviderPanel):
 
     def _on_browse_key(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select SSH key file", os.path.expanduser("~/.ssh"), "All files (*)"
+            self, i18n.tr("ssh_key_dialog_title"), os.path.expanduser("~/.ssh"),
+            i18n.tr("filter_all_files")
         )
         if path:
             self._key_input.setText(path)
@@ -457,7 +458,7 @@ class SSHPanel(ProviderPanel):
         host = self._host_input.text().strip()
         user = self._user_input.text().strip()
         if not host or not user:
-            QMessageBox.warning(self, "SSH", "Host and username are required.")
+            QMessageBox.warning(self, "SSH", i18n.tr("err_ssh_required"))
             return
         self._client = None
         self._file_card_frame.setVisible(False)
@@ -516,22 +517,6 @@ class SSHPanel(ProviderPanel):
         self._auth_combo.setCurrentIndex(0 if p.get("auth_mode", "key") == "key" else 1)
         self._key_input.setText(p.get("key_path", ""))
         self._path_input.setText(p.get("remote_path", ""))
-
-    def _on_save_ssh_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save Profile", "Profile name:",
-                                        text=f"{self._user_input.text()}@{self._host_input.text()}")
-        if not ok or not name.strip():
-            return
-        auth_idx = self._auth_combo.currentIndex()
-        profiles_store.upsert("ssh", name.strip(), {
-            "host":        self._host_input.text().strip(),
-            "port":        self._port_spin.value(),
-            "user":        self._user_input.text().strip(),
-            "auth_mode":   "key" if auth_idx == 0 else "password",
-            "key_path":    self._key_input.text().strip() if auth_idx == 0 else "",
-            "remote_path": self._path_input.text().strip(),
-        })
-        self._ssh_profile_bar.reload()
 
     def _on_sftp_browse(self) -> None:
         if self._client is None:

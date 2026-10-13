@@ -16,6 +16,8 @@ from contextlib import suppress
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+import i18n
+
 # A viewer keeps at most this many lines: loading more history is wasted work.
 HISTORY_CAP = 10_000
 
@@ -130,10 +132,11 @@ class PollingWorker(LogWorker):
 
     _MAX_FAILS = 5
 
-    _MSG_LOADING = ""
-    _MSG_LOADED = ""      # optional
-    _MSG_NEW = ""
-    _MSG_IDLE = ""
+    _SRC = ""             # source name shown in the status line ("Loki", "GCP"…)
+    _MSG_LOADING = "msg_poll_loading"
+    _MSG_LOADED = "msg_poll_loaded"      # optional ("" to skip)
+    _MSG_NEW = "msg_poll_new"
+    _MSG_IDLE = "msg_poll_idle"
 
     def __init__(self, interval_s: float = 5.0) -> None:
         super().__init__()
@@ -151,9 +154,9 @@ class PollingWorker(LogWorker):
 
     # ── machinery ─────────────────────────────────────────────────────────────
 
-    def _say(self, template: str, n: int = 0) -> None:
-        if template:
-            self.status.emit(template.format(n=n, **self._ctx))
+    def _say(self, key: str, n: int = 0) -> None:
+        if key:
+            self.status.emit(i18n.tr(key, n=n, **{"src": self._SRC, **self._ctx}))
 
     def _sleep(self) -> None:
         """Wait for the poll interval, returning early if stop() is called."""
@@ -168,9 +171,8 @@ class PollingWorker(LogWorker):
         if self._fails >= self._MAX_FAILS:
             self.error.emit(str(exc))
             return True
-        self.status.emit(
-            f"Connection problem ({self._fails}/{self._MAX_FAILS}), retrying… {exc}"
-        )
+        self.status.emit(i18n.tr("msg_poll_retry", fails=self._fails,
+                                 max=self._MAX_FAILS, error=exc))
         return False
 
     def run(self) -> None:
@@ -293,4 +295,4 @@ class DockerStreamWorker(ProcessStreamWorker):
         if proc.returncode not in (0, -15):  # type: ignore[union-attr]
             self.error.emit(self._exit_error(proc.returncode))  # type: ignore[union-attr]
         else:
-            self.status.emit(self._ENDED_STATUS)
+            self.status.emit(i18n.tr(self._ENDED_STATUS))

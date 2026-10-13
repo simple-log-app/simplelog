@@ -6,7 +6,6 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -14,7 +13,6 @@ from PyQt6.QtWidgets import (
 
 import cloudflare_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LIST_STYLE, ProviderPanel
 from ui_theme import C_ERR, C_INFO, C_MUTED
 from ui_widgets import OpenModeWidget, _ghost_btn, _primary_btn, _ProfileBar, make_card
@@ -36,6 +34,8 @@ class _CloudflareConnectWorker(BackgroundWorker):
 
 
 class CloudflarePanel(ProviderPanel):
+    profile_type = "cloudflare"
+    _profile_bar_attr = "_cf_profile_bar"
     def __init__(self, parent=None):
         super().__init__(parent)
         self._workers: list[str] = []
@@ -60,7 +60,7 @@ class CloudflarePanel(ProviderPanel):
         self._cf_token_input = QLineEdit()
         self._cf_token_input.setEchoMode(QLineEdit.EchoMode.Password)
         self._cf_token_input.setStyleSheet(FIELD_STYLE)
-        self._cf_token_input.setPlaceholderText("API token with Workers:Read and Tail:Read")
+        self._cf_token_input.setPlaceholderText(i18n.tr("cf_token_placeholder"))
         lay_auth.addWidget(self._cf_token_input)
 
         lay_auth.addWidget(self._lbl(LBL_STYLE, i18n.tr("cf_field_account_id")))
@@ -69,8 +69,8 @@ class CloudflarePanel(ProviderPanel):
         self._cf_account_input.setPlaceholderText("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         lay_auth.addWidget(self._cf_account_input)
 
-        self._save_profile_btn_cf = _ghost_btn("Save as profile…")
-        self._save_profile_btn_cf.clicked.connect(self._on_save_cf_profile)
+        self._save_profile_btn_cf = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_cf.clicked.connect(self._save_profile)
         self._save_profile_btn_cf.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_cf)
 
@@ -146,16 +146,6 @@ class CloudflarePanel(ProviderPanel):
     def _load_cloudflare_profile(self, p: dict) -> None:
         self._cf_token_input.setText(p.get("api_token", ""))
         self._cf_account_input.setText(p.get("account_id", ""))
-
-    def _on_save_cf_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text="cloudflare")
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("cloudflare", name.strip(), {
-            "api_token":  self._cf_token_input.text().strip(),
-            "account_id": self._cf_account_input.text().strip(),
-        })
-        self._cf_profile_bar.reload()
 
     def _on_open(self) -> None:
         token      = self._cf_token_input.text().strip()

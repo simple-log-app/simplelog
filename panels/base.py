@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QInputDialog, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+import i18n
+import profiles_store
 from ui_theme import C_BG, C_BORDER, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
 
 FIELD_STYLE = (
@@ -22,6 +24,31 @@ class ProviderPanel(QWidget):
     """A connection panel that emits `open_tab(cfg, split_mode)` to open a log tab."""
 
     open_tab = pyqtSignal(dict, str)   # (cfg, split_mode)
+
+    #: profiles_store service this panel saves to ("" when it has no saved profiles)
+    profile_type = ""
+    #: name of the ``_ProfileBar`` attribute refreshed after a save
+    _profile_bar_attr = ""
+    #: ``profile_data()`` keys that must be filled in before a profile can be saved
+    profile_required: tuple = ()
+
+    def default_profile_name(self) -> str:
+        return self.profile_type
+
+    def _save_profile(self) -> None:
+        """Ask for a name, then store ``profile_data()`` under it."""
+        data = self.profile_data()
+        if any(not data.get(key) for key in self.profile_required):
+            return
+        name, ok = QInputDialog.getText(
+            self, i18n.tr("profile_save_title"), i18n.tr("profile_name_prompt"),
+            text=self.default_profile_name())
+        if not ok or not name.strip():
+            return
+        profiles_store.upsert(self.profile_type, name.strip(), data)
+        bar = getattr(self, self._profile_bar_attr, None)
+        if bar is not None:
+            bar.reload()
 
     @staticmethod
     def _lbl(style: str, text: str) -> QLabel:

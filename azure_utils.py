@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import i18n
+
 # Common Log Analytics tables grouped by category
 TABLES: dict[str, list[str]] = {
     "Application": [
@@ -129,7 +131,7 @@ def _run_query(client, workspace_id: str, query: str, timespan) -> list[tuple[in
     elif resp.status == LogsQueryStatus.SUCCESS:
         tables = resp.tables
     else:
-        raise RuntimeError(f"Azure query failed: {getattr(resp, 'partial_error', 'unknown')}")
+        raise RuntimeError(i18n.tr("err_azure_query", error=getattr(resp, "partial_error", i18n.tr("err_unknown"))))
 
     if not tables:
         return []
@@ -201,7 +203,7 @@ def fetch_logs_since(
     """Fetch new logs since *since_dt* by injecting a TimeGenerated filter.
 
     If the query already contains 'where TimeGenerated', we replace it;
-    otherwise we inject a new where clause after the table name.
+    otherwise we inject a new where clause right after the table name.
     """
     ts = since_dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     filter_clause = f"| where TimeGenerated > datetime({ts})"
@@ -210,16 +212,19 @@ def fetch_logs_since(
     injected = False
     new_lines = []
     for line in lines:
-        stripped = line.strip().lower()
-        if stripped.startswith("| where timegenerated"):
+        if line.strip().lower().startswith("| where timegenerated"):
             new_lines.append(filter_clause)
             injected = True
         else:
             new_lines.append(line)
-
-    if not injected and lines:
-        new_lines.insert(1, filter_clause)
-
     merged = "\n".join(new_lines)
+
+    if not injected:
+        # Right after the source table of the last statement, before any
+        # ``take`` / ``limit`` / ``order`` stage (works on one-line queries too).
+        head, sep, last = merged.rpartition(";")
+        table, pipe, rest = last.partition("|")
+        merged = f"{head}{sep}{table.rstrip()}\n{filter_clause}" + (f"\n|{rest}" if pipe else "")
+
     # Use a wide timespan so Azure doesn't reject the query
     return _run_query(client, workspace_id, merged, timedelta(hours=24))

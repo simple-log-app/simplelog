@@ -1,24 +1,18 @@
 """profiles_store.py — Named credential profiles for SimpleLog panels."""
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from config_store import CONFIG_DIR, read_json, write_json
 
-from creds_store import write_private
-
-_DIR = Path.home() / ".config" / "simplelog"
+_DIR = CONFIG_DIR
 
 
 def load_all(service: str) -> list[dict]:
     """Return all saved profiles for *service*, newest first."""
-    try:
-        return json.loads((_DIR / f"profiles_{service}.json").read_text())
-    except (OSError, json.JSONDecodeError):
-        return []
+    return read_json(_DIR / f"profiles_{service}.json", [])
 
 
 def save_all(service: str, profiles: list[dict]) -> None:
-    write_private(_DIR / f"profiles_{service}.json", json.dumps(profiles, indent=2))
+    write_json(_DIR / f"profiles_{service}.json", profiles)
 
 
 def upsert(service: str, name: str, data: dict) -> None:

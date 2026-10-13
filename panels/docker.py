@@ -342,7 +342,8 @@ class DockerPanel(ProviderPanel):
                     item = QListWidgetItem(label)
                     item.setData(Qt.ItemDataRole.UserRole, c)
                     if c["compose_project"]:
-                        item.setToolTip(f"compose: {c['compose_project']}/{c['compose_service']}")
+                        item.setToolTip(i18n.tr("docker_compose_tip", project=c["compose_project"],
+                                            service=c["compose_service"]))
                     lst.addItem(item)
         else:
             self._no_containers_lbl.show()

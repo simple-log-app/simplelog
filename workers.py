@@ -21,6 +21,7 @@ import datadog_utils
 import elastic_utils
 import flyio_utils
 import gcp_utils
+import i18n
 import kubernetes_utils
 import loki_utils
 import railway_utils
@@ -105,9 +106,7 @@ def _read_last_n_lines(path: str, n: int) -> tuple[list[str], int]:
 class TailWorker(PollingWorker):
     """Polls an AWS CloudWatch log group / stream."""
 
-    _MSG_LOADING = "Loading history…"
-    _MSG_NEW = "Updated  —  {n} new events"
-    _MSG_IDLE = "Tailing…  no new events"
+    _SRC = "CloudWatch"
 
     def __init__(self, client, log_group, log_stream, filter_pattern,
                  interval_s, lookback_s):
@@ -117,6 +116,10 @@ class TailWorker(PollingWorker):
         self._log_stream     = log_stream
         self._filter_pattern = filter_pattern
         self._lookback_s     = lookback_s
+        self._dedup          = Dedup(window_ms=self._LATE_MS)
+        self._ctx            = {"label": log_group}
+
+    _LATE_MS = 5000   # CloudWatch ingests events a few seconds after their timestamp
 
     def _fetch_history(self):
         start_ms = int((time.time() - self._lookback_s) * 1000)
@@ -126,19 +129,20 @@ class TailWorker(PollingWorker):
             filter_pattern=self._filter_pattern,
             max_events=None, keep_last=HISTORY_CAP,
         )
-        self._last_ts = events[-1][0] + 1 if events else int(time.time() * 1000)
-        return events
+        self._last_ts = events[-1][0] if events else int(time.time() * 1000)
+        return self._dedup.new(events)
 
     def _fetch_new(self):
         events = cloudwatch.fetch_events(
             self._client, self._log_group, self._log_stream or None,
-            start_ms=self._last_ts,
+            start_ms=self._last_ts - self._LATE_MS,
             filter_pattern=self._filter_pattern,
-            max_events=500,
+            max_events=5000,
         )
-        if events:
-            self._last_ts = events[-1][0] + 1
-        return events
+        new = self._dedup.new(events)
+        if new:
+            self._last_ts = max(self._last_ts, new[-1][0])
+        return new
 
 
 class FileWorker(LogWorker):
@@ -175,7 +179,7 @@ class FileWorker(LogWorker):
 
     def run(self):
         try:
-            self.status.emit(f"Loading {self._path}…")
+            self.status.emit(i18n.tr("msg_file_loading", path=self._path))
             lines, eof_pos = _read_last_n_lines(self._path, min(self._tail_lines, HISTORY_CAP))
             pending = b""
             if lines and eof_pos > 0 and not self._ends_with_newline(eof_pos):
@@ -183,7 +187,7 @@ class FileWorker(LogWorker):
                 pending = lines.pop().encode("utf-8")
             if lines:
                 self._emit_lines([line.encode("utf-8") for line in lines])
-            self.status.emit(f"Tailing {self._path}")
+            self.status.emit(i18n.tr("msg_tailing", path=self._path))
 
             # Resume tailing from EOF — only new bytes are read from here on
             f = open(self._path, "rb")  # noqa: SIM115
@@ -219,11 +223,11 @@ class FileWorker(LogWorker):
 
 class StdinWorker(StreamWorker):
     def run(self):
-        self.status.emit("Reading stdin…")
+        self.status.emit(i18n.tr("msg_stdin_reading"))
         try:
             self._pump(sys.stdin, clean_lines)
             if not self._stop:
-                self.status.emit("stdin — stream closed")
+                self.status.emit(i18n.tr("msg_stdin_closed"))
         except Exception as e:
             self.error.emit(str(e))
 
@@ -313,7 +317,7 @@ class DownloadWorker(QThread):
                         if total:
                             self.progress.emit(int(downloaded * 100 / total))
             if total and downloaded != total:
-                raise OSError(f"Incomplete download ({downloaded} of {total} bytes)")
+                raise OSError(i18n.tr("err_incomplete_download", done=downloaded, total=total))
             self.progress.emit(100)
             self.finished.emit(self._dest)
         except Exception as exc:
@@ -347,7 +351,7 @@ class DebInstallWorker(QThread):
                         detail = f.read(500)
                 except OSError:
                     pass
-                detail = detail or f"exit code {code}"
+                detail = detail or i18n.tr("err_exit_code", code=code)
         except OSError as e:
             code, detail = 1, str(e)
         with contextlib.suppress(OSError):
@@ -374,14 +378,14 @@ class SSHWorker(StreamWorker):
                 pass
 
     def run(self) -> None:
-        self.status.emit(f"Connecting to {self._remote_path}…")
+        self.status.emit(i18n.tr("msg_ssh_connecting", path=self._remote_path))
         try:
             cmd = (
                 f"tail -n {min(self._tail_lines, HISTORY_CAP)} -f {shlex.quote(self._remote_path)}"
             )
             _, stdout, stderr = self._client.exec_command(cmd, get_pty=False)
             self._channel = stdout.channel
-            self.status.emit(f"Tailing {self._remote_path}")
+            self.status.emit(i18n.tr("msg_tailing", path=self._remote_path))
             self._pump(
                 stdout, lambda batch: clean_lines(batch, "\n\r"),
                 is_stopped=lambda: self._stop or self._channel.closed,
@@ -391,7 +395,7 @@ class SSHWorker(StreamWorker):
                 if err:
                     self.error.emit(err)
                 else:
-                    self.status.emit("SSH stream ended")
+                    self.status.emit(i18n.tr("msg_ssh_ended"))
         except Exception as e:
             if not self._stop:
                 self.error.emit(str(e))
@@ -412,7 +416,7 @@ class _DockerTimestampedWorker(DockerStreamWorker):
 
 
 class DockerContainerWorker(_DockerTimestampedWorker):
-    _ENDED_STATUS = "Docker log stream ended"
+    _ENDED_STATUS = "msg_docker_ended"
 
     def __init__(self, container_id: str, lookback_s: float = 3600.0) -> None:
         super().__init__()
@@ -420,18 +424,18 @@ class DockerContainerWorker(_DockerTimestampedWorker):
         self._lookback_s   = lookback_s
 
     def _start_status(self) -> str:
-        return f"Streaming docker logs for {self._container_id[:12]}…"
+        return i18n.tr("msg_docker_streaming", name=self._container_id[:12])
 
     def _command(self) -> list[str]:
         return ["docker", "logs", "-f", "--timestamps",
                 f"--since={int(self._lookback_s)}s", self._container_id]
 
     def _exit_error(self, code: int) -> str:
-        return f"docker logs exited with code {code}"
+        return i18n.tr("err_cmd_exit", cmd="docker logs", code=code)
 
 
 class DockerComposeWorker(_DockerTimestampedWorker):
-    _ENDED_STATUS = "Compose log stream ended"
+    _ENDED_STATUS = "msg_compose_ended"
 
     def __init__(self, project_name: str, lookback_s: float = 3600.0) -> None:
         super().__init__()
@@ -439,18 +443,18 @@ class DockerComposeWorker(_DockerTimestampedWorker):
         self._lookback_s = lookback_s
 
     def _start_status(self) -> str:
-        return f"Streaming compose stack {self._project}…"
+        return i18n.tr("msg_compose_streaming", name=self._project)
 
     def _command(self) -> list[str]:
         return ["docker", "compose", "-p", self._project,
                 "logs", "-f", "--timestamps", f"--since={int(self._lookback_s)}s"]
 
     def _exit_error(self, code: int) -> str:
-        return f"docker compose logs exited {code}"
+        return i18n.tr("err_cmd_exit", cmd="docker compose logs", code=code)
 
 
 class DockerExecFileWorker(DockerStreamWorker):
-    _ENDED_STATUS = "Container file stream ended"
+    _ENDED_STATUS = "msg_exec_ended"
 
     def __init__(self, container_id: str, remote_path: str, tail_lines: int = 100) -> None:
         super().__init__()
@@ -459,14 +463,14 @@ class DockerExecFileWorker(DockerStreamWorker):
         self._tail_lines   = tail_lines
 
     def _start_status(self) -> str:
-        return f"Tailing {self._remote_path} in {self._container_id[:12]}…"
+        return i18n.tr("msg_exec_tailing", path=self._remote_path, name=self._container_id[:12])
 
     def _command(self) -> list[str]:
         return ["docker", "exec", self._container_id,
                 "tail", f"-n{min(self._tail_lines, HISTORY_CAP)}", "-f", self._remote_path]
 
     def _exit_error(self, code: int) -> str:
-        return f"docker exec exited with code {code}"
+        return i18n.tr("err_cmd_exit", cmd="docker exec", code=code)
 
 
 # ── Kubernetes worker ─────────────────────────────────────────────────────────
@@ -490,7 +494,7 @@ class KubernetesWorker(ProcessStreamWorker):
         self._now_ms    = 0
 
     def _start_status(self) -> str:
-        return f"Streaming Kubernetes logs for {self._label}…"
+        return i18n.tr("msg_k8s_starting", name=self._label)
 
     def _command(self) -> list[str]:
         self._now_ms = int(time.time() * 1000)
@@ -507,7 +511,7 @@ class KubernetesWorker(ProcessStreamWorker):
         if self._first:
             self._first = False
             self.history_done.emit(len(events))
-            self.status.emit(f"k8s {self._label} — streaming")
+            self.status.emit(i18n.tr("msg_k8s_streaming", name=self._label))
 
     def _finish(self) -> None:
         if self._proc.poll() != 0 and not self._stop:  # type: ignore[union-attr]
@@ -521,10 +525,7 @@ class KubernetesWorker(ProcessStreamWorker):
 class VercelWorker(PollingWorker):
     """Polls Vercel deployment events and emits new log lines."""
 
-    _MSG_LOADING = "Loading logs for {label}…"
-    _MSG_LOADED = "Tailing {label} — {n} events loaded"
-    _MSG_NEW = "{label} — {n} new events"
-    _MSG_IDLE = "Tailing {label}…"
+    _SRC = "Vercel"
 
     def __init__(self, token: str, project_id: str, project_name: str,
                  deployment_id: str, interval_s: float = 3.0,
@@ -557,10 +558,7 @@ class VercelWorker(PollingWorker):
 class GCPWorker(PollingWorker):
     """Polls Google Cloud Logging and emits new log entries."""
 
-    _MSG_LOADING = "Loading GCP logs for {label}…"
-    _MSG_LOADED = "GCP {label} — {n} entries loaded"
-    _MSG_NEW = "GCP {label} — {n} new entries"
-    _MSG_IDLE = "GCP {label} — tailing…"
+    _SRC = "GCP"
 
     def __init__(self, client, project_id: str, resource_type: str,
                  severity: str, custom_filter: str,
@@ -612,10 +610,7 @@ class GCPWorker(PollingWorker):
 class AzureWorker(PollingWorker):
     """Polls Azure Monitor Log Analytics and emits new log rows."""
 
-    _MSG_LOADING = "Loading Azure logs — {label}…"
-    _MSG_LOADED = "Azure {label} — {n} rows loaded"
-    _MSG_NEW = "Azure {label} — {n} new rows"
-    _MSG_IDLE = "Azure {label} — tailing…"
+    _SRC = "Azure"
 
     def __init__(self, logs_client, workspace_id: str, query: str,
                  label: str = "", lookback_s: float = 3600.0,
@@ -652,10 +647,7 @@ class AzureWorker(PollingWorker):
 class LokiWorker(PollingWorker):
     """Polls Grafana Loki via query_range and emits new log entries."""
 
-    _MSG_LOADING = "Loading Loki logs from {label}…"
-    _MSG_LOADED = "Loki {label} — {n} entries loaded"
-    _MSG_NEW = "Loki {label} — {n} new entries"
-    _MSG_IDLE = "Loki {label} — tailing…"
+    _SRC = "Loki"
 
     def __init__(self, url: str, query: str,
                  username: str = "", password: str = "", token: str = "",
@@ -698,10 +690,7 @@ class LokiWorker(PollingWorker):
 class DatadogWorker(PollingWorker):
     """Polls Datadog Logs Search API v2 and emits new log entries."""
 
-    _MSG_LOADING = "Loading Datadog logs from {label}…"
-    _MSG_LOADED = "Datadog {label} — {n} entries loaded"
-    _MSG_NEW = "Datadog {label} — {n} new entries"
-    _MSG_IDLE = "Datadog {label} — tailing…"
+    _SRC = "Datadog"
 
     def __init__(self, base_url: str, query: str, api_key: str, app_key: str,
                  lookback_s: float = 3600.0, interval_s: float = 10.0) -> None:
@@ -740,10 +729,7 @@ class DatadogWorker(PollingWorker):
 class ElasticWorker(PollingWorker):
     """Polls Elasticsearch / OpenSearch _search API and emits new log entries."""
 
-    _MSG_LOADING = "Loading Elasticsearch logs from {label}…"
-    _MSG_LOADED = "Elastic {label}/{index} — {n} hits loaded"
-    _MSG_NEW = "Elastic {label} — {n} new hits"
-    _MSG_IDLE = "Elastic {label} — tailing…"
+    _SRC = "Elastic"
 
     def __init__(self, url: str, index: str, query: str,
                  api_key: str = "", username: str = "", password: str = "",
@@ -759,7 +745,7 @@ class ElasticWorker(PollingWorker):
         self._ts_field    = ts_field
         self._lookback_h  = lookback_s / 3600
         self._dedup       = Dedup()
-        self._ctx         = {"label": url.split("//", 1)[-1].split("/")[0], "index": index}
+        self._ctx         = {"label": f"{url.split('//', 1)[-1].split('/')[0]}/{index}"}
 
     def _search(self, **kwargs) -> list:
         events, _ = elastic_utils.fetch_logs(
@@ -789,10 +775,7 @@ class ElasticWorker(PollingWorker):
 class RailwayWorker(PollingWorker):
     """Polls Railway deployment logs and emits new entries."""
 
-    _MSG_LOADING = "Loading Railway logs for {label}…"
-    _MSG_LOADED = "Railway {label} — {n} lines loaded"
-    _MSG_NEW = "Railway {label} — {n} new lines"
-    _MSG_IDLE = "Railway {label} — tailing…"
+    _SRC = "Railway"
 
     def __init__(self, token: str, project_name: str, service_name: str,
                  service_id: str, interval_s: float = 10.0,
@@ -807,32 +790,27 @@ class RailwayWorker(PollingWorker):
         since_ts_ms = int(time.time() * 1000) - int(self._lookback_s * 1000)
         deploy = railway_utils.get_latest_deployment(self._token, self._service_id)
         if not deploy:
-            raise RuntimeError(f"No deployment found for {self._ctx['label']}")
+            raise RuntimeError(i18n.tr("err_no_deployment", label=self._ctx["label"]))
         self._deploy_id = deploy["id"]
         all_events = railway_utils.fetch_deployment_logs(self._token, self._deploy_id)
-        self._seen: set = {(ts, m) for ts, m in all_events}
-        return [(ts, m) for ts, m in all_events if ts >= since_ts_ms]
+        self._dedup = Dedup(window_ms=60_000)
+        return self._dedup.new([(ts, m) for ts, m in all_events if ts >= since_ts_ms])
 
     def _fetch_new(self):
         # Check if a new deployment was created
         deploy = railway_utils.get_latest_deployment(self._token, self._service_id)
         if deploy and deploy["id"] != self._deploy_id:
             self._deploy_id = deploy["id"]
-            self._seen = set()
-        events = railway_utils.fetch_deployment_logs(self._token, self._deploy_id)
-        new = [(ts, m) for ts, m in events if (ts, m) not in self._seen]
-        self._seen.update(new)
-        return new
+            self._dedup = Dedup(window_ms=60_000)
+        return self._dedup.new(
+            railway_utils.fetch_deployment_logs(self._token, self._deploy_id))
 
 # ── Fly.io worker ─────────────────────────────────────────────────────────────
 
 class FlyioWorker(PollingWorker):
     """Polls Fly.io SSE log stream and emits new log entries."""
 
-    _MSG_LOADING = "Loading Fly.io logs for {label}…"
-    _MSG_LOADED = "Fly.io {label} — {n} entries loaded"
-    _MSG_NEW = "Fly.io {label} — {n} new entries"
-    _MSG_IDLE = "Fly.io {label} — tailing…"
+    _SRC = "Fly.io"
 
     def __init__(self, token: str, app_name: str, interval_s: float = 5.0,
                  lookback_s: float = 3600.0) -> None:
@@ -880,7 +858,7 @@ class CloudflareWorker(LogWorker):
 
     def run(self) -> None:
         label = self._script_name
-        self.status.emit(f"Connecting to Cloudflare tail for {label}…")
+        self.status.emit(i18n.tr("msg_cf_connecting", name=label))
 
         try:
             tail = cloudflare_utils.create_tail(
@@ -907,7 +885,7 @@ class CloudflareWorker(LogWorker):
         cloudflare_utils.ws_send_frame_unmasked(self._sock, 1, init)
 
         self.history_done.emit(0)
-        self.status.emit(f"Tailing {label} — waiting for requests…")
+        self.status.emit(i18n.tr("msg_cf_waiting", name=label))
 
         try:
             while not self._stop:
@@ -923,7 +901,7 @@ class CloudflareWorker(LogWorker):
                     events = cloudflare_utils.parse_tail_event(payload)
                     if events:
                         self.new_lines.emit(events)
-                        self.status.emit(f"Tailing {label} — live")
+                        self.status.emit(i18n.tr("msg_cf_live", name=label))
         except (EOFError, OSError):
             pass
         except Exception as e:

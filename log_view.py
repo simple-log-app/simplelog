@@ -703,13 +703,13 @@ class LogViewer(QWidget):
         self.font_dec_btn = QPushButton("A−")
         self.font_dec_btn.setFixedSize(26, 26)
         self.font_dec_btn.setStyleSheet(_font_btn_style)
-        self.font_dec_btn.setToolTip("Decrease font size")
+        self.font_dec_btn.setToolTip(i18n.tr("tip_font_dec"))
         self.font_dec_btn.clicked.connect(lambda: self._change_font_size(-1))
 
         self.font_inc_btn = QPushButton("A+")
         self.font_inc_btn.setFixedSize(26, 26)
         self.font_inc_btn.setStyleSheet(_font_btn_style)
-        self.font_inc_btn.setToolTip("Increase font size")
+        self.font_inc_btn.setToolTip(i18n.tr("tip_font_inc"))
         self.font_inc_btn.clicked.connect(lambda: self._change_font_size(+1))
 
         self.clear_btn = QPushButton()

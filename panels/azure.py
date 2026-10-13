@@ -11,7 +11,6 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -25,7 +24,6 @@ from PyQt6.QtWidgets import (
 
 import azure_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_ACCENT, C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
 from ui_widgets import (
@@ -59,6 +57,12 @@ class _AzureConnectWorker(BackgroundWorker):
 
 
 class AzurePanel(ProviderPanel):
+    profile_type = "azure"
+    _profile_bar_attr = "_az_profile_bar"
+    profile_required = ('tenant_id', 'workspace_id')
+
+    def default_profile_name(self) -> str:
+        return f"{self._tenant_input.text().strip()[:8]}…"
     _ALL_TABLES: list[tuple[str, str]] = [
         (cat, tbl)
         for cat, tbls in azure_utils.TABLES.items()
@@ -100,8 +104,8 @@ class AzurePanel(ProviderPanel):
             setattr(self, attr, fld)
             lay_auth.addWidget(fld)
 
-        self._save_profile_btn_az = _ghost_btn("Save as profile…")
-        self._save_profile_btn_az.clicked.connect(self._on_save_az_profile)
+        self._save_profile_btn_az = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_az.clicked.connect(self._save_profile)
         self._save_profile_btn_az.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_az)
 
@@ -271,7 +275,7 @@ class AzurePanel(ProviderPanel):
         secret = self._secret_input.text().strip()
         ws     = self._workspace_input.text().strip()
         if not all([tenant, cid, secret, ws]):
-            self._auth_status_az.setText("All fields are required.")
+            self._auth_status_az.setText(i18n.tr("err_az_all_required"))
             self._auth_status_az.setStyleSheet(f"color: {C_ERR}; font-size: 11px;")
             return
         self._workspace_id = ws
@@ -298,23 +302,6 @@ class AzurePanel(ProviderPanel):
         self._client_id_input.setText(p.get("client_id", ""))
         self._secret_input.setText(p.get("client_secret", ""))
         self._workspace_input.setText(p.get("workspace_id", ""))
-
-    def _on_save_az_profile(self) -> None:
-        workspace_id = self._workspace_input.text().strip()
-        tenant_id    = self._tenant_input.text().strip()
-        if not workspace_id or not tenant_id:
-            return
-        default_name = f"{tenant_id[:8]}…"
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text=default_name)
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("azure", name.strip(), {
-            "tenant_id":     tenant_id,
-            "client_id":     self._client_id_input.text().strip(),
-            "client_secret": self._secret_input.text().strip(),
-            "workspace_id":  workspace_id,
-        })
-        self._az_profile_bar.reload()
 
     def _on_az_connect_fail(self, msg: str) -> None:
         self._auth_status_az.setText(msg)

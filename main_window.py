@@ -26,7 +26,6 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -248,13 +247,13 @@ class MainWindow(QMainWindow):
         # Floating edge toggle buttons (overlaid on central widget)
         self._btn_left_toggle = _SidebarEdgeBtn("left", central)
         self._btn_left_toggle.set_svg(_SVG_CHEVRON_LEFT)
-        self._btn_left_toggle.setToolTip("Toggle sidebar  (Ctrl+\\)")
+        self._btn_left_toggle.setToolTip(i18n.tr("tip_toggle_sidebar"))
         self._btn_left_toggle.clicked.connect(self._toggle_left_sidebar)
         self._btn_left_toggle.show()
 
         self._btn_right_toggle = _SidebarEdgeBtn("right", central)
         self._btn_right_toggle.set_svg(_SVG_CHEVRON_RIGHT)
-        self._btn_right_toggle.setToolTip("Toggle search panel  (Ctrl+Shift+F)")
+        self._btn_right_toggle.setToolTip(i18n.tr("tip_toggle_search"))
         self._btn_right_toggle.clicked.connect(self._toggle_right_sidebar)
         self._btn_right_toggle.show()
 
@@ -326,33 +325,14 @@ class MainWindow(QMainWindow):
 
         # ── Language ──
         self._menu_lang = mb.addMenu("")
-        ag = QButtonGroup(self)  # not actually needed but keeps logic tidy
-        ag  # noqa: B018
 
-        self._act_lang_en = QAction(self)
-        self._act_lang_en.setCheckable(True)
-        self._act_lang_en.triggered.connect(lambda: self._action_set_language("en"))
-        self._menu_lang.addAction(self._act_lang_en)
-
-        self._act_lang_fr = QAction(self)
-        self._act_lang_fr.setCheckable(True)
-        self._act_lang_fr.triggered.connect(lambda: self._action_set_language("fr"))
-        self._menu_lang.addAction(self._act_lang_fr)
-
-        self._act_lang_de = QAction(self)
-        self._act_lang_de.setCheckable(True)
-        self._act_lang_de.triggered.connect(lambda: self._action_set_language("de"))
-        self._menu_lang.addAction(self._act_lang_de)
-
-        self._act_lang_es = QAction(self)
-        self._act_lang_es.setCheckable(True)
-        self._act_lang_es.triggered.connect(lambda: self._action_set_language("es"))
-        self._menu_lang.addAction(self._act_lang_es)
-
-        self._act_lang_zh = QAction(self)
-        self._act_lang_zh.setCheckable(True)
-        self._act_lang_zh.triggered.connect(lambda: self._action_set_language("zh"))
-        self._menu_lang.addAction(self._act_lang_zh)
+        self._lang_actions: dict[str, QAction] = {}
+        for code, name in i18n.available_locales():
+            action = QAction(name, self)
+            action.setCheckable(True)
+            action.triggered.connect(lambda _=False, c=code: self._action_set_language(c))
+            self._menu_lang.addAction(action)
+            self._lang_actions[code] = action
 
         # ── Help ──
         self._menu_help = mb.addMenu("")
@@ -384,16 +364,8 @@ class MainWindow(QMainWindow):
         self._act_copy.setText(i18n.tr("action_copy"))
         self._act_break.setText(i18n.tr("action_break"))
         self._menu_lang.setTitle(i18n.tr("menu_language"))
-        self._act_lang_en.setText(i18n.tr("lang_english"))
-        self._act_lang_en.setChecked(locale == "en")
-        self._act_lang_fr.setText(i18n.tr("lang_french"))
-        self._act_lang_fr.setChecked(locale == "fr")
-        self._act_lang_de.setText(i18n.tr("lang_german"))
-        self._act_lang_de.setChecked(locale == "de")
-        self._act_lang_es.setText(i18n.tr("lang_spanish"))
-        self._act_lang_es.setChecked(locale == "es")
-        self._act_lang_zh.setText(i18n.tr("lang_chinese"))
-        self._act_lang_zh.setChecked(locale == "zh")
+        for code, action in self._lang_actions.items():
+            action.setChecked(code == locale)
         self._menu_help.setTitle(i18n.tr("menu_help"))
         self._act_help_ref.setText(i18n.tr("action_help_ref"))
         self._act_about.setText(i18n.tr("action_about"))
@@ -407,7 +379,7 @@ class MainWindow(QMainWindow):
             self,
             i18n.tr("action_open"),
             os.path.expanduser("~"),
-            "Log files (*.log *.txt *.out *.err *.json);;All files (*)",
+            i18n.tr("filter_log_files"),
         )
         if path and os.path.isfile(path):
             self.open_file_tab(path)
@@ -857,7 +829,7 @@ class MainWindow(QMainWindow):
     def open_stdin_tab(self):
         worker = StdinWorker()
         viewer = LogViewer(source_type="stdin")
-        viewer.set_title("stdin — piped input")
+        viewer.set_title(i18n.tr("tab_stdin"))
         self._add_tab("stdin", viewer, worker, split="tab")
 
     def _connect_then(self, title: str, connect, done) -> None:
@@ -892,7 +864,7 @@ class MainWindow(QMainWindow):
         if provider.connect is not None and client is None:
             # No connection yet (e.g. a restored session): make it without freezing the UI
             self._connect_then(
-                provider.error_title or f"{provider.name} Error",
+                i18n.tr("err_provider_title", name=provider.name),
                 lambda: provider.connect(cfg),
                 lambda c: self._open_session(provider, cfg, c, split),
             )

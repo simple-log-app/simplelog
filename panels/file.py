@@ -124,9 +124,9 @@ class FilePanel(QWidget):
     def _on_browse(self):
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Open log file",
+            i18n.tr("nav_open_file"),
             os.path.expanduser("~"),
-            "Log files (*.log *.txt *.out *.err *.json);;All files (*)",
+            i18n.tr("filter_log_files"),
         )
         if path:
             self._open_path(path)

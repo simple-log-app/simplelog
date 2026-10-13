@@ -7,7 +7,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QSpinBox,
@@ -17,7 +16,6 @@ from PyQt6.QtWidgets import (
 
 import elastic_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
@@ -50,6 +48,12 @@ class _ElasticConnectWorker(BackgroundWorker):
 
 
 class ElasticPanel(ProviderPanel):
+    profile_type = "elastic"
+    _profile_bar_attr = "_elastic_profile_bar"
+    profile_required = ('url',)
+
+    def default_profile_name(self) -> str:
+        return self._es_url_input.text().split("//", 1)[-1].split("/")[0]
     def __init__(self, parent=None):
         super().__init__(parent)
         self._connect_worker: _ElasticConnectWorker | None = None
@@ -116,8 +120,8 @@ class ElasticPanel(ProviderPanel):
         self._es_basic_widget.setVisible(False)
         lay_conn.addWidget(self._es_basic_widget)
 
-        self._save_profile_btn_es = _ghost_btn("Save as profile…")
-        self._save_profile_btn_es.clicked.connect(self._on_save_elastic_profile)
+        self._save_profile_btn_es = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_es.clicked.connect(self._save_profile)
         self._save_profile_btn_es.setEnabled(False)
         lay_conn.addWidget(self._save_profile_btn_es)
 
@@ -247,24 +251,6 @@ class ElasticPanel(ProviderPanel):
         self._es_user_input.setText(p.get("username", ""))
         self._es_pass_input.setText(p.get("password", ""))
         self._on_auth_mode_changed_es(auth)
-
-    def _on_save_elastic_profile(self) -> None:
-        url = self._es_url_input.text().strip()
-        if not url:
-            return
-        default_name = url.split("//", 1)[-1].split("/")[0]
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text=default_name)
-        if not ok or not name.strip():
-            return
-        auth = self._es_auth_combo.currentIndex()
-        profiles_store.upsert("elastic", name.strip(), {
-            "url":      url,
-            "auth_mode": auth,
-            "api_key":  self._es_apikey_input.text().strip() if auth == 1 else "",
-            "username": self._es_user_input.text().strip()   if auth == 2 else "",
-            "password": self._es_pass_input.text()           if auth == 2 else "",
-        })
-        self._elastic_profile_bar.reload()
 
     def _on_open(self) -> None:
         url   = self._es_url_input.text().strip()

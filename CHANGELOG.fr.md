@@ -17,6 +17,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Les horodatages de la vue des logs s'affichent désormais en heure locale au lieu de l'UTC.
 - Démarrage plus rapide, et l'ouverture d'un gros fichier avec un très grand nombre de lignes est désormais quasi instantanée.
 - Les cartes de fournisseurs de « Ajouter une connexion » affichent désormais une courte description de chaque source au survol.
+- Les messages d'état, erreurs de connexion et infobulles qui étaient toujours en anglais suivent désormais la langue choisie.
 
 ### Corrigé
 - macOS : la mise à jour intégrée pouvait supprimer tout le dossier Applications au lieu de remplacer seulement SimpleLog. Elle ne remplace désormais que l'app SimpleLog, et conserve l'ancienne en cas de problème. La mise à jour s'exécutant depuis la version déjà installée, la 1.0.8 et les versions antérieures ne peuvent plus se mettre à jour toutes seules sur macOS : téléchargez la nouvelle version une fois depuis le site ou avec Homebrew.
@@ -40,6 +41,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Le navigateur de fichiers SFTP, les sessions SSH / GCP / Azure restaurées et la liste des clusters Kubernetes ne figent plus l'application pendant l'attente du réseau.
 - Le badge de source dans la barre du log affichait un libellé interne comme « src_ssh » ; il affiche désormais le nom de la source.
 - Les connexions Google Cloud enregistrées affichent désormais leur projet à côté de leur nom.
+- Azure : le suivi en direct fonctionne aussi avec une requête écrite sur une seule ligne ou avec une limite de lignes (`take`/`limit`) avant le filtre.
+- CloudWatch : les événements qui arrivent avec quelques secondes de retard ne sont plus manqués pendant le suivi.
+- Railway : le suivi d'un service ne garde plus toutes les lignes en mémoire, et sélectionner plusieurs services à la suite n'ouvre plus de connexions en trop.
 
 ## [1.0.8] - 2026-09-30
 

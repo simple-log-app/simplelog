@@ -5,6 +5,8 @@ import json
 import shutil
 import subprocess
 
+import i18n
+
 
 def is_docker_available() -> bool:
     """Return True if the docker CLI is available in PATH."""
@@ -14,7 +16,7 @@ def is_docker_available() -> bool:
 def _run(args: list[str], timeout: int = 10) -> str:
     result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or f"docker exited {result.returncode}")
+        raise RuntimeError(result.stderr.strip() or i18n.tr("err_cmd_exit", cmd="docker", code=result.returncode))
     return result.stdout
 
 

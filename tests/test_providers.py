@@ -70,9 +70,6 @@ def test_every_panel_class_resolves_to_a_provider_panel(provider):
 def test_providers_that_need_their_own_connection():
     needing = {p.id: p.client_key for p in providers.PROVIDERS if p.connect}
     assert needing == {"gcp": "_client", "azure": "_logs_client", "ssh": "_client"}
-    for p in providers.PROVIDERS:
-        if p.connect:
-            assert p.error_title.endswith("Error")
 
 
 def test_source_colors_cover_every_viewer_source():

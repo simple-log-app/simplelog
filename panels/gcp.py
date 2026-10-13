@@ -8,7 +8,6 @@ from PyQt6.QtCore import (
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QSpinBox,
@@ -18,7 +17,6 @@ from PyQt6.QtWidgets import (
 
 import gcp_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
@@ -66,6 +64,12 @@ class _GCPListProjectsWorker(BackgroundWorker):
 
 
 class GCPPanel(ProviderPanel):
+    profile_type = "gcp"
+    _profile_bar_attr = "_gcp_profile_bar"
+    profile_required = ('project_id',)
+
+    def default_profile_name(self) -> str:
+        return self._project_input.text().strip()
     def __init__(self, parent=None):
         super().__init__(parent)
         self._client: object | None = None
@@ -133,8 +137,8 @@ class GCPPanel(ProviderPanel):
         self._proj_combo.currentIndexChanged.connect(self._on_proj_combo_changed)
         lay_auth.addWidget(self._proj_combo)
 
-        self._save_profile_btn_gcp = _ghost_btn("Save as profile…")
-        self._save_profile_btn_gcp.clicked.connect(self._on_save_gcp_profile)
+        self._save_profile_btn_gcp = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_gcp.clicked.connect(self._save_profile)
         self._save_profile_btn_gcp.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_gcp)
 
@@ -213,7 +217,8 @@ class GCPPanel(ProviderPanel):
         self._sa_widget.setVisible(idx == 1)
 
     def _browse_key(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Service Account Key", "", "JSON (*.json)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, i18n.tr("gcp_auth_sa"), "", i18n.tr("filter_json"))
         if path:
             self._key_input.setText(path)
 
@@ -272,21 +277,6 @@ class GCPPanel(ProviderPanel):
         self._key_input.setText(p.get("key_path", ""))
         self._project_input.setText(p.get("project_id", ""))
         self._on_auth_mode_changed(self._auth_combo.currentIndex())
-
-    def _on_save_gcp_profile(self) -> None:
-        project_id = self._project_input.text().strip()
-        if not project_id:
-            return
-        default_name = project_id
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text=default_name)
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("gcp", name.strip(), {
-            "auth_mode":  self._auth_combo.currentIndex(),
-            "key_path":   self._key_input.text().strip() if self._auth_combo.currentIndex() == 1 else "",
-            "project_id": project_id,
-        })
-        self._gcp_profile_bar.reload()
 
     def _on_connect_fail_gcp(self, msg: str) -> None:
         self._auth_status.setText(msg)

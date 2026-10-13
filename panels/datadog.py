@@ -7,7 +7,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QSpinBox,
@@ -15,7 +14,6 @@ from PyQt6.QtWidgets import (
 
 import datadog_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
@@ -46,6 +44,8 @@ class _DatadogConnectWorker(BackgroundWorker):
 
 
 class DatadogPanel(ProviderPanel):
+    profile_type = "datadog"
+    _profile_bar_attr = "_dd_profile_bar"
     def __init__(self, parent=None):
         super().__init__(parent)
         self._connected = False
@@ -87,8 +87,8 @@ class DatadogPanel(ProviderPanel):
         self._app_key_input.setStyleSheet(FIELD_STYLE)
         lay_auth.addWidget(self._app_key_input)
 
-        self._save_profile_btn_dd = _ghost_btn("Save as profile…")
-        self._save_profile_btn_dd.clicked.connect(self._on_save_datadog_profile)
+        self._save_profile_btn_dd = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_dd.clicked.connect(self._save_profile)
         self._save_profile_btn_dd.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_dd)
 
@@ -157,7 +157,7 @@ class DatadogPanel(ProviderPanel):
         api_key   = self._api_key_input.text().strip()
         app_key   = self._app_key_input.text().strip()
         if not api_key or not app_key:
-            self._auth_status_dd.setText("API Key and App Key are required")
+            self._auth_status_dd.setText(i18n.tr("err_dd_keys_required"))
             self._auth_status_dd.setStyleSheet(f"color: {C_ERR}; font-size: 11px;")
             return
         self._connect_btn_dd.setEnabled(False)
@@ -189,17 +189,6 @@ class DatadogPanel(ProviderPanel):
             self._site_combo.setCurrentIndex(idx)
         self._api_key_input.setText(p.get("api_key", ""))
         self._app_key_input.setText(p.get("app_key", ""))
-
-    def _on_save_datadog_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text="datadog")
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("datadog", name.strip(), {
-            "site":    self._site_combo.currentText(),
-            "api_key": self._api_key_input.text().strip(),
-            "app_key": self._app_key_input.text().strip(),
-        })
-        self._dd_profile_bar.reload()
 
     def _on_open(self) -> None:
         site_name = self._site_combo.currentText()

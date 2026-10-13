@@ -8,7 +8,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -18,7 +17,6 @@ from PyQt6.QtWidgets import (
 
 import flyio_utils
 import i18n
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
@@ -46,6 +44,8 @@ class _FlyioConnectWorker(BackgroundWorker):
 
 
 class FlyioPanel(ProviderPanel):
+    profile_type = "flyio"
+    _profile_bar_attr = "_flyio_profile_bar"
     def __init__(self, parent=None):
         super().__init__(parent)
         self._connect_worker: _FlyioConnectWorker | None = None
@@ -70,8 +70,8 @@ class FlyioPanel(ProviderPanel):
         self._flyio_token_input.setStyleSheet(FIELD_STYLE)
         lay_auth.addWidget(self._flyio_token_input)
 
-        self._save_profile_btn_flyio = _ghost_btn("Save as profile…")
-        self._save_profile_btn_flyio.clicked.connect(self._on_save_flyio_profile)
+        self._save_profile_btn_flyio = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_flyio.clicked.connect(self._save_profile)
         self._save_profile_btn_flyio.setEnabled(False)
         lay_auth.addWidget(self._save_profile_btn_flyio)
 
@@ -166,15 +166,6 @@ class FlyioPanel(ProviderPanel):
 
     def _load_flyio_profile(self, p: dict) -> None:
         self._flyio_token_input.setText(p.get("token", ""))
-
-    def _on_save_flyio_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text="flyio")
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("flyio", name.strip(), {
-            "token": self._flyio_token_input.text().strip(),
-        })
-        self._flyio_profile_bar.reload()
 
     def _on_open(self) -> None:
         token = self._flyio_token_input.text().strip()

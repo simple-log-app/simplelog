@@ -4,20 +4,23 @@ from __future__ import annotations
 import base64
 import hashlib
 import stat
-from pathlib import Path
 from typing import TYPE_CHECKING
+
+import i18n
+from config_store import CONFIG_DIR, append_private
 
 if TYPE_CHECKING:
     import paramiko
 
-_KNOWN_HOSTS = Path.home() / ".config" / "simplelog" / "known_hosts"
+_KNOWN_HOSTS = CONFIG_DIR / "known_hosts"
 
 
 class UnknownHostKeyError(RuntimeError):
     """Raised when the server's host key is not yet trusted."""
 
     def __init__(self, host: str, key_type: str, fingerprint: str) -> None:
-        super().__init__(f"Unknown host key for {host}: {key_type} {fingerprint}")
+        super().__init__(i18n.tr("err_ssh_unknown_host", host=host, key_type=key_type,
+                                 fingerprint=fingerprint))
         self.host = host
         self.key_type = key_type
         self.fingerprint = fingerprint
@@ -42,9 +45,7 @@ def _build_trust_policy():
                 raise UnknownHostKeyError(hostname, key.get_name(), _fingerprint(key))
             client.get_host_keys().add(hostname, key.get_name(), key)
             line = paramiko.hostkeys.HostKeyEntry([hostname], key).to_line()
-            _KNOWN_HOSTS.parent.mkdir(parents=True, exist_ok=True)
-            with open(_KNOWN_HOSTS, "a", encoding="utf-8") as f:
-                f.write(line)
+            append_private(_KNOWN_HOSTS, line)
 
     return _TrustPolicy
 
@@ -99,13 +100,13 @@ def make_client(
         client.close()
         raise
     except paramiko.BadHostKeyException as e:
-        raise RuntimeError(f"Host key mismatch (possible attack): {e}") from e
+        raise RuntimeError(i18n.tr("err_ssh_hostkey", error=e)) from e
     except paramiko.AuthenticationException as e:
-        raise RuntimeError(f"Authentication failed: {e}") from e
+        raise RuntimeError(i18n.tr("err_ssh_auth", error=e)) from e
     except paramiko.SSHException as e:
-        raise RuntimeError(f"SSH error: {e}") from e
+        raise RuntimeError(i18n.tr("err_ssh_generic", error=e)) from e
     except OSError as e:
-        raise RuntimeError(f"Connection failed: {e}") from e
+        raise RuntimeError(i18n.tr("err_ssh_connect", error=e)) from e
     return client
 
 
@@ -121,7 +122,7 @@ def list_remote_dir_full(client: paramiko.SSHClient, path: str) -> list[tuple[st
         finally:
             sftp.close()
     except Exception as e:
-        raise RuntimeError(f"Cannot list {path}: {e}") from e
+        raise RuntimeError(i18n.tr("err_ssh_list", path=path, error=e)) from e
     result = []
     for a in sorted(attrs, key=lambda x: x.filename):
         is_dir = stat.S_ISDIR(a.st_mode) if a.st_mode else False

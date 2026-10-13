@@ -10,7 +10,6 @@ from PyQt6.QtGui import (
     QColor,
 )
 from PyQt6.QtWidgets import (
-    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -24,7 +23,6 @@ from PyQt6.QtWidgets import (
 
 import cloudwatch
 import i18n
-import profiles_store
 from panels.base import ProviderPanel
 from ui_theme import C_ACCENT, C_SIDE, C_TEXT
 from ui_widgets import (
@@ -40,6 +38,11 @@ from ui_workers import CallWorker
 
 
 class CloudWatchPanel(ProviderPanel):
+    profile_type = "cloudwatch"
+    _profile_bar_attr = "_cw_profile_bar"
+
+    def default_profile_name(self) -> str:
+        return "My account"
     _REGIONS = [
         "us-east-1", "us-east-2", "us-west-1", "us-west-2",
         "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",
@@ -136,8 +139,8 @@ class CloudWatchPanel(ProviderPanel):
         self._region_section.setVisible(False)
         cl.addWidget(self._region_section)
 
-        self._save_profile_btn_cw = _ghost_btn("Save as profile…")
-        self._save_profile_btn_cw.clicked.connect(self._on_save_cw_profile)
+        self._save_profile_btn_cw = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_cw.clicked.connect(self._save_profile)
         self.connect_btn = _primary_btn()
         self.connect_btn.clicked.connect(self._on_connect)
         cl.addWidget(self._save_profile_btn_cw)
@@ -289,13 +292,6 @@ class CloudWatchPanel(ProviderPanel):
             streams = self.stream_list.findItems(stream, Qt.MatchFlag.MatchExactly)
             if streams:
                 self.stream_list.setCurrentItem(streams[0])
-
-    def _on_save_cw_profile(self) -> None:
-        name, ok = QInputDialog.getText(self, "Save Profile", "Profile name:", text="My account")
-        if not ok or not name.strip():
-            return
-        profiles_store.upsert("cloudwatch", name.strip(), self.profile_data())
-        self._cw_profile_bar.reload()
 
     def _on_auth_mode_changed(self, index: int):
         use_keys = index == 1

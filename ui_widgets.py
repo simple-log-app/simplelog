@@ -299,7 +299,7 @@ class NavRail(QWidget):
         self._buttons: list[NavButton] = []
 
         self._btn_remote = NavButton(_SVG_REMOTE, i18n.tr("remote_title"))
-        self._btn_file   = NavButton(_SVG_FOLDER, "Open log file")
+        self._btn_file   = NavButton(_SVG_FOLDER, i18n.tr("nav_open_file"))
 
         for btn in (self._btn_remote, self._btn_file):
             btn.clicked.connect(self._on_button_clicked)

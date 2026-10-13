@@ -7,7 +7,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QMenu,
@@ -18,7 +17,6 @@ from PyQt6.QtWidgets import (
 
 import i18n
 import loki_utils
-import profiles_store
 from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_CARD, C_ERR, C_INFO, C_MUTED, C_SEL_BG, C_TEXT
 from ui_widgets import (
@@ -52,6 +50,12 @@ class _LokiConnectWorker(BackgroundWorker):
 
 
 class LokiPanel(ProviderPanel):
+    profile_type = "loki"
+    _profile_bar_attr = "_loki_profile_bar"
+    profile_required = ('url',)
+
+    def default_profile_name(self) -> str:
+        return self._url_input.text().split("//", 1)[-1].split("/")[0]
     def __init__(self, parent=None):
         super().__init__(parent)
         self._labels: list[str] = []
@@ -121,8 +125,8 @@ class LokiPanel(ProviderPanel):
         self._token_widget.setVisible(False)
         lay_conn.addWidget(self._token_widget)
 
-        self._save_profile_btn_loki = _ghost_btn("Save as profile…")
-        self._save_profile_btn_loki.clicked.connect(self._on_save_loki_profile)
+        self._save_profile_btn_loki = _ghost_btn(i18n.tr("profile_save_btn"))
+        self._save_profile_btn_loki.clicked.connect(self._save_profile)
         self._save_profile_btn_loki.setEnabled(False)
         lay_conn.addWidget(self._save_profile_btn_loki)
 
@@ -250,24 +254,6 @@ class LokiPanel(ProviderPanel):
         self._pass_input.setText(p.get("password", ""))
         self._token_input.setText(p.get("token", ""))
         self._on_auth_mode_changed(auth_mode)
-
-    def _on_save_loki_profile(self) -> None:
-        url = self._url_input.text().strip()
-        if not url:
-            return
-        default_name = url.split("//", 1)[-1].split("/")[0]
-        name, ok = QInputDialog.getText(self, "Save profile", "Profile name:", text=default_name)
-        if not ok or not name.strip():
-            return
-        auth_mode = self._auth_combo.currentIndex()
-        profiles_store.upsert("loki", name.strip(), {
-            "url":       url,
-            "auth_mode": auth_mode,
-            "username":  self._user_input.text().strip() if auth_mode == 1 else "",
-            "password":  self._pass_input.text() if auth_mode == 1 else "",
-            "token":     self._token_input.text().strip() if auth_mode == 2 else "",
-        })
-        self._loki_profile_bar.reload()
 
     def _on_open(self) -> None:
         url = self._url_input.text().strip()

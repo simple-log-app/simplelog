@@ -13,6 +13,8 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
+import i18n
+
 _API_BASE = "https://api.cloudflare.com/client/v4"
 
 
@@ -66,8 +68,8 @@ def list_workers(api_token: str, account_id: str) -> list[str]:
     data = _get(f"/accounts/{account_id}/workers/scripts", api_token)
     if not data.get("success"):
         errs = data.get("errors", [])
-        msg = errs[0].get("message", "Unknown error") if errs else "Unknown error"
-        raise RuntimeError(f"Failed to list workers: {msg}")
+        msg = errs[0].get("message", i18n.tr("err_cf_unknown")) if errs else i18n.tr("err_cf_unknown")
+        raise RuntimeError(i18n.tr("err_cf_list", error=msg))
     return sorted(s["id"] for s in data.get("result", []) if s.get("id"))
 
 
@@ -79,8 +81,8 @@ def create_tail(api_token: str, account_id: str, script_name: str) -> dict:
     )
     if not data.get("success"):
         errs = data.get("errors", [])
-        msg = errs[0].get("message", "Unknown error") if errs else "Unknown error"
-        raise RuntimeError(f"Failed to create tail: {msg}")
+        msg = errs[0].get("message", i18n.tr("err_cf_unknown")) if errs else i18n.tr("err_cf_unknown")
+        raise RuntimeError(i18n.tr("err_cf_tail", error=msg))
     return data["result"]
 
 
@@ -99,7 +101,7 @@ def _recv_exact(ssock: ssl.SSLSocket, n: int) -> bytes:
     while len(buf) < n:
         chunk = ssock.recv(n - len(buf))
         if not chunk:
-            raise EOFError("WebSocket connection closed")
+            raise EOFError(i18n.tr("err_ws_closed"))
         buf += chunk
     return buf
 
@@ -135,12 +137,12 @@ def ws_connect(ws_url: str, api_token: str = "", timeout: int = 30) -> ssl.SSLSo
     while b"\r\n\r\n" not in response:
         chunk = ssock.recv(4096)
         if not chunk:
-            raise RuntimeError("Connection closed during WebSocket handshake")
+            raise RuntimeError(i18n.tr("err_ws_handshake"))
         response += chunk
 
     first_line = response.split(b"\r\n")[0].decode("utf-8", errors="replace")
     if "101" not in first_line:
-        raise RuntimeError(f"WebSocket upgrade failed: {first_line.strip()}")
+        raise RuntimeError(i18n.tr("err_ws_upgrade", line=first_line.strip()))
 
     ssock.settimeout(35)  # > server ping interval
     return ssock

@@ -39,11 +39,11 @@ Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probab
 
 ## 🟡 Bugs de gravité basse
 
-- [ ] 20. Railway : handler rebranché à chaque sélection ; ensemble `_seen` illimité ; tous les logs retéléchargés à chaque poll.
-- [ ] 21. Azure : filtre de temps inséré après la 1ʳᵉ ligne (mauvais si requête sur une ligne ou `take`/`limit` avant).
-- [ ] 22. CloudWatch : événements arrivés en retard perdus (pas de chevauchement). *(probable)*
-- [ ] 23. Cloudflare : description du worker fausse (HTTP/2, wrangler jamais utilisés).
-- [ ] 24. ~120 textes visibles en dur (statuts des workers, « Save as profile… », « Profile name: », erreurs) : à passer par `i18n`.
+- [x] 20. Railway : handler rebranché à chaque sélection ; ensemble `_seen` illimité ; tous les logs retéléchargés à chaque poll.
+- [x] 21. Azure : filtre de temps inséré après la 1ʳᵉ ligne (mauvais si requête sur une ligne ou `take`/`limit` avant).
+- [x] 22. CloudWatch : événements arrivés en retard perdus (pas de chevauchement). *(probable)*
+- [x] 23. Cloudflare : description du worker fausse (HTTP/2, wrangler jamais utilisés).
+- [x] 24. Textes visibles en dur (statuts des workers, « Save as profile… », « Profile name: », erreurs de connexion, infobulles, filtres de fichiers, descriptions des fournisseurs) : passés par `i18n` (74 clés × 5 langues). Restent volontairement en anglais : l'aide de la ligne de commande, les préfixes d'erreur d'API (« Loki 401: … ») et les noms de produits.
 
 ## ⚡ Performances (mesures : 2 000 lignes une par une = 26 s ; 1 ligne à 10 000 lignes = 250 ms ; fichier 300 000 lignes = 18,8 s)
 
@@ -71,9 +71,9 @@ Cause principale : `LogDelegate.sizeHint` (72 % du temps) recalculé pour **tout
 - [x] R3. Base `PollingWorker` pour les 9 workers de polling (doublons, arrêt, erreurs avec retry, historique borné).
 - [x] R4. Base `StreamWorker` pour les flux (paquets, arrêt propre, stderr lu au fil de l'eau).
 - [x] R5. Supprimer le code mort (~550 lignes) : `AddRemoteDialog`, `_PROVIDER_FIELDS` / `_make_form_fields` / `get_form_data`, code HTTP/2 de `cloudflare_utils.py`, fonctions utilisées seulement par les tests, `_update_*_badge` vides, 3 copies du bloc `_HAS_SVG`.
-- [ ] R6. Factoriser la sauvegarde de profil (13 copies) dans `ProviderPanel`, avec i18n.
-- [ ] R7. Un seul module d'écriture des fichiers de config (atomique, `0600`).
-- [ ] R8. Générer le menu Langue depuis `locales/*.json`.
+- [x] R6. Factoriser la sauvegarde de profil (13 copies) dans `ProviderPanel`, avec i18n.
+- [x] R7. Un seul module d'écriture des fichiers de config (atomique, `0600`).
+- [x] R8. Générer le menu Langue depuis `locales/*.json`.
 
 ## Ordre conseillé
 
