@@ -13,6 +13,7 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
 import workers
+from worker_base import _batched
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -23,37 +24,37 @@ def qapp():
 # ── 2. duplicates: _Dedup ─────────────────────────────────────────────────────
 
 def test_dedup_first_batch_is_returned_whole():
-    d = workers._Dedup()
+    d = workers.Dedup()
     assert d.new([(1, "a"), (2, "b")]) == [(1, "a"), (2, "b")]
 
 
 def test_dedup_drops_the_boundary_event_that_comes_back():
-    d = workers._Dedup()
+    d = workers.Dedup()
     d.new([(1, "a"), (2, "b")])
     assert d.new([(2, "b"), (3, "c")]) == [(3, "c")]
 
 
 def test_dedup_keeps_a_different_event_in_the_same_millisecond():
-    d = workers._Dedup()
+    d = workers.Dedup()
     d.new([(2, "b")])
     assert d.new([(2, "b"), (2, "b2")]) == [(2, "b2")]
 
 
 def test_dedup_window_absorbs_truncated_timestamps():
-    d = workers._Dedup(window_ms=1000)
+    d = workers.Dedup(window_ms=1000)
     d.new([(5200, "x"), (5900, "y")])
     # the next query restarts at second 5 → x and y are returned again
     assert d.new([(5200, "x"), (5900, "y"), (6100, "z")]) == [(6100, "z")]
 
 
 def test_dedup_ignores_events_older_than_the_window():
-    d = workers._Dedup(window_ms=1000)
+    d = workers.Dedup(window_ms=1000)
     d.new([(10_000, "x")])
     assert d.new([(2_000, "old")]) == []
 
 
 def test_dedup_forgets_old_events_to_stay_small():
-    d = workers._Dedup(window_ms=10)
+    d = workers.Dedup(window_ms=10)
     for i in range(1000):
         d.new([(i * 100, f"m{i}")])
     assert len(d._seen) <= 2
@@ -61,7 +62,7 @@ def test_dedup_forgets_old_events_to_stay_small():
 
 # ── 4. transient errors do not stop the tail ──────────────────────────────────
 
-class _Probe(workers._PollWorker):
+class _Probe(workers.PollingWorker):
     new_lines = pyqtSignal(list)
     status = pyqtSignal(str)
     error = pyqtSignal(str)
@@ -72,9 +73,9 @@ def test_poll_failures_are_retried_then_reported():
     errors, statuses = [], []
     w.error.connect(errors.append)
     w.status.connect(statuses.append)
-    for i in range(workers._PollWorker._MAX_FAILS - 1):
+    for i in range(workers.PollingWorker._MAX_FAILS - 1):
         assert w._poll_failed(RuntimeError("net")) is False
-    assert errors == [] and len(statuses) == workers._PollWorker._MAX_FAILS - 1
+    assert errors == [] and len(statuses) == workers.PollingWorker._MAX_FAILS - 1
     assert w._poll_failed(RuntimeError("net")) is True
     assert errors == ["net"]
 
@@ -83,10 +84,10 @@ def test_a_successful_poll_resets_the_failure_count():
     w = _Probe()
     errors = []
     w.error.connect(errors.append)
-    for _ in range(workers._PollWorker._MAX_FAILS - 1):
+    for _ in range(workers.PollingWorker._MAX_FAILS - 1):
         w._poll_failed(RuntimeError("net"))
     w._poll_ok()
-    for _ in range(workers._PollWorker._MAX_FAILS - 1):
+    for _ in range(workers.PollingWorker._MAX_FAILS - 1):
         w._poll_failed(RuntimeError("net"))
     assert errors == []
 
@@ -136,7 +137,7 @@ def test_worker_gives_up_after_repeated_failures(monkeypatch):
     w = workers.LokiWorker("http://l", "q", interval_s=0.001)
     _, errors = _run_polling(w, 0)
     assert errors == ["down"]
-    assert calls["n"] == 1 + workers._PollWorker._MAX_FAILS
+    assert calls["n"] == 1 + workers.PollingWorker._MAX_FAILS
 
 
 # ── 2. duplicates through the workers ─────────────────────────────────────────
@@ -279,7 +280,7 @@ def test_batched_flushes_a_slow_stream_quickly():
         yield "c"
 
     t0 = time.monotonic()
-    it = workers._batched(slow(), lambda: False, max_batch=200, max_wait=0.05)
+    it = _batched(slow(), lambda: False, max_batch=200, max_wait=0.05)
     first = next(it)
     assert first == ["a", "b"]
     assert time.monotonic() - t0 < 0.6
@@ -287,7 +288,7 @@ def test_batched_flushes_a_slow_stream_quickly():
 
 
 def test_batched_caps_the_batch_size():
-    out = list(workers._batched(iter(range(10)), lambda: False, max_batch=4, max_wait=5))
+    out = list(_batched(iter(range(10)), lambda: False, max_batch=4, max_wait=5))
     assert [len(b) for b in out] == [4, 4, 2]
     assert sum(out, []) == list(range(10))
 
@@ -300,7 +301,7 @@ def test_batched_stops_when_asked():
             time.sleep(0.05)
             yield "x"
 
-    it = workers._batched(never_ending(), lambda: stop["v"], max_wait=0.01)
+    it = _batched(never_ending(), lambda: stop["v"], max_wait=0.01)
     next(it)
     stop["v"] = True
     with pytest.raises(StopIteration):

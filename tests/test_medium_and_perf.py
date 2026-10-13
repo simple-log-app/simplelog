@@ -395,7 +395,7 @@ def test_new_search_still_jumps_to_the_first_match(qapp):
 # ── polling workers: stop is immediate ───────────────────────────────────────
 
 def test_stop_interrupts_the_poll_sleep():
-    class W(workers._PollWorker):
+    class W(workers.PollingWorker):
         new_lines = pyqtSignal(list)
         status = pyqtSignal(str)
         error = pyqtSignal(str)

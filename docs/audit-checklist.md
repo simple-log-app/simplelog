@@ -68,8 +68,8 @@ Cause principale : `LogDelegate.sizeHint` (72 % du temps) recalculé pour **tout
 
 - [ ] R1. Registre unique des fournisseurs (remplace `_REMOTE_PROVIDERS`, `_PROVIDER_ORDER`, `_get_subtitle`, `_SOURCE_COLORS`, les 15 `open_*_tab`, `_configs`).
 - [ ] R2. Vraie interface `ProviderPanel` (connecter, connecté ?, ouvrir, lire/charger profil) à la place des ~60 attributs privés lus par `_configs`.
-- [ ] R3. Base `PollingWorker` pour les 9 workers de polling (doublons, arrêt, erreurs avec retry, historique borné).
-- [ ] R4. Base `StreamWorker` pour les flux (paquets, arrêt propre, stderr lu au fil de l'eau).
+- [x] R3. Base `PollingWorker` pour les 9 workers de polling (doublons, arrêt, erreurs avec retry, historique borné).
+- [x] R4. Base `StreamWorker` pour les flux (paquets, arrêt propre, stderr lu au fil de l'eau).
 - [ ] R5. Supprimer le code mort (~550 lignes) : `AddRemoteDialog`, `_PROVIDER_FIELDS` / `_make_form_fields` / `get_form_data`, code HTTP/2 de `cloudflare_utils.py`, fonctions utilisées seulement par les tests, `_update_*_badge` vides, 3 copies du bloc `_HAS_SVG`.
 - [ ] R6. Factoriser la sauvegarde de profil (13 copies) dans `ProviderPanel`, avec i18n.
 - [ ] R7. Un seul module d'écriture des fichiers de config (atomique, `0600`).
