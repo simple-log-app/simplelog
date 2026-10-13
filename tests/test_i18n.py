@@ -232,3 +232,31 @@ def test_save_locale_creates_parent_dirs(monkeypatch, tmp_path):
     i18n.set_locale("en")
     i18n.save_locale()
     assert prefs_path.exists()
+
+
+# ── locale catalogs ───────────────────────────────────────────────────────────
+
+def test_catalogs_are_loaded_from_locales_dir():
+    from pathlib import Path
+    files = {p.stem for p in (Path(i18n.__file__).parent / "locales").glob("*.json")}
+    assert files == set(i18n._STRINGS) == {"en", "fr", "de", "es", "zh"}
+
+
+def test_english_is_the_reference_catalog():
+    en = set(i18n._STRINGS["en"])
+    for lang, catalog in i18n._STRINGS.items():
+        assert set(catalog) <= en, f"{lang} has keys missing from en"
+
+
+def test_placeholders_match_english():
+    import re
+    ph = re.compile(r"\{(\w+)\}")
+    for lang, catalog in i18n._STRINGS.items():
+        for key, text in catalog.items():
+            assert set(ph.findall(text)) == set(ph.findall(i18n._STRINGS["en"][key])), (lang, key)
+
+
+def test_locales_are_bundled_by_pyinstaller():
+    from pathlib import Path
+    spec = (Path(i18n.__file__).parent / "simplelog.spec").read_text()
+    assert '("locales", "locales")' in spec
