@@ -408,3 +408,23 @@ class DockerPanel(ProviderPanel):
             "tail_lines":     self._tail_spin_e.value(),
         }
         self.open_tab.emit(cfg, self._open_mode_e.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    saveable = False
+
+    def can_open(self) -> bool:
+        tabs = getattr(self, "_tabs", None)
+        if tabs is None:                                  # docker is not installed
+            return True
+        button = (self._open_btn_c, self._open_btn_s, self._open_btn_e)[tabs.currentIndex()]
+        return button.isEnabled()
+
+    def open_selected(self) -> None:
+        tabs = getattr(self, "_tabs", None)
+        if tabs is None:
+            return
+        (self._on_open_container, self._on_open_stack, self._on_open_exec)[tabs.currentIndex()]()
+
+    def _embedded_hidden(self) -> list:
+        return [self._title_lbl] if hasattr(self, "_title_lbl") else []

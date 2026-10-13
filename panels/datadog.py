@@ -216,3 +216,32 @@ class DatadogPanel(ProviderPanel):
             "label":         site_name.split(" ")[0],
         }
         self.open_tab.emit(cfg, self._open_mode_dd.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_dd_query_input", "_lookback_combo_dd", "_interval_spin_dd")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return self._connected
+
+    def load_profile(self, data: dict) -> None:
+        self._load_datadog_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_dd.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        return {
+            "site":    self._site_combo.currentText(),
+            "api_key": self._api_key_input.text().strip(),
+            "app_key": self._app_key_input.text().strip(),
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_dd, self._open_btn_dd]

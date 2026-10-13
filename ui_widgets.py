@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 import i18n
 import profiles_store
 from ui_theme import (
+    _HAS_SVG,
     _SVG_CHEVRON_LEFT,
     _SVG_CLOSE_X,
     _SVG_FOLDER,
@@ -48,6 +49,8 @@ from ui_theme import (
     C_PANEL,
     C_RAIL,
     C_TEXT,
+    QByteArray,
+    QSvgRenderer,
     _svg_icon,
 )
 
@@ -59,13 +62,6 @@ class NoScrollComboBox(QComboBox):
 
     def wheelEvent(self, event) -> None:  # noqa: N802
         event.ignore()
-
-try:
-    from PyQt6.QtCore import QByteArray
-    from PyQt6.QtSvg import QSvgRenderer
-    _HAS_SVG = True
-except ImportError:
-    _HAS_SVG = False
 
 
 # ── Tab bar with close-button-on-active-tab only ──────────────────────────────

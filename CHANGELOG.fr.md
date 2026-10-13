@@ -16,6 +16,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Ctrl+W ferme désormais l'onglet courant ; fermer tous les logs se fait avec Ctrl+Maj+W.
 - Les horodatages de la vue des logs s'affichent désormais en heure locale au lieu de l'UTC.
 - Démarrage plus rapide, et l'ouverture d'un gros fichier avec un très grand nombre de lignes est désormais quasi instantanée.
+- Les cartes de fournisseurs de « Ajouter une connexion » affichent désormais une courte description de chaque source au survol.
 
 ### Corrigé
 - macOS : la mise à jour intégrée pouvait supprimer tout le dossier Applications au lieu de remplacer seulement SimpleLog. Elle ne remplace désormais que l'app SimpleLog, et conserve l'ancienne en cas de problème. La mise à jour s'exécutant depuis la version déjà installée, la 1.0.8 et les versions antérieures ne peuvent plus se mettre à jour toutes seules sur macOS : téléchargez la nouvelle version une fois depuis le site ou avec Homebrew.
@@ -37,6 +38,8 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Mises à jour : un téléchargement incomplet est détecté, et l'installation d'une mise à jour .deb ne fige plus la fenêtre.
 - CloudWatch, Docker et SSH : lister les groupes de logs, les flux et les conteneurs, et ouvrir un log SSH, ne figent plus l'application pendant l'attente du réseau.
 - Le navigateur de fichiers SFTP, les sessions SSH / GCP / Azure restaurées et la liste des clusters Kubernetes ne figent plus l'application pendant l'attente du réseau.
+- Le badge de source dans la barre du log affichait un libellé interne comme « src_ssh » ; il affiche désormais le nom de la source.
+- Les connexions Google Cloud enregistrées affichent désormais leur projet à côté de leur nom.
 
 ## [1.0.8] - 2026-09-30
 

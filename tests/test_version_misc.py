@@ -124,13 +124,6 @@ def test_vercel_load_token_returns_empty_on_invalid_json(tmp_path, monkeypatch):
     assert vercel_utils.load_token() == ""
 
 
-def test_vercel_save_token_creates_file(tmp_path, monkeypatch):
-    cfg = tmp_path / "sub" / "vercel_config.json"
-    monkeypatch.setattr(vercel_utils, "_CONFIG_PATH", cfg)
-    vercel_utils.save_token("xyz")
-    assert json.loads(cfg.read_text())["token"] == "xyz"
-
-
 def test_vercel_get_general_exception_wrapped():
     with patch("urllib.request.urlopen", side_effect=ConnectionError("nope")):
         with pytest.raises(RuntimeError, match="nope"):

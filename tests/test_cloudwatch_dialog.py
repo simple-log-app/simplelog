@@ -38,7 +38,7 @@ def test_save_and_open_stores_full_cloudwatch_config(cw_env):
     import ui
 
     dlg = ui.AddConnectionDialog(preselect="cloudwatch")
-    p = dlg._cw_embedded_panel
+    p = dlg._embedded_panel
     p._auth_mode_combo.setCurrentIndex(1)
     p.access_key_input.setText("AKIA")
     p.secret_key_input.setText("secret")
@@ -71,7 +71,7 @@ def test_reopen_saved_cloudwatch_connection_is_ready_to_open(cw_env):
         "interval": 7, "lookback": 21600,
     }
     dlg = ui.AddConnectionDialog(preselect="cloudwatch", prefill_profile=profile)
-    p = dlg._cw_embedded_panel
+    p = dlg._embedded_panel
 
     assert p._auth_mode_combo.currentIndex() == 1
     assert p.access_key_input.text() == "AKIA"
@@ -85,4 +85,4 @@ def test_reopen_saved_cloudwatch_connection_is_ready_to_open(cw_env):
     assert _wait_for(lambda: p.stream_list.currentItem() is not None
                      and p.stream_list.currentItem().text() == "s2")
     assert p.group_list.currentItem().text() == "/app/b"
-    assert dlg._open_btn.isEnabled()
+    assert _wait_for(dlg._open_btn.isEnabled)      # the footer follows the panel (200 ms poll)

@@ -353,3 +353,28 @@ class VercelPanel(ProviderPanel):
             "lookback_s":    self._lookback_combo_vercel.currentData(),
         }
         self.open_tab.emit(cfg, self._open_mode.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_interval_spin", "_lookback_combo_vercel", "_target_combo", "_project_list")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_proj.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_vercel_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        return {"token": self._token_input.text().strip()}
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_vercel, self._open_btn]

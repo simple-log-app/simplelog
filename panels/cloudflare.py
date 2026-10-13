@@ -172,3 +172,31 @@ class CloudflarePanel(ProviderPanel):
             "label":       script_name,
         }
         self.open_tab.emit(cfg, self._open_mode_cf.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_cf_worker_list",)
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_wk.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_cloudflare_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_cf.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        return {
+            "api_token":  self._cf_token_input.text().strip(),
+            "account_id": self._cf_account_input.text().strip(),
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_cf, self._open_btn_cf]

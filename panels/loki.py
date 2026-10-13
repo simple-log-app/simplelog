@@ -289,3 +289,35 @@ class LokiPanel(ProviderPanel):
             "label":         label,
         }
         self.open_tab.emit(cfg, self._open_mode_loki.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_query_input", "_lookback_combo_loki", "_interval_spin")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_query.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_loki_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_loki.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        mode = self._auth_combo.currentIndex()
+        return {
+            "url":       self._url_input.text().strip(),
+            "auth_mode": mode,
+            "username":  self._user_input.text().strip() if mode == 1 else "",
+            "password":  self._pass_input.text() if mode == 1 else "",
+            "token":     self._token_input.text().strip() if mode == 2 else "",
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_loki, self._open_btn_loki]

@@ -288,3 +288,36 @@ class ElasticPanel(ProviderPanel):
             "label":         label,
         }
         self.open_tab.emit(cfg, self._open_mode_es.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_es_index_input", "_es_ts_input", "_es_query_input",
+                     "_lookback_combo_es", "_interval_spin_es", "_es_index_combo")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_query_es.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_elastic_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_es.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        mode = self._es_auth_combo.currentIndex()
+        return {
+            "url":       self._es_url_input.text().strip(),
+            "auth_mode": mode,
+            "api_key":   self._es_apikey_input.text().strip() if mode == 1 else "",
+            "username":  self._es_user_input.text().strip() if mode == 2 else "",
+            "password":  self._es_pass_input.text() if mode == 2 else "",
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_es, self._open_btn_es]

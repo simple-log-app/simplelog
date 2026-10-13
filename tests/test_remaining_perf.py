@@ -444,11 +444,11 @@ def test_ssh_tab_restore_does_not_block_and_then_opens(window):
         release.wait(5)
         return client
 
-    cfg = {"host": "h", "user": "u", "remote_path": "/var/log/x.log"}
+    cfg = {"type": "ssh", "host": "h", "user": "u", "remote_path": "/var/log/x.log"}
     with patch.object(ssh_utils, "make_client", slow), \
-         patch("main_window.SSHWorker", _FakeWorker):
+         patch("providers.SSHWorker", _FakeWorker):
         t0 = time.monotonic()
-        window.open_ssh_tab(cfg)
+        window.open_remote_tab(cfg)
         assert time.monotonic() - t0 < 0.5
         assert window._top_tabs.count() == 0
         release.set()
@@ -464,7 +464,7 @@ def test_ssh_tab_restore_failure_is_reported(window):
 
     with patch.object(ssh_utils, "make_client", fail), \
          patch("main_window.QMessageBox.critical") as crit:
-        window.open_ssh_tab({"host": "h", "user": "u", "remote_path": "/x"})
+        window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x"})
         assert _wait_for(lambda: crit.called)
     assert "no route" in str(crit.call_args) and window._top_tabs.count() == 0
 
@@ -477,9 +477,9 @@ def test_gcp_tab_restore_connects_in_the_background(window):
         release.wait(5)
         return MagicMock()
 
-    with patch.object(gcp_utils, "make_client", slow), patch("main_window.GCPWorker", _FakeWorker):
+    with patch.object(gcp_utils, "make_client", slow), patch("providers.GCPWorker", _FakeWorker):
         t0 = time.monotonic()
-        window.open_gcp_tab({"project_id": "proj"})
+        window.open_remote_tab({"type": "gcp", "project_id": "proj"})
         assert time.monotonic() - t0 < 0.5
         release.set()
         assert _wait_for(lambda: window._top_tabs.count() == 1)
@@ -494,13 +494,13 @@ def test_azure_tab_restore_connects_in_the_background(window):
         release.wait(5)
         return "cred"
 
-    cfg = {"tenant_id": "t", "client_id": "c", "client_secret": "s", "workspace_id": "w",
+    cfg = {"type": "azure", "tenant_id": "t", "client_id": "c", "client_secret": "s", "workspace_id": "w",
            "query": "q", "label": "prod"}
     with patch.object(azure_utils, "make_credential", slow_cred), \
          patch.object(azure_utils, "make_logs_client", lambda cred: MagicMock()), \
-         patch("main_window.AzureWorker", _FakeWorker):
+         patch("providers.AzureWorker", _FakeWorker):
         t0 = time.monotonic()
-        window.open_azure_tab(cfg)
+        window.open_remote_tab(cfg)
         assert time.monotonic() - t0 < 0.5
         release.set()
         assert _wait_for(lambda: window._top_tabs.count() == 1)
@@ -513,8 +513,8 @@ def test_gcp_and_azure_restore_failures_are_reported(window):
     with patch.object(gcp_utils, "make_client", MagicMock(side_effect=RuntimeError("gcp down"))), \
          patch.object(azure_utils, "make_credential", MagicMock(side_effect=RuntimeError("az down"))), \
          patch("main_window.QMessageBox.critical") as crit:
-        window.open_gcp_tab({"project_id": "p"})
-        window.open_azure_tab({"tenant_id": "t", "client_id": "c", "client_secret": "s",
+        window.open_remote_tab({"type": "gcp", "project_id": "p"})
+        window.open_remote_tab({"type": "azure", "tenant_id": "t", "client_id": "c", "client_secret": "s",
                                "workspace_id": "w", "query": "q"})
         assert _wait_for(lambda: crit.call_count == 2)
     messages = " ".join(str(c) for c in crit.call_args_list)
@@ -522,8 +522,8 @@ def test_gcp_and_azure_restore_failures_are_reported(window):
 
 
 def test_tabs_opened_with_a_ready_client_are_still_synchronous(window):
-    with patch("main_window.SSHWorker", _FakeWorker):
-        window.open_ssh_tab({"host": "h", "user": "u", "remote_path": "/x", "_client": MagicMock()})
+    with patch("providers.SSHWorker", _FakeWorker):
+        window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x", "_client": MagicMock()})
     assert window._top_tabs.count() == 1
 
 

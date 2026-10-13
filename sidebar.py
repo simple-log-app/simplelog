@@ -9,10 +9,7 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtGui import (
-    QIcon,
     QKeySequence,
-    QPainter,
-    QPixmap,
     QShortcut,
 )
 from PyQt6.QtWidgets import (
@@ -42,6 +39,7 @@ from ui_theme import (
     C_TEXT,
     C_TRACE,
     C_TS,
+    _svg_icon,
 )
 
 # ── Sidebar helper: one term input row ────────────────────────────────────────
@@ -143,23 +141,12 @@ class _TermRowWidget(QWidget):
     def focus_input(self) -> None:
         self._input.setFocus()
 
-    def focus_value_input(self) -> None:
-        """Focus the value input (kv mode) or the regular input (text mode)."""
-        self._input.setFocus()
-
     def set_text(self, text: str) -> None:
         """In kv mode, sets the key field. In text mode, sets the single input."""
         if self._mode == "kv":
             self._key_input.setText(text)
         else:
             self._input.setText(text)
-
-try:
-    from PyQt6.QtCore import QByteArray
-    from PyQt6.QtSvg import QSvgRenderer
-    _HAS_SVG = True
-except ImportError:
-    _HAS_SVG = False
 
 
 # ── Right sidebar: filter + search + JSON keys ─────────────────────────────────
@@ -200,7 +187,6 @@ class FilterSearchSidebar(QWidget):
         self._search_match_index: int = -1
         self._search_term_widgets: list[_TermRowWidget] = []
         self._filter_term_widgets: list[_TermRowWidget] = []
-        self._active_tab: int = 0
 
         # Debounce timers
         self._filter_timer = QTimer(self)
@@ -226,27 +212,11 @@ class FilterSearchSidebar(QWidget):
 
     # ── UI construction ───────────────────────────────────────────────────────
 
-    def _make_tab_icon(self, svg_tmpl: str, color: str) -> QIcon:
-        if not _HAS_SVG:
-            return QIcon()
-        svg = svg_tmpl.replace("{color}", color)
-        renderer = QSvgRenderer(QByteArray(svg.encode()))
-        pm = QPixmap(16, 16)
-        pm.fill(Qt.GlobalColor.transparent)
-        p = QPainter(pm)
-        renderer.render(p)
-        p.end()
-        return QIcon(pm)
-
     def _set_tab(self, idx: int) -> None:
-        self._active_tab = idx
         self._content_stack.setCurrentIndex(idx)
         for i, btn in enumerate(self._tab_btns):
             active = i == idx
-            btn.setIcon(self._make_tab_icon(
-                self._TAB_SVGS[i],
-                C_ACCENT if active else C_MUTED,
-            ))
+            btn.setIcon(_svg_icon(self._TAB_SVGS[i], C_ACCENT if active else C_MUTED, 16))
             if active:
                 btn.setStyleSheet(
                     f"QPushButton {{ background: {C_BG}; border: none; "
@@ -275,9 +245,6 @@ class FilterSearchSidebar(QWidget):
             f"font-size: 11px; font-weight: 700; padding: 4px 10px; }}"
             f"QPushButton:hover {{ background: rgba(176,124,240,77); }}"
         )
-
-    def _add_btn_style(self) -> str:
-        return self._and_btn_style()
 
     def _nav_btn_style(self) -> str:
         return (
@@ -481,10 +448,8 @@ class FilterSearchSidebar(QWidget):
 
     def _rebuild_row_block(
         self,
-        block: QWidget,
         layout: QVBoxLayout,
         widgets: list,
-        section: str,
     ) -> None:
         """Clear layout and re-insert all term rows with separators between them."""
         while layout.count():
@@ -506,12 +471,7 @@ class FilterSearchSidebar(QWidget):
         self._search_term_widgets.remove(row)
         self._search_rows_layout.removeWidget(row)
         row.deleteLater()
-        self._rebuild_row_block(
-            self._search_block,
-            self._search_rows_layout,
-            self._search_term_widgets,
-            "search",
-        )
+        self._rebuild_row_block(self._search_rows_layout, self._search_term_widgets)
         self._on_search_changed()
 
     def _add_filter_row(self, operator: str, mode: str = "text", prefill_key: str = "") -> None:
@@ -536,12 +496,7 @@ class FilterSearchSidebar(QWidget):
         self._filter_term_widgets.remove(row)
         self._filter_rows_layout.removeWidget(row)
         row.deleteLater()
-        self._rebuild_row_block(
-            self._filter_block,
-            self._filter_rows_layout,
-            self._filter_term_widgets,
-            "filter",
-        )
+        self._rebuild_row_block(self._filter_rows_layout, self._filter_term_widgets)
         self._on_filter_changed()
 
     # ── Signal handlers ───────────────────────────────────────────────────────
@@ -552,7 +507,6 @@ class FilterSearchSidebar(QWidget):
     def _on_filter_changed(self) -> None:
         if self._cb_live.isChecked():
             self._filter_timer.start()
-        self._update_filter_badge()
 
     def _on_json_keys_updated(self, keys: set) -> None:
         self._rebuild_json_chips(keys)
@@ -644,16 +598,6 @@ class FilterSearchSidebar(QWidget):
             self._lbl_hits.setText(i18n.tr("sidebar_no_hits"))
         else:
             self._lbl_hits.setText(i18n.tr("sidebar_hits", n=n))
-        self._update_search_badge()
-
-    def _update_search_badge(self) -> None:
-        pass  # badges removed in tab design
-
-    def _update_filter_badge(self) -> None:
-        pass
-
-    def _update_json_badge(self) -> None:
-        pass
 
     # ── JSON chips ────────────────────────────────────────────────────────────
 
@@ -682,12 +626,11 @@ class FilterSearchSidebar(QWidget):
             )
             btn.clicked.connect(lambda checked=False, k=key: self._add_filter_from_key(k))
             self._json_layout.addWidget(btn)
-        self._update_json_badge()
 
     def _add_filter_from_key(self, key: str) -> None:
         self._set_tab(1)  # switch to Filter tab
         self._add_filter_row("AND", mode="kv", prefill_key=key)
-        self._filter_term_widgets[-1].focus_value_input()
+        self._filter_term_widgets[-1].focus_input()
         if self._cb_live.isChecked():
             self._filter_timer.start()
 

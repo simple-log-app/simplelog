@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import shlex
 import stat
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -110,22 +109,6 @@ def make_client(
     return client
 
 
-def list_remote_dir(client: paramiko.SSHClient, path: str) -> list[str]:
-    """Return sorted filenames in *path* on the remote host via SFTP.
-
-    Raises RuntimeError if the path cannot be listed.
-    """
-    try:
-        sftp = client.open_sftp()
-        try:
-            attrs = sftp.listdir_attr(path)
-        finally:
-            sftp.close()
-    except Exception as e:
-        raise RuntimeError(f"Cannot list {path}: {e}") from e
-    return sorted(a.filename for a in attrs)
-
-
 def list_remote_dir_full(client: paramiko.SSHClient, path: str) -> list[tuple[str, bool]]:
     """Return list of (name, is_dir) sorted by name for *path* on the remote host.
 
@@ -144,9 +127,3 @@ def list_remote_dir_full(client: paramiko.SSHClient, path: str) -> list[tuple[st
         is_dir = stat.S_ISDIR(a.st_mode) if a.st_mode else False
         result.append((a.filename, is_dir))
     return result
-
-
-def test_file_readable(client: paramiko.SSHClient, path: str) -> bool:
-    """Return True if *path* exists and is a regular file on the remote host."""
-    _, stdout, _ = client.exec_command(f"test -f {shlex.quote(path)} && echo yes || echo no")
-    return stdout.read().strip() == b"yes"

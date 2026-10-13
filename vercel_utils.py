@@ -19,11 +19,6 @@ def load_token() -> str:
         return ""
 
 
-def save_token(token: str) -> None:
-    _CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _CONFIG_PATH.write_text(json.dumps({"token": token}))
-
-
 # ── HTTP helper ────────────────────────────────────────────────────────────────
 
 def _get(path: str, token: str, params: dict | None = None, timeout: int = 10) -> dict | list:

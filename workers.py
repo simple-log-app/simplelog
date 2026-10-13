@@ -532,7 +532,6 @@ class VercelWorker(PollingWorker):
         super().__init__(interval_s)
         self._token         = token
         self._project_id    = project_id
-        self._project_name  = project_name
         self._deployment_id = deployment_id
         self._lookback_s    = lookback_s
         self._ctx           = {"label": project_name}
@@ -800,8 +799,6 @@ class RailwayWorker(PollingWorker):
                  lookback_s: float = 3600.0) -> None:
         super().__init__(interval_s)
         self._token        = token
-        self._project_name = project_name
-        self._service_name = service_name
         self._service_id   = service_id
         self._lookback_s   = lookback_s
         self._ctx          = {"label": f"{project_name}/{service_name}"}
@@ -861,11 +858,7 @@ class FlyioWorker(PollingWorker):
 # ── Cloudflare Workers tail worker ────────────────────────────────────────────
 
 class CloudflareWorker(LogWorker):
-    """Streams Cloudflare Workers tail events.
-
-    Uses native HTTP/2 WebSocket (RFC 8441) via the h2 library when available.
-    Falls back to the wrangler CLI subprocess if h2 is not installed.
-    """
+    """Streams Cloudflare Workers tail events over the tail WebSocket."""
     history_done = pyqtSignal(int)
 
     def __init__(self, api_token: str, account_id: str, script_name: str) -> None:

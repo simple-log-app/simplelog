@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    pyqtSignal,
+    QTimer,
 )
 from PyQt6.QtGui import (
     QColor,
@@ -47,14 +47,13 @@ class CloudWatchPanel(ProviderPanel):
         "ap-south-1", "ca-central-1", "sa-east-1",
     ]
 
-    ready_changed = pyqtSignal()   # the Open button became usable (streams are listed)
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._client = None
         self._all_groups: list[str] = []
         self._connecting = False
         self._restore: tuple[str, str] | None = None   # saved (group, stream) to re-select
+        self._saved_target: tuple[str, str] = ("", "")
         self._groups_gen = 0      # bumped per request: older answers are ignored
         self._streams_gen = 0
         self._build_ui()
@@ -94,7 +93,6 @@ class CloudWatchPanel(ProviderPanel):
 
         # ── Connection card ───────────────────────────────────────────────────
         card, cl, self._lbl_connection = make_card(i18n.tr("new_config"), help_key="help_cloudwatch")
-        self._connection_card_lay = cl
 
         self._lbl_auth_mode = _field_label("")
         self._auth_mode_combo = NoScrollComboBox()
@@ -296,14 +294,7 @@ class CloudWatchPanel(ProviderPanel):
         name, ok = QInputDialog.getText(self, "Save Profile", "Profile name:", text="My account")
         if not ok or not name.strip():
             return
-        is_keys = self._auth_mode_combo.currentIndex() == 1
-        data: dict = {"region": self.region_combo.currentText()}
-        if is_keys:
-            data["access_key_id"] = self.access_key_input.text().strip()
-            data["secret_key"]    = self.secret_key_input.text().strip()
-        else:
-            data["aws_profile"] = self.profile_combo.currentText()
-        profiles_store.upsert("cloudwatch", name.strip(), data)
+        profiles_store.upsert("cloudwatch", name.strip(), self.profile_data())
         self._cw_profile_bar.reload()
 
     def _on_auth_mode_changed(self, index: int):
@@ -420,7 +411,6 @@ class CloudWatchPanel(ProviderPanel):
         self._card_streams.setVisible(True)
         self._card_options.setVisible(True)
         self.open_btn.setEnabled(True)
-        self.ready_changed.emit()
 
     def _on_streams_loaded(self, gen: int, group: str, streams: list) -> None:
         if gen != self._streams_gen:
@@ -460,3 +450,36 @@ class CloudWatchPanel(ProviderPanel):
             "profile":   self.profile_combo.currentText(),
             "region":    self.region_combo.currentText(),
         }, self._get_open_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    def load_profile(self, data: dict) -> None:
+        self._load_cw_profile(data)
+        self._saved_target = (data.get("group", ""), data.get("stream", ""))
+
+    def connect_now(self) -> None:
+        # Once the dialog is shown: connect, then re-select the saved group / stream
+        group, stream = self._saved_target
+        QTimer.singleShot(0, lambda: self._restore_saved_target(group, stream))
+
+    def profile_extra(self, cfg: dict) -> dict:
+        return {key: cfg[key] for key in ("group", "stream", "filter", "interval", "lookback")}
+
+    def can_open(self) -> bool:
+        return self.open_btn.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open_clicked()
+
+    def profile_data(self) -> dict:
+        """Region + credentials (the selected group / stream travel with the opened tab)."""
+        data: dict = {"region": self.region_combo.currentText()}
+        if self._auth_mode_combo.currentIndex() == 1:
+            data["access_key_id"] = self.access_key_input.text().strip()
+            data["secret_key"] = self.secret_key_input.text().strip()
+        else:
+            data["aws_profile"] = self.profile_combo.currentText()
+        return data
+
+    def _embedded_hidden(self) -> list:
+        return [self._title_lbl, self._save_profile_btn_cw, self.open_btn]

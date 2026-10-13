@@ -48,7 +48,6 @@ class _FlyioConnectWorker(BackgroundWorker):
 class FlyioPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._apps: list[dict] = []
         self._connect_worker: _FlyioConnectWorker | None = None
         self._build_ui()
 
@@ -144,7 +143,6 @@ class FlyioPanel(ProviderPanel):
         self._connect_worker.start()
 
     def _on_connected_flyio(self, apps: list) -> None:
-        self._apps = apps
         self._conn_status_flyio.setText(i18n.tr("flyio_connected"))
         self._conn_status_flyio.setStyleSheet(f"color: {C_INFO}; font-size: 11px;")
         self._connect_btn_flyio.setEnabled(True)
@@ -193,3 +191,28 @@ class FlyioPanel(ProviderPanel):
             "label":      app_name,
         }
         self.open_tab.emit(cfg, self._open_mode_flyio.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_interval_spin_flyio", "_lookback_combo_flyio", "_flyio_app_list")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_app_flyio.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_flyio_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_flyio.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        return {"token": self._flyio_token_input.text().strip()}
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_flyio, self._open_btn_flyio]

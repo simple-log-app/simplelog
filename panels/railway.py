@@ -220,3 +220,29 @@ class RailwayPanel(ProviderPanel):
             "label":        f"{project['name']}/{service['name']}",
         }
         self.open_tab.emit(cfg, self._open_mode_railway.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_interval_spin_railway", "_lookback_combo_railway",
+                     "_project_list", "_service_list")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_proj.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_railway_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_railway.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        return {"token": self._railway_token_input.text().strip()}
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_railway, self._open_btn_railway]

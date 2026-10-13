@@ -82,7 +82,6 @@ class _SftpBrowserDialog(QDialog):
         self.setWindowTitle("Browse remote files")
         self.resize(480, 400)
         self._client   = client
-        self._cur_path = start_path
         self._selected : str | None = None
         self._nav_gen = 0        # answers to older listings are ignored
         self.finished.connect(lambda _=0: setattr(self, "_nav_gen", -1))
@@ -110,7 +109,6 @@ class _SftpBrowserDialog(QDialog):
         self._navigate(start_path)
 
     def _navigate(self, path: str) -> None:
-        self._cur_path = path
         self._path_lbl.setText(path)
         self._list.clear()
         if path != "/":
@@ -623,3 +621,46 @@ class SSHPanel(ProviderPanel):
         else:
             self._recent_list.hide()
             self._recent_empty_lbl.show()
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_tail_spin",)
+
+    def connect_now(self) -> None:
+        if self._auth_combo.currentIndex() == 0:        # key auth needs no password
+            self._on_connect()
+
+    def is_connected(self) -> bool:
+        return self._client is not None
+
+    def load_profile(self, data: dict) -> None:
+        self._load_ssh_profile(data)
+
+    def can_open(self) -> bool:
+        return self._file_card_frame.isVisible() and bool(self._path_input.text().strip())
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        key_auth = self._auth_combo.currentIndex() == 0
+        return {
+            "host": self._host_input.text().strip(),
+            "port": self._port_spin.value(),
+            "user": self._user_input.text().strip(),
+            "auth_mode": "key" if key_auth else "password",
+            "key_path": self._key_input.text().strip() if key_auth else "",
+            "remote_path": self._path_input.text().strip(),
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_ssh, self._open_btn, self._title_lbl]
+
+    def release(self) -> None:
+        # The panel's own connection only served browsing: the tab opened from it
+        # got a separate one.
+        if self._client is not None:
+            try:
+                self._client.close()
+            except Exception:
+                pass

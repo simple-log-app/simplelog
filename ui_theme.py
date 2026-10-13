@@ -21,6 +21,7 @@ try:
     from PyQt6.QtSvg import QSvgRenderer
     _HAS_SVG = True
 except ImportError:
+    QByteArray = QSvgRenderer = None  # type: ignore[assignment,misc]
     _HAS_SVG = False
 
 

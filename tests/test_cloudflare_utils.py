@@ -388,13 +388,6 @@ def test_ws_close_suppresses_send_errors():
     assert closed["called"] is True
 
 
-# ── h2_available ──────────────────────────────────────────────────────────────
-
-def test_h2_available_returns_bool():
-    # The actual return value depends on whether h2 is installed; either is fine.
-    assert isinstance(cloudflare_utils.h2_available(), bool)
-
-
 # ── parse_tail_event ──────────────────────────────────────────────────────────
 
 def _make_event(**kwargs) -> bytes:

@@ -66,8 +66,8 @@ def test_every_saved_state_attr_exists(env, provider):
     import ui
 
     dlg = ui.AddConnectionDialog(preselect=provider)
-    assert dlg._embedded_state_attrs, f"{provider} saves no selection"
-    for attr in dlg._embedded_state_attrs:
+    assert dlg._embedded_panel.restore_attrs, f"{provider} saves no selection"
+    for attr in dlg._embedded_panel.restore_attrs:
         ui._widget_state(getattr(dlg._embedded_panel, attr))
 
 

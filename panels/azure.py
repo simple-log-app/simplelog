@@ -67,7 +67,6 @@ class AzurePanel(ProviderPanel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._credential = None
         self._logs_client = None
         self._workspace_id = ""
         self._connect_worker: _AzureConnectWorker | None = None
@@ -286,7 +285,6 @@ class AzurePanel(ProviderPanel):
         self._connect_worker.start()
 
     def _on_az_connected(self, cred: object, client: object) -> None:
-        self._credential  = cred
         self._logs_client = client
         self._auth_status_az.setText(i18n.tr("azure_connected"))
         self._auth_status_az.setStyleSheet(f"color: {C_INFO}; font-size: 11px;")
@@ -358,3 +356,37 @@ class AzurePanel(ProviderPanel):
             "_logs_client":  self._logs_client,
         }
         self.open_tab.emit(cfg, self._open_mode_az_k.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_tabs", "_timespan_combo", "_interval_spin_az_t", "_kql_edit",
+                     "_timespan_combo_kql", "_interval_spin_az_k", "_table_list")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return self._logs_client is not None
+
+    def load_profile(self, data: dict) -> None:
+        self._load_az_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_az_t.isEnabled() or self._open_btn_az_k.isEnabled()
+
+    def open_selected(self) -> None:
+        if self._tabs.currentIndex() == 0:
+            self._on_open_table()
+        else:
+            self._on_open_kql()
+
+    def profile_data(self) -> dict:
+        return {
+            "tenant_id":     self._tenant_input.text().strip(),
+            "client_id":     self._client_id_input.text().strip(),
+            "client_secret": self._secret_input.text().strip(),
+            "workspace_id":  self._workspace_input.text().strip(),
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_az, self._open_btn_az_t, self._open_btn_az_k]

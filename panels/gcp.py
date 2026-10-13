@@ -310,3 +310,34 @@ class GCPPanel(ProviderPanel):
             "_client":       self._client,
         }
         self.open_tab.emit(cfg, self._open_mode_gcp.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_resource_combo", "_severity_combo", "_custom_input",
+                     "_lookback_combo_gcp", "_interval_spin_gcp")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_filt.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_gcp_profile(data)
+
+    def can_open(self) -> bool:
+        return self._open_btn_gcp.isEnabled()
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        key_file = self._auth_combo.currentIndex() == 1
+        return {
+            "auth_mode":  self._auth_combo.currentIndex(),
+            "key_path":   self._key_input.text().strip() if key_file else "",
+            "project_id": self._project_input.text().strip(),
+        }
+
+    def _embedded_hidden(self) -> list:
+        return [self._save_profile_btn_gcp, self._open_btn_gcp]

@@ -69,8 +69,6 @@ def test_make_client_os_error():
         ssh_utils.make_client("h", "u")
 
 
-# -- list_remote_dir -----------------------------------------------------------
-
 def _make_attrs(names_with_mode):
     out = []
     for name, mode in names_with_mode:
@@ -79,30 +77,6 @@ def _make_attrs(names_with_mode):
         a.st_mode = mode
         out.append(a)
     return out
-
-
-def test_list_remote_dir_sorts_filenames():
-    client = MagicMock()
-    sftp = client.open_sftp.return_value
-    sftp.listdir_attr.return_value = _make_attrs([("b", 0), ("a", 0), ("c", 0)])
-    assert ssh_utils.list_remote_dir(client, "/x") == ["a", "b", "c"]
-    sftp.close.assert_called_once()
-
-
-def test_list_remote_dir_closes_on_failure():
-    client = MagicMock()
-    sftp = client.open_sftp.return_value
-    sftp.listdir_attr.side_effect = OSError("denied")
-    with pytest.raises(RuntimeError, match="Cannot list /x"):
-        ssh_utils.list_remote_dir(client, "/x")
-    sftp.close.assert_called_once()
-
-
-def test_list_remote_dir_raises_when_open_sftp_fails():
-    client = MagicMock()
-    client.open_sftp.side_effect = RuntimeError("boom")
-    with pytest.raises(RuntimeError, match="Cannot list"):
-        ssh_utils.list_remote_dir(client, "/x")
 
 
 # -- list_remote_dir_full ------------------------------------------------------
@@ -127,36 +101,6 @@ def test_list_remote_dir_full_handles_error():
     with pytest.raises(RuntimeError, match="Cannot list /p"):
         ssh_utils.list_remote_dir_full(client, "/p")
     sftp.close.assert_called_once()
-
-
-# -- test_file_readable --------------------------------------------------------
-
-def _mk_client_cmd(stdout_bytes: bytes):
-    client = MagicMock()
-    stdout = MagicMock()
-    stdout.read.return_value = stdout_bytes
-    client.exec_command.return_value = (MagicMock(), stdout, MagicMock())
-    return client
-
-
-def test_test_file_readable_true():
-    client = _mk_client_cmd(b"yes\n")
-    assert ssh_utils.test_file_readable(client, "/etc/hosts") is True
-    cmd = client.exec_command.call_args.args[0]
-    assert "/etc/hosts" in cmd
-    assert "test -f" in cmd
-
-
-def test_test_file_readable_false():
-    client = _mk_client_cmd(b"no\n")
-    assert ssh_utils.test_file_readable(client, "/missing") is False
-
-
-def test_test_file_readable_quotes_path():
-    client = _mk_client_cmd(b"yes")
-    ssh_utils.test_file_readable(client, "/tmp/has space.log")
-    cmd = client.exec_command.call_args.args[0]
-    assert "'/tmp/has space.log'" in cmd
 
 
 # -- host key verification -----------------------------------------------------

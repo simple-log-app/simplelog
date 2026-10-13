@@ -44,11 +44,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-import azure_utils
 import changelog
-import gcp_utils
 import i18n
-import ssh_utils
+import providers
 from log_view import LogViewer
 from panels.file import FilePanel
 from remote_dialogs import RemoteHomePanel
@@ -69,26 +67,7 @@ from ui_theme import (
 )
 from ui_widgets import NavRail, _SidebarEdgeBtn, _SLTabWidget
 from ui_workers import CallWorker
-from workers import (
-    AzureWorker,
-    CloudflareWorker,
-    DatadogWorker,
-    DebInstallWorker,
-    DockerComposeWorker,
-    DockerContainerWorker,
-    DockerExecFileWorker,
-    ElasticWorker,
-    FileWorker,
-    FlyioWorker,
-    GCPWorker,
-    KubernetesWorker,
-    LokiWorker,
-    RailwayWorker,
-    SSHWorker,
-    StdinWorker,
-    TailWorker,
-    VercelWorker,
-)
+from workers import DebInstallWorker, FileWorker, StdinWorker
 
 # ── macOS in-place update helpers ─────────────────────────────────────────────
 
@@ -210,7 +189,7 @@ class MainWindow(QMainWindow):
         self._side_stack = SideStack()
 
         self._remote_panel = RemoteHomePanel()
-        self._remote_panel.tab_requested.connect(self._dispatch_open_tab)
+        self._remote_panel.tab_requested.connect(self.open_remote_tab)
         self._side_stack.addWidget(self._remote_panel)  # index 0
 
         self._file_panel = FilePanel()
@@ -800,28 +779,6 @@ class MainWindow(QMainWindow):
         if not self._side_stack.isVisible():
             self._toggle_left_sidebar()
 
-    def _dispatch_open_tab(self, cfg: dict, split: str = "tab") -> None:
-        dispatch = {
-            "cloudwatch":       self.open_cloudwatch_tab,
-            "ssh":              self.open_ssh_tab,
-            "docker_container": self.open_docker_tab,
-            "docker_compose":   self.open_docker_tab,
-            "docker_exec_file": self.open_docker_tab,
-            "vercel":           self.open_vercel_tab,
-            "gcp":              self.open_gcp_tab,
-            "azure":            self.open_azure_tab,
-            "loki":             self.open_loki_tab,
-            "datadog":          self.open_datadog_tab,
-            "elastic":          self.open_elastic_tab,
-            "railway":          self.open_railway_tab,
-            "flyio":            self.open_flyio_tab,
-            "kubernetes":       self.open_kubernetes_tab,
-            "cloudflare":       self.open_cloudflare_tab,
-        }
-        fn = dispatch.get(cfg.get("type", ""))
-        if fn:
-            fn(cfg, split)
-
     def _toggle_left_sidebar(self) -> None:
         visible = self._side_stack.isVisible()
         if visible:
@@ -891,17 +848,6 @@ class MainWindow(QMainWindow):
 
     # ── Tab factories ─────────────────────────────────────────────────────────
 
-    def open_cloudwatch_tab(self, cfg: dict, split: str = "tab"):
-        worker = TailWorker(
-            cfg["client"], cfg["group"], cfg["stream"],
-            cfg["filter"], cfg["interval"], cfg["lookback"],
-        )
-        viewer = LogViewer(source_type="cloudwatch")
-        stream_label = cfg["stream"] or "(all streams)"
-        viewer.set_title(f"{cfg['group']}  ›  {stream_label}")
-        tab_title = (cfg["stream"] or cfg["group"]).split("/")[-1]
-        self._add_tab(tab_title, viewer, worker, split=split)
-
     def open_file_tab(self, path: str, tail_lines: int = 100, split: str = "tab"):
         worker = FileWorker(path, tail_lines=tail_lines)
         viewer = LogViewer(source_type="file")
@@ -937,195 +883,27 @@ class MainWindow(QMainWindow):
         worker.finished.connect(lambda w=worker: self._connectors.discard(w))
         worker.start()
 
-    def open_ssh_tab(self, cfg: dict, split: str = "tab"):
-        client = cfg.pop("_client", None)
-        if client is None:
+    def open_remote_tab(self, cfg: dict, split: str = "tab") -> None:
+        """Open the log tab described by *cfg* (``cfg["type"]`` picks the provider)."""
+        provider = providers.for_type(cfg.get("type", ""))
+        if provider is None:
+            return
+        client = cfg.pop(provider.client_key, None) if provider.connect else None
+        if provider.connect is not None and client is None:
+            # No connection yet (e.g. a restored session): make it without freezing the UI
             self._connect_then(
-                "SSH Error",
-                lambda: ssh_utils.make_client(
-                    cfg["host"], cfg["user"], cfg.get("port", 22),
-                    key_path=cfg.get("key_path") or None,
-                    password=cfg.get("password") or None,
-                ),
-                lambda c: self._finish_ssh_tab(cfg, c, split),
+                provider.error_title or f"{provider.name} Error",
+                lambda: provider.connect(cfg),
+                lambda c: self._open_session(provider, cfg, c, split),
             )
             return
-        self._finish_ssh_tab(cfg, client, split)
+        self._open_session(provider, cfg, client, split)
 
-    def _finish_ssh_tab(self, cfg: dict, client, split: str) -> None:
-        worker = SSHWorker(client, cfg["remote_path"], cfg.get("tail_lines", 100))
-        viewer = LogViewer(source_type="ssh")
-        viewer.set_title(f"{cfg['user']}@{cfg['host']}:{cfg['remote_path']}")
-        tab_title = cfg["remote_path"].rsplit("/", 1)[-1] or cfg["host"]
-        self._add_tab(tab_title, viewer, worker, split)
-
-    def open_docker_tab(self, cfg: dict, split: str = "tab"):
-        dtype = cfg["type"]
-        if dtype == "docker_container":
-            worker = DockerContainerWorker(cfg["container_id"], lookback_s=cfg.get("lookback_s", 3600))
-            viewer = LogViewer(source_type="docker")
-            viewer.set_title(f"docker  ›  {cfg.get('container_name', cfg['container_id'][:12])}")
-            tab_title = cfg.get("container_name", cfg["container_id"][:12])
-        elif dtype == "docker_compose":
-            worker = DockerComposeWorker(cfg["project_name"], lookback_s=cfg.get("lookback_s", 3600))
-            viewer = LogViewer(source_type="docker_compose")
-            viewer.set_title(f"compose  ›  {cfg['project_name']}")
-            tab_title = cfg["project_name"]
-        else:  # docker_exec_file
-            worker = DockerExecFileWorker(cfg["container_id"], cfg["remote_path"], cfg.get("tail_lines", 100))
-            viewer = LogViewer(source_type="docker_exec_file")
-            viewer.set_title(f"{cfg.get('container_name', '')}  ›  {cfg['remote_path']}")
-            tab_title = cfg["remote_path"].rsplit("/", 1)[-1] or cfg.get("container_name", "docker")
-        self._add_tab(tab_title, viewer, worker, split)
-
-    def open_vercel_tab(self, cfg: dict, split: str = "tab"):
-        worker = VercelWorker(
-            cfg["token"], cfg["project_id"], cfg["project_name"],
-            cfg["deployment_id"], interval_s=cfg.get("interval_s", 3),
-            lookback_s=cfg.get("lookback_s", 3600),
-        )
-        viewer = LogViewer(source_type="vercel")
-        viewer.set_title(f"vercel  ›  {cfg['project_name']}")
-        self._add_tab(cfg["project_name"], viewer, worker, split)
-
-    def open_gcp_tab(self, cfg: dict, split: str = "tab"):
-        client = cfg.pop("_client", None)
-        if client is None:
-            self._connect_then(
-                "GCP Error",
-                lambda: gcp_utils.make_client(cfg["project_id"], cfg.get("key_path") or None),
-                lambda c: self._finish_gcp_tab(cfg, c, split),
-            )
-            return
-        self._finish_gcp_tab(cfg, client, split)
-
-    def _finish_gcp_tab(self, cfg: dict, client, split: str) -> None:
-        worker = GCPWorker(
-            client, cfg["project_id"],
-            cfg.get("resource_type", "(all)"),
-            cfg.get("severity", "ALL"),
-            cfg.get("custom_filter", ""),
-            lookback_s=cfg.get("lookback_s", 3600),
-            interval_s=cfg.get("interval_s", 5),
-        )
-        viewer = LogViewer(source_type="gcp")
-        viewer.set_title(f"gcp  ›  {cfg['project_id']}")
-        self._add_tab(cfg["project_id"], viewer, worker, split)
-
-    def open_azure_tab(self, cfg: dict, split: str = "tab"):
-        logs_client = cfg.pop("_logs_client", None)
-        if logs_client is None:
-            def _connect():
-                cred = azure_utils.make_credential(
-                    cfg["tenant_id"], cfg["client_id"], cfg["client_secret"]
-                )
-                return azure_utils.make_logs_client(cred)
-
-            self._connect_then(
-                "Azure Error", _connect, lambda c: self._finish_azure_tab(cfg, c, split),
-            )
-            return
-        self._finish_azure_tab(cfg, logs_client, split)
-
-    def _finish_azure_tab(self, cfg: dict, logs_client, split: str) -> None:
-        label = cfg.get("label", "azure")
-        worker = AzureWorker(
-            logs_client, cfg["workspace_id"], cfg["query"],
-            label=label,
-            lookback_s=cfg.get("lookback_s", 3600),
-            interval_s=cfg.get("interval_s", 10),
-        )
-        viewer = LogViewer(source_type="azure")
-        viewer.set_title(f"azure  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_loki_tab(self, cfg: dict, split: str = "tab"):
-        url   = cfg["url"]
-        query = cfg["query"]
-        auth  = cfg.get("auth_mode", 0)
-        label = cfg.get("label", url.split("//", 1)[-1].split("/")[0])
-        worker = LokiWorker(
-            url, query,
-            username=cfg.get("username", "") if auth == 1 else "",
-            password=cfg.get("password", "") if auth == 1 else "",
-            token=cfg.get("token", "")    if auth == 2 else "",
-            lookback_s=cfg.get("lookback_s", 3600),
-            interval_s=cfg.get("interval_s", 5),
-        )
-        viewer = LogViewer(source_type="loki")
-        viewer.set_title(f"loki  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_datadog_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("base_url", "datadog"))
-        worker = DatadogWorker(
-            cfg["base_url"], cfg.get("query", "*"),
-            cfg["api_key"], cfg["app_key"],
-            lookback_s=cfg.get("lookback_s", 3600),
-            interval_s=cfg.get("interval_s", 10),
-        )
-        viewer = LogViewer(source_type="datadog")
-        viewer.set_title(f"datadog  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_elastic_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("url", "elastic"))
-        auth  = cfg.get("auth_mode", 0)
-        worker = ElasticWorker(
-            cfg["url"], cfg["index"], cfg.get("query", "*"),
-            api_key=cfg.get("api_key", "")  if auth == 1 else "",
-            username=cfg.get("username", "") if auth == 2 else "",
-            password=cfg.get("password", "") if auth == 2 else "",
-            ts_field=cfg.get("ts_field", "@timestamp"),
-            lookback_s=cfg.get("lookback_s", 3600),
-            interval_s=cfg.get("interval_s", 10),
-        )
-        viewer = LogViewer(source_type="elastic")
-        viewer.set_title(f"elastic  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_railway_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("service_name", "railway"))
-        worker = RailwayWorker(
-            cfg["token"], cfg["project_name"], cfg["service_name"],
-            cfg["service_id"], interval_s=cfg.get("interval_s", 10),
-            lookback_s=cfg.get("lookback_s", 3600),
-        )
-        viewer = LogViewer(source_type="railway")
-        viewer.set_title(f"railway  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_flyio_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("app_name", "fly.io"))
-        worker = FlyioWorker(
-            cfg["token"], cfg["app_name"],
-            interval_s=cfg.get("interval_s", 5),
-            lookback_s=cfg.get("lookback_s", 3600),
-        )
-        viewer = LogViewer(source_type="flyio")
-        viewer.set_title(f"fly.io  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_kubernetes_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("pod", "k8s"))
-        worker = KubernetesWorker(
-            cfg["pod"], cfg["namespace"],
-            context=cfg.get("context", ""),
-            container=cfg.get("container", ""),
-            lookback_s=cfg.get("lookback_s", 3600),
-        )
-        viewer = LogViewer(source_type="kubernetes")
-        viewer.set_title(f"k8s  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
-
-    def open_cloudflare_tab(self, cfg: dict, split: str = "tab"):
-        label = cfg.get("label", cfg.get("script_name", "worker"))
-        worker = CloudflareWorker(
-            cfg["api_token"], cfg["account_id"], cfg["script_name"],
-        )
-        viewer = LogViewer(source_type="cloudflare")
-        viewer.set_title(f"cloudflare  ›  {label}")
-        self._add_tab(label, viewer, worker, split)
+    def _open_session(self, provider: providers.Provider, cfg: dict, client, split: str) -> None:
+        session = provider.session(cfg, client)
+        viewer = LogViewer(source_type=session.source)
+        viewer.set_title(session.title)
+        self._add_tab(session.tab, viewer, session.worker, split)
 
     # ── Internal tab management ───────────────────────────────────────────────
 

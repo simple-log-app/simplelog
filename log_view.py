@@ -40,6 +40,7 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
+import providers
 from log_model import (
     _EXPANDED_ROLE,
     _ITEM_ROLE,
@@ -577,23 +578,9 @@ class _LogListView(QListView):
 
 
 _SOURCE_COLORS = {
-    "cloudwatch":       C_ACCENT,
-    "file":             C_INFO,
-    "stdin":            C_WARN,
-    "ssh":              C_TRACE,
-    "docker":           C_TS,
-    "docker_compose":   C_TS,
-    "docker_exec_file": C_TS,
-    "vercel":           C_ERR,
-    "gcp":              C_INFO,
-    "azure":            C_ACCENT,
-    "loki":             "#f46800",
-    "datadog":          "#632ca6",
-    "elastic":          "#f04e98",
-    "railway":          "#b975f2",
-    "flyio":            "#7b3fc4",
-    "kubernetes":       "#326ce5",
-    "cloudflare":       "#f6821f",
+    "file":  C_INFO,
+    "stdin": C_WARN,
+    **providers.source_colors(),
 }
 
 
@@ -667,7 +654,7 @@ class LogViewer(QWidget):
         tb.setSpacing(8)
 
         src_color = _SOURCE_COLORS.get(self._source_type, C_TEXT)
-        self._source_badge = QLabel(self._source_type.upper())
+        self._source_badge = QLabel(self._source_type.replace("_", " ").upper())
         self._source_badge.setStyleSheet(
             f"background: rgba(91,143,255,31); color: {src_color}; border-radius: 8px;"
             "padding: 1px 8px; font-size: 10px; font-weight: bold; border: none;"
@@ -793,8 +780,6 @@ class LogViewer(QWidget):
         self.retranslate()
 
     def retranslate(self) -> None:
-        src_key = f"src_{self._source_type}"
-        self._source_badge.setText(i18n.tr(src_key))
         self.autoscroll_cb.setText(i18n.tr("viewer_autoscroll"))
         self.timestamps_cb.setText(i18n.tr("viewer_timestamps"))
         self.wrap_cb.setText(i18n.tr("viewer_wrap"))

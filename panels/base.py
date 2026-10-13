@@ -49,3 +49,53 @@ class ProviderPanel(QWidget):
         vlay.setContentsMargins(12, 12, 12, 12)
         vlay.setSpacing(10)
         return vlay
+
+
+    # ── Embedding contract ────────────────────────────────────────────────────
+    # AddConnectionDialog hosts a panel inside its own footer (name field, Open /
+    # Save & Open buttons) and drives it only through these members, so a panel needs
+    # no knowledge of the dialog and the dialog none of the panel's widgets.
+
+    #: names of the widgets whose selection is saved with a connection and restored
+    #: (once connected) when it is reopened
+    restore_attrs: tuple[str, ...] = ()
+    #: False when there is nothing to save (e.g. Docker talks to the local daemon)
+    saveable: bool = True
+
+    def connect_now(self) -> None:
+        """Start connecting with the credentials currently entered."""
+
+    def is_connected(self) -> bool:
+        """True once the connection is up and its targets (projects, pods…) are listed."""
+        return True
+
+    def load_profile(self, data: dict) -> None:
+        """Fill the form from a saved connection."""
+
+    def profile_data(self) -> dict:
+        """The credentials / settings to store for this connection."""
+        return {}
+
+    def can_open(self) -> bool:
+        """True when a target is selected, so that Open can be used."""
+        raise NotImplementedError
+
+    def open_selected(self) -> None:
+        """Open the selected target (emits ``open_tab``)."""
+        raise NotImplementedError
+
+    def profile_extra(self, cfg: dict) -> dict:
+        """More settings to store when saving, taken from the tab config being opened."""
+        return {}
+
+    def release(self) -> None:
+        """Free what the panel holds once its dialog is closed (e.g. a connection)."""
+
+    def _embedded_hidden(self) -> list[QWidget]:
+        """Widgets made redundant by the dialog's footer (own Save / Open buttons, title)."""
+        return []
+
+    def embed(self) -> None:
+        """Prepare the panel to live inside the dialog."""
+        for widget in self._embedded_hidden():
+            widget.setVisible(False)

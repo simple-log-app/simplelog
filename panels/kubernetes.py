@@ -262,3 +262,34 @@ class KubernetesPanel(ProviderPanel):
             "label":     f"{ns}/{pod}",
         }
         self.open_tab.emit(cfg, self._open_mode_k8s.get_mode())
+
+    # ── Embedding contract (see ProviderPanel) ────────────────────────────────
+
+    restore_attrs = ("_k8s_container_input", "_lookback_combo_k8s", "_k8s_ns_combo", "_k8s_pod_list")
+
+    def connect_now(self) -> None:
+        self._do_connect()
+
+    def is_connected(self) -> bool:
+        return not self._card_pod.isHidden()
+
+    def load_profile(self, data: dict) -> None:
+        self._load_k8s_profile(data)
+
+    def can_open(self) -> bool:
+        button = getattr(self, "_open_btn_k8s", None)       # absent when kubectl is missing
+        return button.isEnabled() if button is not None else False
+
+    def open_selected(self) -> None:
+        self._on_open()
+
+    def profile_data(self) -> dict:
+        combo = getattr(self, "_k8s_context_combo", None)
+        if combo is None:
+            return {}
+        context = combo.currentText()
+        return {"context": "" if context == "(current context)" else context}
+
+    def _embedded_hidden(self) -> list:
+        button = getattr(self, "_open_btn_k8s", None)
+        return [button] if button is not None else []

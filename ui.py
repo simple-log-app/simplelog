@@ -23,7 +23,13 @@ from log_view import (  # noqa: F401
     _LEVEL_BADGE_TEXT,
     _LEVEL_BG,
     _LEVEL_COLORS,
+    _MATCH_BG,
+    _MATCH_FOCUSED_BG,
+    _QCOLORS,
     _ROW_H,
+    _ROW_MATCH_BG,
+    _ROW_MATCH_FOCUSED_BG,
+    _SELECTION_BG,
     _SOURCE_COLORS,
     _TABLE_HEAD_H,
     _TABLE_PAD_B,
@@ -32,11 +38,15 @@ from log_view import (  # noqa: F401
     LogDelegate,
     LogViewer,
     _LogListView,
+    _match_rects,
+    _qcolor,
 )
 from main_window import (  # noqa: F401
     ChangelogDialog,
     MainWindow,
     SideStack,
+    macos_app_bundle,
+    macos_update_script,
 )
 from panels.azure import (  # noqa: F401
     AzurePanel,
@@ -104,12 +114,10 @@ from panels.vercel import (  # noqa: F401
     _VercelFetchProjectsWorker,
 )
 from remote_dialogs import (  # noqa: F401
-    _PROVIDER_FIELDS,
-    _REMOTE_PROVIDERS,
-    RESULT_OPEN,
+    _RUNNING_WORKERS,
     AddConnectionDialog,
-    AddRemoteDialog,
     RemoteHomePanel,
+    _reap_worker,
     _restore_widget_state,
     _widget_state,
 )
