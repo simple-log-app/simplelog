@@ -23,7 +23,7 @@ import kubernetes_utils
 from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
 from ui_widgets import NoScrollComboBox, OpenModeWidget, _lookback_combo, _primary_btn, make_card
-from ui_workers import BackgroundWorker
+from ui_workers import BackgroundWorker, CallWorker
 
 # ── KubernetesPanel ───────────────────────────────────────────────────────────
 
@@ -61,6 +61,20 @@ class KubernetesPanel(ProviderPanel):
         self._pods_worker: _K8sListPodsWorker | None = None
         self._build_ui()
 
+    def _on_contexts_loaded(self, result) -> None:
+        contexts, current = result
+        combo = self._k8s_context_combo
+        selected = combo.currentText()          # may be a saved context chosen before this arrived
+        for ctx in contexts:
+            if combo.findText(ctx) < 0:
+                combo.addItem(ctx)
+        if selected != "(current context)":
+            combo.setCurrentIndex(max(0, combo.findText(selected)))
+        elif current:
+            idx = combo.findText(current)
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -95,17 +109,13 @@ class KubernetesPanel(ProviderPanel):
 
         lay_cluster.addWidget(self._lbl(LBL_STYLE, i18n.tr("kubernetes_field_context")))
         self._k8s_context_combo = NoScrollComboBox()
-        try:
-            contexts = kubernetes_utils.list_contexts()
-            current  = kubernetes_utils.current_context()
-        except RuntimeError:
-            contexts, current = [], ""
         self._k8s_context_combo.addItem("(current context)")
-        self._k8s_context_combo.addItems(contexts)
-        if current:
-            idx = self._k8s_context_combo.findText(current)
-            if idx >= 0:
-                self._k8s_context_combo.setCurrentIndex(idx)
+        # kubectl is spawned to list the contexts: do it in the background
+        self._contexts_worker = CallWorker(
+            lambda: (kubernetes_utils.list_contexts(), kubernetes_utils.current_context())
+        )
+        self._contexts_worker.success.connect(self._on_contexts_loaded)
+        self._contexts_worker.start()
         self._k8s_context_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
             f"border-radius: 4px; padding: 4px 8px; font-size: 12px;"
@@ -227,6 +237,9 @@ class KubernetesPanel(ProviderPanel):
 
     def _load_k8s_profile(self, p: dict) -> None:
         ctx = p.get("context", "")
+        if ctx and self._k8s_context_combo.findText(ctx) < 0:
+            # The contexts may still be loading: keep the saved one selectable now
+            self._k8s_context_combo.addItem(ctx)
         idx = self._k8s_context_combo.findText(ctx) if ctx else 0
         self._k8s_context_combo.setCurrentIndex(max(0, idx))
 

@@ -7,6 +7,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 ### Añadido
 - Registro de cambios, disponible en 5 idiomas y en la aplicación (Ayuda → Novedades).
 - Cuando hay una nueva versión disponible, el diálogo de actualización muestra los cambios desde tu versión.
+- Nueva opción «Ajustar» en la barra del log: desactívala para mostrar cada log en una sola línea (desplazamiento lateral para las largas), lo que es más rápido con logs muy grandes.
 
 ### Cambiado
 - SSH: la huella de la clave del servidor se muestra ahora para confirmarla la primera vez que te conectas a un host, y una clave modificada se rechaza.
@@ -14,6 +15,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Mucho más rápido con flujos de logs intensos (SSH, Docker, Kubernetes, stdin, archivos): las líneas se añaden en grupos, y los logs largos siguen siendo fluidos al seguirlos, redimensionar o cambiar de pestaña.
 - Ctrl+W ahora cierra la pestaña actual; cerrar todos los logs es Ctrl+Mayús+W.
 - Las marcas de tiempo de la vista de logs ahora se muestran en tu hora local en lugar de UTC.
+- Arranque más rápido, y abrir un archivo grande con un número muy alto de líneas ahora es casi instantáneo.
 
 ### Corregido
 - macOS: la actualización integrada podía borrar toda la carpeta Aplicaciones en lugar de reemplazar solo SimpleLog. Ahora solo reemplaza la app SimpleLog y conserva la anterior si algo falla. Como la actualización se ejecuta desde la versión ya instalada, la 1.0.8 y las anteriores ya no pueden actualizarse solas en macOS: descarga la nueva versión una vez desde la web o con Homebrew.
@@ -34,6 +36,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Elasticsearch 8 y posteriores: el seguimiento de logs vuelve a funcionar (usaba una ordenación que las versiones recientes rechazan).
 - Actualizaciones: se detecta una descarga incompleta, y instalar una actualización .deb ya no congela la ventana.
 - CloudWatch, Docker y SSH: listar grupos de logs, streams y contenedores, y abrir un log SSH, ya no congela la aplicación mientras espera a la red.
+- El explorador de archivos SFTP, las sesiones SSH / GCP / Azure restauradas y la lista de clústeres de Kubernetes ya no congelan la aplicación mientras esperan a la red.
 
 ## [1.0.8] - 2026-09-30
 

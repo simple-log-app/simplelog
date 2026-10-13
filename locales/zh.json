@@ -66,6 +66,7 @@
   "file_no_recent": "无最近文件",
   "viewer_autoscroll": "自动滚动",
   "viewer_timestamps": "时间戳",
+  "viewer_wrap": "换行",
   "viewer_clear": "清除",
   "viewer_stop": "停止",
   "viewer_lines": "{n:,} 行",

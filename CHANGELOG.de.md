@@ -7,6 +7,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 ### Hinzugefügt
 - Änderungsprotokoll, verfügbar in 5 Sprachen und in der App (Hilfe → Neuigkeiten).
 - Wenn eine neue Version verfügbar ist, zeigt der Update-Dialog die Änderungen seit Ihrer Version an.
+- Neue Option „Umbruch“ in der Log-Leiste: Ausgeschaltet wird jedes Log in einer Zeile angezeigt (lange Zeilen lassen sich seitlich scrollen), was bei sehr großen Logs schneller ist.
 
 ### Geändert
 - SSH: Beim ersten Verbinden mit einem Host wird der Schlüssel-Fingerabdruck des Servers zur Bestätigung angezeigt; ein geänderter Schlüssel wird abgelehnt.
@@ -14,6 +15,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Deutlich schneller bei Log-Strömen mit viel Verkehr (SSH, Docker, Kubernetes, stdin, Dateien): Zeilen werden gruppenweise hinzugefügt, und lange Logs bleiben beim Verfolgen, Skalieren und Tab-Wechsel flüssig.
 - Strg+W schließt jetzt den aktuellen Tab; alle Logs schließen Sie mit Strg+Umschalt+W.
 - Zeitstempel in der Log-Ansicht werden jetzt in Ihrer Ortszeit statt in UTC angezeigt.
+- Schnellerer Start, und das Öffnen einer großen Datei mit sehr vielen angeforderten Zeilen geht jetzt fast sofort.
 
 ### Behoben
 - macOS: Das integrierte Update konnte den gesamten Programme-Ordner löschen, statt nur SimpleLog zu ersetzen. Jetzt wird nur noch die SimpleLog-App ersetzt, und die alte bleibt bei Problemen erhalten. Da das Update von der bereits installierten Version ausgeführt wird, können sich 1.0.8 und frühere Versionen unter macOS nicht mehr selbst aktualisieren: Laden Sie die neue Version einmalig von der Website oder mit Homebrew herunter.
@@ -34,6 +36,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Elasticsearch 8 und neuer: Das Verfolgen von Logs funktioniert wieder (es nutzte eine Sortierung, die neuere Versionen ablehnen).
 - Updates: Ein unvollständiger Download wird erkannt, und die Installation eines .deb-Updates friert das Fenster nicht mehr ein.
 - CloudWatch, Docker und SSH: Das Auflisten von Log-Gruppen, Streams und Containern sowie das Öffnen eines SSH-Logs friert die App beim Warten auf das Netzwerk nicht mehr ein.
+- Der SFTP-Dateibrowser, wiederhergestellte SSH- / GCP- / Azure-Sitzungen und die Kubernetes-Clusterliste frieren die App beim Warten auf das Netzwerk nicht mehr ein.
 
 ## [1.0.8] - 2026-09-30
 

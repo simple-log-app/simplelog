@@ -66,6 +66,7 @@
   "file_no_recent": "Keine zuletzt geöffneten Dateien",
   "viewer_autoscroll": "Auto-Scrollen",
   "viewer_timestamps": "Zeitstempel",
+  "viewer_wrap": "Umbruch",
   "viewer_clear": "Löschen",
   "viewer_stop": "Stoppen",
   "viewer_lines": "{n:,} Zeilen",

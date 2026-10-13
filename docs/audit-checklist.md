@@ -30,7 +30,7 @@ Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probab
 - [x] 11. Ctrl+W ferme tous les onglets sans confirmation.
 - [x] 12. `simplelog app.log` lancé depuis un autre dossier avec une instance ouverte : chemin relatif non résolu, rien ne s'ouvre.
 - [x] 13. Gels à l'arrêt des workers : fermer un onglet fige l'UI ~3 s, quitter 2 s par worker ; un onglet stdin ne peut pas être arrêté. *(mesuré)*
-- [~] 14. *(fait : CloudWatch groupes/streams, Docker, ouverture SSH ; reste : navigateur SFTP, restauration des onglets SSH/GCP/Azure dans `main_window`)* Appels réseau dans le fil de l'interface : CloudWatch (log groups, streams à chaque ↓), Docker (`docker ps`), SSH (2ᵉ connexion, navigateur SFTP), restauration des onglets SSH/GCP/Azure.
+- [x] 14. Appels réseau dans le fil de l'interface : CloudWatch (log groups, streams à chaque ↓), Docker (`docker ps`), SSH (2ᵉ connexion, navigateur SFTP), restauration des onglets SSH/GCP/Azure.
 - [x] 15. Heures affichées en UTC sans l'indiquer → désormais en heure locale.
 - [x] 16. Cocher/décocher « timestamps » ne recalcule pas la hauteur des lignes.
 - [x] 17. `write_private` non atomique : un crash laisse un JSON tronqué → profils effacés à la sauvegarde suivante.
@@ -55,14 +55,14 @@ Cause principale : `LogDelegate.sizeHint` (72 % du temps) recalculé pour **tout
 - [x] P4. Log plein : supprimer les plus anciennes lignes par tranches de 10 % au lieu de reconstruire tout le modèle à chaque ajout.
 - [x] P5. Ne pas réappliquer le filtre s'il n'a pas changé (changement d'onglet, clic dans un panneau).
 - [x] P6. Retarder (~100 ms) le recalcul au redimensionnement.
-- [ ] P7. Option « sans retour à la ligne » (lignes de hauteur fixe).
-- [~] P8. *(fait : niveau de sévérité mis en cache ; reste : heure formatée, couleurs, police des badges)* Dessin : mettre en cache niveau, heure formatée, couleurs, police des badges (5 regex par ligne à chaque dessin).
-- [ ] P9. Recherche incrémentale (nouvelles lignes seulement).
+- [x] P7. Option « sans retour à la ligne » (lignes de hauteur fixe).
+- [x] P8. Dessin : mettre en cache niveau, heure formatée, couleurs, police des badges (5 regex par ligne à chaque dessin).
+- [x] P9. Recherche incrémentale (nouvelles lignes seulement).
 - [x] P10. Arrêt immédiat des workers (attente interruptible, plus de `wait()` dans l'UI).
-- [ ] P11. Borner l'historique (CloudWatch sans limite ; fichier : 500 000 lignes demandées pour 10 000 gardées) et réécrire `_read_last_n_lines` (18,8 s → < 0,2 s).
-- [~] P12. *(fait : CloudWatch, Docker, SSH ; voir bug 14)* Appels réseau des panneaux dans `BackgroundWorker` (cf. bug 14).
+- [x] P11. Borner l'historique (CloudWatch sans limite ; fichier : 500 000 lignes demandées pour 10 000 gardées) et réécrire `_read_last_n_lines` (18,8 s → < 0,2 s).
+- [x] P12. Appels réseau des panneaux dans `BackgroundWorker` (cf. bug 14).
 - [x] P13. Corriger la fuite des dialogues (cf. bug 7).
-- [ ] P14. Import paresseux de boto3 / paramiko (~0,2 s au démarrage).
+- [x] P14. Import paresseux de boto3 / paramiko (~0,2 s au démarrage).
 
 ## 🧹 Refactoring
 

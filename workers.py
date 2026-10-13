@@ -61,26 +61,36 @@ def _ts_ms_to_iso(ts_ms: int) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
+# A viewer keeps at most this many lines: loading more history is wasted work.
+HISTORY_CAP = 10_000
+
+
 def _read_last_n_lines(path: str, n: int) -> tuple[list[str], int]:
     """Read the last *n* lines of *path* without loading the whole file.
 
     Uses binary seeks so it's O(tail size), not O(file size).
     Returns *(lines, eof_byte_offset)* — the offset is used to resume tailing.
     """
-    CHUNK = 1 << 14  # 16 KB per backwards step
+    CHUNK = 1 << 16  # 64 KB per backwards step
     with open(path, "rb") as f:
         f.seek(0, 2)
         file_size = f.tell()
         if file_size == 0 or n == 0:
             return [], file_size
 
-        buf = b""
+        # Newer chunks are collected as they are read and joined once at the end
+        # (prepending to one growing buffer is quadratic on big tails).
+        chunks: list[bytes] = []
+        newlines = 0
         pos = file_size
-        while pos > 0 and buf.count(b"\n") <= n:
+        while pos > 0 and newlines <= n:
             step = min(CHUNK, pos)
             pos -= step
             f.seek(pos)
-            buf = f.read(step) + buf
+            chunk = f.read(step)
+            chunks.append(chunk)
+            newlines += chunk.count(b"\n")
+        buf = b"".join(reversed(chunks))
 
     lines = buf.decode("utf-8", errors="replace").splitlines()
     result = lines[-n:] if len(lines) > n else lines
@@ -221,7 +231,7 @@ class TailWorker(_PollWorker):
                 self._client, self._log_group, self._log_stream or None,
                 start_ms=start_ms,
                 filter_pattern=self._filter_pattern,
-                max_events=None,
+                max_events=None, keep_last=HISTORY_CAP,
             )
             self._last_ts = events[-1][0] + 1 if events else int(time.time() * 1000)
             if events:
@@ -298,7 +308,7 @@ class FileWorker(QThread):
     def run(self):
         try:
             self.status.emit(f"Loading {self._path}…")
-            lines, eof_pos = _read_last_n_lines(self._path, self._tail_lines)
+            lines, eof_pos = _read_last_n_lines(self._path, min(self._tail_lines, HISTORY_CAP))
             pending = b""
             if lines and eof_pos > 0 and not self._ends_with_newline(eof_pos):
                 # The last line is still being written: show it once it is complete
@@ -520,7 +530,9 @@ class SSHWorker(QThread):
     def run(self) -> None:
         self.status.emit(f"Connecting to {self._remote_path}…")
         try:
-            cmd = f"tail -n {self._tail_lines} -f {shlex.quote(self._remote_path)}"
+            cmd = (
+                f"tail -n {min(self._tail_lines, HISTORY_CAP)} -f {shlex.quote(self._remote_path)}"
+            )
             _, stdout, stderr = self._client.exec_command(cmd, get_pty=False)
             self._channel = stdout.channel
             self.status.emit(f"Tailing {self._remote_path}")
@@ -671,7 +683,7 @@ class DockerExecFileWorker(QThread):
         try:
             self._proc = subprocess.Popen(
                 ["docker", "exec", self._container_id,
-                 "tail", f"-n{self._tail_lines}", "-f", self._remote_path],
+                 "tail", f"-n{min(self._tail_lines, HISTORY_CAP)}", "-f", self._remote_path],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
             )

@@ -66,6 +66,7 @@
   "file_no_recent": "Aucun fichier récent",
   "viewer_autoscroll": "Défilement auto",
   "viewer_timestamps": "Timestamps",
+  "viewer_wrap": "Retour ligne",
   "viewer_clear": "Effacer",
   "viewer_stop": "Arrêter",
   "viewer_lines": "{n:,} lignes",

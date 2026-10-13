@@ -66,6 +66,7 @@
   "file_no_recent": "Sin archivos recientes",
   "viewer_autoscroll": "Auto-scroll",
   "viewer_timestamps": "Marcas de tiempo",
+  "viewer_wrap": "Ajustar",
   "viewer_clear": "Limpiar",
   "viewer_stop": "Detener",
   "viewer_lines": "{n:,} líneas",

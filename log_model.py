@@ -125,6 +125,9 @@ class LogItem:
     # Row-height cache owned by the delegate: (layout key, height)
     size_cache: tuple | None = None
     level: str | None = None   # severity, computed lazily by the delegate
+    ts_text: str | None = None  # formatted HH:MM:SS, computed lazily by the delegate
+    # Last search outcome for this row: (terms key, [(start, length), ...])
+    search: tuple | None = None
 
 
 _ITEM_ROLE     = Qt.ItemDataRole.UserRole + 1

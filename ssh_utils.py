@@ -6,8 +6,10 @@ import hashlib
 import shlex
 import stat
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import paramiko
+if TYPE_CHECKING:
+    import paramiko
 
 _KNOWN_HOSTS = Path.home() / ".config" / "simplelog" / "known_hosts"
 
@@ -27,20 +29,37 @@ def _fingerprint(key) -> str:
     return "SHA256:" + base64.b64encode(digest).decode().rstrip("=")
 
 
-class _TrustPolicy(paramiko.MissingHostKeyPolicy):
-    """Refuse unknown host keys, or remember them when *trust_new* is set."""
+def _build_trust_policy():
+    import paramiko
 
-    def __init__(self, trust_new: bool) -> None:
-        self._trust_new = trust_new
+    class _TrustPolicy(paramiko.MissingHostKeyPolicy):
+        """Refuse unknown host keys, or remember them when *trust_new* is set."""
 
-    def missing_host_key(self, client, hostname, key):
-        if not self._trust_new:
-            raise UnknownHostKeyError(hostname, key.get_name(), _fingerprint(key))
-        client.get_host_keys().add(hostname, key.get_name(), key)
-        line = paramiko.hostkeys.HostKeyEntry([hostname], key).to_line()
-        _KNOWN_HOSTS.parent.mkdir(parents=True, exist_ok=True)
-        with open(_KNOWN_HOSTS, "a", encoding="utf-8") as f:
-            f.write(line)
+        def __init__(self, trust_new: bool) -> None:
+            self._trust_new = trust_new
+
+        def missing_host_key(self, client, hostname, key):
+            if not self._trust_new:
+                raise UnknownHostKeyError(hostname, key.get_name(), _fingerprint(key))
+            client.get_host_keys().add(hostname, key.get_name(), key)
+            line = paramiko.hostkeys.HostKeyEntry([hostname], key).to_line()
+            _KNOWN_HOSTS.parent.mkdir(parents=True, exist_ok=True)
+            with open(_KNOWN_HOSTS, "a", encoding="utf-8") as f:
+                f.write(line)
+
+    return _TrustPolicy
+
+
+def __getattr__(name: str):
+    """paramiko takes ~0.1 s to import: only load it when an SSH feature is used."""
+    if name == "paramiko":
+        import paramiko
+        globals()["paramiko"] = paramiko
+        return paramiko
+    if name == "_TrustPolicy":
+        globals()["_TrustPolicy"] = cls = _build_trust_policy()
+        return cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def make_client(
@@ -59,11 +78,13 @@ def make_client(
     in which case the key is saved to SimpleLog's known_hosts file.
     Raises RuntimeError with a human-readable message on any failure.
     """
+    import paramiko
+
     client = paramiko.SSHClient()
     client.load_system_host_keys()
     if _KNOWN_HOSTS.exists():
         client.load_host_keys(str(_KNOWN_HOSTS))
-    client.set_missing_host_key_policy(_TrustPolicy(trust_new_host))
+    client.set_missing_host_key_policy(_build_trust_policy()(trust_new_host))
     try:
         client.connect(
             hostname=host,

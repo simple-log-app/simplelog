@@ -7,6 +7,7 @@ All notable changes to SimpleLog are documented in this file.
 ### Added
 - Changelog, available in 5 languages and in the app (Help → What's New).
 - When a new version is available, the update dialog now lists what changed since your version.
+- New “Wrap” option in the log toolbar: turn it off to show each log on a single line (scroll sideways for long ones), which is faster on very large logs.
 
 ### Changed
 - SSH: the server's key fingerprint is now shown for confirmation the first time you connect to a host, and a changed key is refused.
@@ -14,6 +15,7 @@ All notable changes to SimpleLog are documented in this file.
 - Much faster with busy log streams (SSH, Docker, Kubernetes, stdin, files): lines are added in groups, and long logs stay smooth while following, resizing or switching tabs.
 - Ctrl+W now closes the current tab; closing all logs is Ctrl+Shift+W.
 - Timestamps in the log view are now shown in your local time instead of UTC.
+- Faster startup, and opening a big file with a very large number of lines is now almost instant.
 
 ### Fixed
 - macOS: the in-app update could delete the whole Applications folder instead of replacing only SimpleLog. It now replaces only the SimpleLog app, and keeps the old one if anything goes wrong. Because the update runs from the version you already have, 1.0.8 and earlier can no longer self-update on macOS: download the new version once from the website or with Homebrew.
@@ -34,6 +36,7 @@ All notable changes to SimpleLog are documented in this file.
 - Elasticsearch 8 and later: following logs works again (it relied on a sort that newer versions reject).
 - Updates: an incomplete download is detected, and installing a .deb update no longer freezes the window.
 - CloudWatch, Docker and SSH: listing log groups, streams and containers, and opening an SSH log, no longer freeze the app while waiting for the network.
+- The SFTP file browser, restored SSH / GCP / Azure sessions and the Kubernetes cluster list no longer freeze the app while waiting for the network.
 
 ## [1.0.8] - 2026-09-30
 

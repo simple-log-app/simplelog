@@ -84,6 +84,8 @@ class _SftpBrowserDialog(QDialog):
         self._client   = client
         self._cur_path = start_path
         self._selected : str | None = None
+        self._nav_gen = 0        # answers to older listings are ignored
+        self.finished.connect(lambda _=0: setattr(self, "_nav_gen", -1))
 
         layout = QVBoxLayout(self)
 
@@ -115,11 +117,26 @@ class _SftpBrowserDialog(QDialog):
             up_item = QListWidgetItem("📁  ..")
             up_item.setData(Qt.ItemDataRole.UserRole, ("dir", str(Path(path).parent)))
             self._list.addItem(up_item)
-        try:
-            entries = ssh_utils.list_remote_dir_full(self._client, path)
-        except RuntimeError as e:
-            QMessageBox.warning(self, "Error", str(e))
+        # Listing a directory over a slow link can take seconds: do it in the background
+        self._nav_gen += 1
+        gen = self._nav_gen
+        self._list.setEnabled(False)
+        worker = CallWorker(ssh_utils.list_remote_dir_full, self._client, path)
+        worker.success.connect(lambda entries: self._on_listed(gen, path, entries))
+        worker.failure.connect(lambda msg: self._on_list_failed(gen, msg))
+        self._list_worker = worker
+        worker.start()
+
+    def _on_list_failed(self, gen: int, msg: str) -> None:
+        if gen != self._nav_gen:
             return
+        self._list.setEnabled(True)
+        QMessageBox.warning(self, "Error", msg)
+
+    def _on_listed(self, gen: int, path: str, entries: list) -> None:
+        if gen != self._nav_gen:
+            return   # another directory was requested meanwhile, or the dialog closed
+        self._list.setEnabled(True)
         for name, is_dir in entries:
             prefix = "📁  " if is_dir else "📄  "
             item = QListWidgetItem(prefix + name)

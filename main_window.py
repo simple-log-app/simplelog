@@ -68,6 +68,7 @@ from ui_theme import (
     C_TEXT,
 )
 from ui_widgets import NavRail, _SidebarEdgeBtn, _SLTabWidget
+from ui_workers import CallWorker
 from workers import (
     AzureWorker,
     CloudflareWorker,
@@ -181,6 +182,7 @@ class MainWindow(QMainWindow):
         self.resize(1380, 860)
         self._workers: dict[int, object] = {}
         self._stopping: set = set()   # stopped workers that are still winding down
+        self._connectors: set = set()  # background connections for tabs being opened
         self._cur_viewer: LogViewer | None = None
         self._splitter_style: str = ""
         self._update_worker = None  # UpdateWorker instance (kept alive)
@@ -912,19 +914,45 @@ class MainWindow(QMainWindow):
         viewer.set_title("stdin — piped input")
         self._add_tab("stdin", viewer, worker, split="tab")
 
+    def _connect_then(self, title: str, connect, done) -> None:
+        """Run a blocking *connect()* in the background, then call done(result).
+
+        Used when a tab has to open its own connection (e.g. a restored session):
+        the network wait must not freeze the window.
+        """
+        self._status.showMessage(i18n.tr("ssh_connecting"))
+        worker = CallWorker(connect)
+
+        def _ok(result) -> None:
+            self._status.showMessage(i18n.tr("status_ready"))
+            done(result)
+
+        def _failed(msg: str) -> None:
+            self._status.showMessage(i18n.tr("status_ready"))
+            QMessageBox.critical(self, title, msg)
+
+        worker.success.connect(_ok)
+        worker.failure.connect(_failed)
+        self._connectors.add(worker)
+        worker.finished.connect(lambda w=worker: self._connectors.discard(w))
+        worker.start()
+
     def open_ssh_tab(self, cfg: dict, split: str = "tab"):
         client = cfg.pop("_client", None)
         if client is None:
-            try:
-                client = ssh_utils.make_client(
+            self._connect_then(
+                "SSH Error",
+                lambda: ssh_utils.make_client(
                     cfg["host"], cfg["user"], cfg.get("port", 22),
                     key_path=cfg.get("key_path") or None,
                     password=cfg.get("password") or None,
-                )
-            except RuntimeError as e:
-                from PyQt6.QtWidgets import QMessageBox
-                QMessageBox.critical(self, "SSH Error", str(e))
-                return
+                ),
+                lambda c: self._finish_ssh_tab(cfg, c, split),
+            )
+            return
+        self._finish_ssh_tab(cfg, client, split)
+
+    def _finish_ssh_tab(self, cfg: dict, client, split: str) -> None:
         worker = SSHWorker(client, cfg["remote_path"], cfg.get("tail_lines", 100))
         viewer = LogViewer(source_type="ssh")
         viewer.set_title(f"{cfg['user']}@{cfg['host']}:{cfg['remote_path']}")
@@ -963,14 +991,15 @@ class MainWindow(QMainWindow):
     def open_gcp_tab(self, cfg: dict, split: str = "tab"):
         client = cfg.pop("_client", None)
         if client is None:
-            try:
-                client = gcp_utils.make_client(
-                    cfg["project_id"],
-                    cfg.get("key_path") or None,
-                )
-            except RuntimeError as e:
-                QMessageBox.critical(self, "GCP Error", str(e))
-                return
+            self._connect_then(
+                "GCP Error",
+                lambda: gcp_utils.make_client(cfg["project_id"], cfg.get("key_path") or None),
+                lambda c: self._finish_gcp_tab(cfg, c, split),
+            )
+            return
+        self._finish_gcp_tab(cfg, client, split)
+
+    def _finish_gcp_tab(self, cfg: dict, client, split: str) -> None:
         worker = GCPWorker(
             client, cfg["project_id"],
             cfg.get("resource_type", "(all)"),
@@ -986,14 +1015,19 @@ class MainWindow(QMainWindow):
     def open_azure_tab(self, cfg: dict, split: str = "tab"):
         logs_client = cfg.pop("_logs_client", None)
         if logs_client is None:
-            try:
+            def _connect():
                 cred = azure_utils.make_credential(
                     cfg["tenant_id"], cfg["client_id"], cfg["client_secret"]
                 )
-                logs_client = azure_utils.make_logs_client(cred)
-            except RuntimeError as e:
-                QMessageBox.critical(self, "Azure Error", str(e))
-                return
+                return azure_utils.make_logs_client(cred)
+
+            self._connect_then(
+                "Azure Error", _connect, lambda c: self._finish_azure_tab(cfg, c, split),
+            )
+            return
+        self._finish_azure_tab(cfg, logs_client, split)
+
+    def _finish_azure_tab(self, cfg: dict, logs_client, split: str) -> None:
         label = cfg.get("label", "azure")
         worker = AzureWorker(
             logs_client, cfg["workspace_id"], cfg["query"],

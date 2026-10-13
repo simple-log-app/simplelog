@@ -1,10 +1,18 @@
 """cloudwatch.py — AWS CloudWatch Logs helpers for SimpleLog."""
 from __future__ import annotations
 
+import collections
 import configparser
 import os
 
-import boto3
+
+def __getattr__(name: str):
+    """boto3 takes ~0.1 s to import: only load it when an AWS client is built."""
+    if name == "boto3":
+        import boto3
+        globals()["boto3"] = boto3
+        return boto3
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def list_profiles() -> list[str]:
@@ -27,6 +35,8 @@ def list_profiles() -> list[str]:
 
 def make_client(profile=None, region="us-east-1",
                 access_key_id=None, secret_access_key=None):
+    import boto3
+
     if access_key_id and secret_access_key:
         session = boto3.Session(
             aws_access_key_id=access_key_id,
@@ -76,13 +86,15 @@ def list_log_streams(client, log_group, prefix=""):
 
 
 def fetch_events(client, log_group, log_stream=None, start_ms=None,
-                 filter_pattern="", max_events=500):
+                 filter_pattern="", max_events=500, keep_last=None):
     """
     Fetch log events. Returns list of (timestamp_ms, message) tuples.
     If log_stream is None, fetches from all streams in the group.
     max_events=None means unlimited (full initial load).
+    keep_last bounds memory for an unlimited load: only the newest *keep_last* events
+    are kept (the API returns oldest first, so the rest is dropped as it streams in).
     """
-    events = []
+    events = collections.deque(maxlen=keep_last) if keep_last else []
     kwargs = {"logGroupName": log_group}
     if start_ms is not None:
         kwargs["startTime"] = start_ms
@@ -101,4 +113,4 @@ def fetch_events(client, log_group, log_stream=None, start_ms=None,
     except Exception as e:
         raise RuntimeError(str(e))
 
-    return events
+    return list(events)

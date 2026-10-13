@@ -108,6 +108,17 @@ _LEVEL_BADGE_TEXT = {
 }
 
 
+_QCOLORS: dict[str, QColor] = {}
+
+
+def _qcolor(spec: str) -> QColor:
+    """Parse a colour string once (painting runs for every visible row, every frame)."""
+    c = _QCOLORS.get(spec)
+    if c is None:
+        c = _QCOLORS[spec] = QColor(spec)
+    return c
+
+
 _SELECTION_BG = QColor(26, 58, 110, 85)
 _MATCH_BG = QColor(255, 213, 79, 102)
 _MATCH_FOCUSED_BG = QColor(255, 213, 79, 170)
@@ -168,6 +179,7 @@ class LogDelegate(QStyledItemDelegate):
         self._fm: QFontMetrics | None = None
         self._fm_key: tuple | None = None
         self._press: tuple[int, object] | None = None   # (row, pos) of the left-button press
+        self._badge_cache: dict[tuple, tuple] = {}      # (font, level) -> (font, w, h)
 
     def set_search_highlights(
         self,
@@ -205,18 +217,26 @@ class LogDelegate(QStyledItemDelegate):
         if not item.is_json:
             vp_w = self._viewer._list_view.viewport().width()
             show_ts = bool(self._viewer.show_timestamps and item.ts_ms)
+            wrap = self._viewer.wrap_lines
             # Wrapping a long line is the costly part: only redo it when the width,
-            # the font or the timestamp column changed.
-            key = (vp_w, font_key, show_ts)
+            # the font, the timestamp column or the wrap mode changed.
+            key = (vp_w, font_key, show_ts, wrap)
             cached = item.size_cache
             if cached is not None and cached[0] == key:
-                return QSize(vp_w, cached[1])
+                return QSize(cached[2], cached[1])
             x_offset = _BADGE_COL_W + (_TS_COL_W if show_ts else 0)
-            avail_w = max(1, vp_w - x_offset - 14)
-            br = fm.boundingRect(QRect(0, 0, avail_w, 0), Qt.TextFlag.TextWordWrap, item.message)
-            height = max(row_h, br.height() + 6)
-            item.size_cache = (key, height)
-            return QSize(vp_w, height)
+            if wrap:
+                avail_w = max(1, vp_w - x_offset - 14)
+                br = fm.boundingRect(
+                    QRect(0, 0, avail_w, 0), Qt.TextFlag.TextWordWrap, item.message,
+                )
+                height, width = max(row_h, br.height() + 6), vp_w
+            else:
+                # One line per row: as wide as the text so the view scrolls sideways
+                height = row_h
+                width = max(vp_w, x_offset + 14 + fm.horizontalAdvance(item.message))
+            item.size_cache = (key, height, width)
+            return QSize(width, height)
         return QSize(option.rect.width(), row_h)
 
     def paint(self, painter, option, index):
@@ -278,7 +298,7 @@ class LogDelegate(QStyledItemDelegate):
     ) -> int:
         """Draw (text, color) segments left-to-right. Returns x after last segment."""
         for text, color in segments:
-            painter.setPen(QColor(color))
+            painter.setPen(_qcolor(color))
             painter.drawText(x, y, text)
             x += fm.horizontalAdvance(text)
         return x
@@ -296,6 +316,12 @@ class LogDelegate(QStyledItemDelegate):
         painter.fillRect(QRect(tx - 6, rect.top(), text_w + 12, rect.height()), QColor("#111111"))
         painter.setPen(QColor(C_MUTED))
         painter.drawText(tx, ty, item.message)
+
+    @staticmethod
+    def _ts_text(item: LogItem) -> str:
+        if item.ts_text is None:
+            item.ts_text = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%H:%M:%S")
+        return item.ts_text
 
     @staticmethod
     def _level(item: LogItem) -> str:
@@ -323,39 +349,45 @@ class LogDelegate(QStyledItemDelegate):
 
         # Timestamp column
         if self._viewer.show_timestamps and item.ts_ms:
-            ts = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%H:%M:%S")
             ts_rect = QRect(x, rect.top(), _TS_COL_W, rect.height())
-            painter.setPen(QColor(C_TS))
+            painter.setPen(_qcolor(C_TS))
             painter.drawText(ts_rect,
                              Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-                             ts)
+                             self._ts_text(item))
             x += _TS_COL_W
 
         # Message column
         text_rect = QRect(x, rect.top() + 3, rect.right() - x - 14, rect.height() - 6)
-        painter.setPen(QColor(color))
-        painter.drawText(text_rect,
-                         Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignTop,
-                         item.message)
+        painter.setPen(_qcolor(color))
+        flags = Qt.AlignmentFlag.AlignTop
+        flags |= (Qt.TextFlag.TextWordWrap if self._viewer.wrap_lines
+                  else Qt.TextFlag.TextSingleLine)
+        painter.drawText(text_rect, flags, item.message)
 
     def _paint_level_badge(self, painter, rect: QRect, level: str, _fm=None) -> None:
         """Draw the level badge in the left column."""
         badge_text = _LEVEL_BADGE_TEXT.get(level, "")
         if not badge_text:
             return
-        color = QColor(_LEVEL_COLORS.get(level, C_TEXT))
+        color = _qcolor(_LEVEL_COLORS.get(level, C_TEXT))
         bg    = _LEVEL_BG.get(level, QColor(0, 0, 0, 0))
 
-        # Save font, set smaller bold badge font
+        # Smaller bold badge font; its metrics only depend on the log font and the level
         orig_font = painter.font()
-        badge_font = painter.font()
-        badge_font.setPointSize(max(6, badge_font.pointSize() - 1))
-        badge_font.setBold(True)
+        cache_key = (orig_font.family(), orig_font.pointSize(), level)
+        cached = self._badge_cache.get(cache_key)
+        if cached is None:
+            badge_font = QFont(orig_font)
+            badge_font.setPointSize(max(6, badge_font.pointSize() - 1))
+            badge_font.setBold(True)
+            badge_fm = QFontMetrics(badge_font)
+            cached = self._badge_cache[cache_key] = (
+                badge_font,
+                badge_fm.horizontalAdvance(badge_text) + 10,   # 5px each side
+                badge_fm.height() + 2,
+            )
+        badge_font, badge_w, badge_h = cached
         painter.setFont(badge_font)
-        badge_fm = QFontMetrics(badge_font)
-
-        badge_w = badge_fm.horizontalAdvance(badge_text) + 10  # 5px each side
-        badge_h = badge_fm.height() + 2
         bx = rect.left() + 14
         by = rect.top() + (rect.height() - badge_h) // 2
 
@@ -403,8 +435,7 @@ class LogDelegate(QStyledItemDelegate):
 
         # Timestamp column
         if self._viewer.show_timestamps and item.ts_ms:
-            ts = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%H:%M:%S")
-            x = self._draw_segments(painter, x, y, [(ts + "  ", C_TS)], fm)
+            x = self._draw_segments(painter, x, y, [(self._ts_text(item) + "  ", C_TS)], fm)
         else:
             x += 0  # no ts column when disabled
 
@@ -609,6 +640,10 @@ class LogViewer(QWidget):
     def show_timestamps(self) -> bool:
         return self.timestamps_cb.isChecked()
 
+    @property
+    def wrap_lines(self) -> bool:
+        return self.wrap_cb.isChecked()
+
     def _on_rows_appended(self) -> None:
         if self.autoscroll_cb.isChecked():
             self._list_view.scrollToBottom()
@@ -656,6 +691,10 @@ class LogViewer(QWidget):
         self.timestamps_cb = QCheckBox()
         self.timestamps_cb.setChecked(True)
         self.timestamps_cb.stateChanged.connect(self._on_timestamps_toggled)
+
+        self.wrap_cb = QCheckBox()
+        self.wrap_cb.setChecked(True)
+        self.wrap_cb.stateChanged.connect(self._on_wrap_toggled)
 
         _icon_btn_style = (
             f"QPushButton {{ background: transparent; border: 1px solid {C_BORDER};"
@@ -718,6 +757,7 @@ class LogViewer(QWidget):
         tb.addWidget(self.line_badge)
         tb.addWidget(self.autoscroll_cb)
         tb.addWidget(self.timestamps_cb)
+        tb.addWidget(self.wrap_cb)
         tb.addWidget(self.font_dec_btn)
         tb.addWidget(self.font_inc_btn)
         tb.addWidget(self.clear_btn)
@@ -757,6 +797,7 @@ class LogViewer(QWidget):
         self._source_badge.setText(i18n.tr(src_key))
         self.autoscroll_cb.setText(i18n.tr("viewer_autoscroll"))
         self.timestamps_cb.setText(i18n.tr("viewer_timestamps"))
+        self.wrap_cb.setText(i18n.tr("viewer_wrap"))
         self.clear_btn.setToolTip(i18n.tr("viewer_clear"))
         self.stop_btn.setToolTip(i18n.tr("viewer_stop"))
         self.line_badge.setText(i18n.tr("viewer_lines", n=self._model.visible_count()))
@@ -766,6 +807,15 @@ class LogViewer(QWidget):
 
     def _on_timestamps_toggled(self, _state=None) -> None:
         # The timestamp column narrows the text area, so wrapped rows change height
+        self._list_view.scheduleDelayedItemsLayout()
+        self._list_view.viewport().update()
+
+    def _on_wrap_toggled(self, _state=None) -> None:
+        # Without wrapping every row is one line; long ones scroll sideways
+        self._list_view.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff if self.wrap_lines
+            else Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self._list_view.scheduleDelayedItemsLayout()
         self._list_view.viewport().update()
 
@@ -811,17 +861,30 @@ class LogViewer(QWidget):
             return []
 
         patterns = [re.compile(re.escape(t.text), re.IGNORECASE) for t in active]
+        # Rows remember their last result for these terms: while following a log only
+        # the rows that arrived since the previous scan are actually searched.
+        terms_key = tuple((t.text, t.operator) for t in active)
         results: list[tuple[int, int, int]] = []
         highlights: dict[int, list[tuple[int, int]]] = {}
 
         for vis_idx, item in enumerate(self._model.visible_items()):
-            if item.is_break or not _line_matches(item.message, active):
+            if item.is_break:
                 continue
-            for pattern in patterns:
-                for m in pattern.finditer(item.message):
-                    span = (m.start(), m.end() - m.start())
-                    results.append((vis_idx, *span))
-                    highlights.setdefault(vis_idx, []).append(span)
+            cached = item.search
+            if cached is not None and cached[0] == terms_key:
+                spans = cached[1]
+            else:
+                spans = []
+                if _line_matches(item.message, active):
+                    for pattern in patterns:
+                        spans.extend(
+                            (m.start(), m.end() - m.start())
+                            for m in pattern.finditer(item.message)
+                        )
+                item.search = (terms_key, spans)
+            if spans:
+                highlights[vis_idx] = spans
+                results.extend((vis_idx, start, length) for start, length in spans)
 
         self._search_highlights = highlights
         self._delegate.set_search_highlights(highlights)
