@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 UI_MODULES = [
     "ui_theme", "ui_widgets", "log_model", "log_view", "sidebar", "remote_dialogs",
-    "main_window",
+    "main_window", "panels.base",
     "panels.cloudwatch", "panels.file", "panels.ssh", "panels.docker", "panels.vercel",
     "panels.gcp", "panels.azure", "panels.loki", "panels.datadog", "panels.elastic",
     "panels.railway", "panels.flyio", "panels.kubernetes", "panels.cloudflare",
@@ -140,3 +140,24 @@ def test_vercel_deploy_worker_without_deployment_fails(monkeypatch):
     monkeypatch.setattr(vercel_utils, "get_latest_deployment", lambda *a: None)
     got = _run_worker(_VercelFetchDeployWorker("t", "p", "production"))
     assert "failure" in got and "success" not in got
+
+
+def test_provider_panels_share_the_base_class():
+    from panels.base import ProviderPanel
+
+    for module, cls in PANELS.items():
+        if cls == "FilePanel":   # opens plain files: different open_tab signature
+            continue
+        assert issubclass(getattr(importlib.import_module(module), cls), ProviderPanel), cls
+
+
+def test_provider_panel_scaffold_returns_content_layout():
+    from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
+
+    from panels.base import ProviderPanel
+
+    panel = ProviderPanel()
+    lay = panel._scaffold()
+    assert isinstance(lay, QVBoxLayout)
+    assert panel.findChild(QScrollArea) is not None
+    assert lay.contentsMargins().left() == 12

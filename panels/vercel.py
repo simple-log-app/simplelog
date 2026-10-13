@@ -7,23 +7,20 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QScrollArea,
     QSpinBox,
-    QVBoxLayout,
-    QWidget,
 )
 
 import i18n
 import profiles_store
 import vercel_utils
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
+from panels.base import ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
     OpenModeWidget,
@@ -81,9 +78,7 @@ class _VercelFetchDeployWorker(BackgroundWorker):
         return (deploy,)
 
 
-class VercelPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)   # (cfg, split_mode)
-
+class VercelPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._token      = vercel_utils.load_token()
@@ -98,23 +93,7 @@ class VercelPanel(QWidget):
             self._do_connect()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
+        vlay = self._scaffold()
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_v, saved_lay_v, _ = make_card(i18n.tr("saved_configs"))

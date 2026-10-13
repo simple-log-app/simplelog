@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    pyqtSignal,
 )
 from PyQt6.QtGui import (
     QColor,
@@ -25,6 +24,7 @@ from PyQt6.QtWidgets import (
 import cloudwatch
 import i18n
 import profiles_store
+from panels.base import ProviderPanel
 from ui_theme import C_ACCENT, C_SIDE, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
@@ -37,9 +37,7 @@ from ui_widgets import (
 )
 
 
-class CloudWatchPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)  # (cfg, split_mode)
-
+class CloudWatchPanel(ProviderPanel):
     _REGIONS = [
         "us-east-1", "us-east-2", "us-west-1", "us-west-2",
         "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1",

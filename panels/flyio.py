@@ -7,23 +7,20 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QScrollArea,
     QSpinBox,
-    QVBoxLayout,
-    QWidget,
 )
 
 import flyio_utils
 import i18n
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
     OpenModeWidget,
     _ghost_btn,
@@ -48,9 +45,7 @@ class _FlyioConnectWorker(BackgroundWorker):
         return (apps,)
 
 
-class FlyioPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class FlyioPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._apps: list[dict] = []
@@ -58,34 +53,7 @@ class FlyioPanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
-        list_style = (
-            f"QListWidget {{ background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f" border-radius: 4px; font-size: 12px; }}"
-            f"QListWidget::item:selected {{ background: {C_SEL_BG}; }}"
-        )
+        vlay = self._scaffold()
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_fly, saved_lay_fly, _ = make_card(i18n.tr("saved_configs"))
@@ -97,10 +65,10 @@ class FlyioPanel(QWidget):
         # ── Card: Auth ───────────────────────────────────────────────
         card_auth, lay_auth, _ = make_card(i18n.tr("new_config"), help_key="help_flyio")
 
-        lay_auth.addWidget(self._lbl(lbl_style, i18n.tr("flyio_field_token")))
+        lay_auth.addWidget(self._lbl(LBL_STYLE, i18n.tr("flyio_field_token")))
         self._flyio_token_input = QLineEdit()
         self._flyio_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._flyio_token_input.setStyleSheet(field_style)
+        self._flyio_token_input.setStyleSheet(FIELD_STYLE)
         lay_auth.addWidget(self._flyio_token_input)
 
         self._save_profile_btn_flyio = _ghost_btn("Save as profile…")
@@ -113,7 +81,7 @@ class FlyioPanel(QWidget):
         lay_auth.addWidget(self._connect_btn_flyio)
 
         self._conn_status_flyio = QLabel("")
-        self._conn_status_flyio.setStyleSheet(lbl_style)
+        self._conn_status_flyio.setStyleSheet(LBL_STYLE)
         self._conn_status_flyio.setWordWrap(True)
         lay_auth.addWidget(self._conn_status_flyio)
 
@@ -124,14 +92,14 @@ class FlyioPanel(QWidget):
 
         self._flyio_app_list = QListWidget()
         self._flyio_app_list.setMaximumHeight(160)
-        self._flyio_app_list.setStyleSheet(list_style)
+        self._flyio_app_list.setStyleSheet(LIST_STYLE)
         self._flyio_app_list.itemSelectionChanged.connect(
             lambda: self._open_btn_flyio.setEnabled(self._flyio_app_list.currentRow() >= 0)
         )
         lay_app.addWidget(self._flyio_app_list)
 
         iv_row = QHBoxLayout()
-        iv_row.addWidget(self._lbl(lbl_style, i18n.tr("flyio_field_interval")))
+        iv_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("flyio_field_interval")))
         iv_row.addStretch()
         self._interval_spin_flyio = QSpinBox()
         self._interval_spin_flyio.setRange(1, 60)
@@ -144,7 +112,7 @@ class FlyioPanel(QWidget):
         lay_app.addLayout(iv_row)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_flyio = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_flyio)
@@ -162,12 +130,6 @@ class FlyioPanel(QWidget):
         card_app.setVisible(False)
         vlay.addWidget(card_app)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _do_connect(self) -> None:
         token = self._flyio_token_input.text().strip()

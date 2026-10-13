@@ -42,6 +42,12 @@ from panels.azure import (  # noqa: F401
     AzurePanel,
     _AzureConnectWorker,
 )
+from panels.base import (  # noqa: F401
+    FIELD_STYLE,
+    LBL_STYLE,
+    LIST_STYLE,
+    ProviderPanel,
+)
 from panels.cloudflare import (  # noqa: F401
     CloudflarePanel,
     _CloudflareConnectWorker,

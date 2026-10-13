@@ -6,13 +6,11 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QMenu,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -21,7 +19,8 @@ from PyQt6.QtWidgets import (
 import i18n
 import loki_utils
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_CARD, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_CARD, C_ERR, C_INFO, C_MUTED, C_SEL_BG, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
     OpenModeWidget,
@@ -52,9 +51,7 @@ class _LokiConnectWorker(BackgroundWorker):
         return (labels,)
 
 
-class LokiPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class LokiPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._labels: list[str] = []
@@ -62,29 +59,8 @@ class LokiPanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        vlay = self._scaffold()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_loki, saved_lay_loki, _ = make_card(i18n.tr("saved_configs"))
@@ -96,10 +72,10 @@ class LokiPanel(QWidget):
         # ── Card: Connection ─────────────────────────────────────────
         card_conn, lay_conn, _ = make_card(i18n.tr("new_config"), help_key="help_loki")
 
-        lay_conn.addWidget(self._lbl(lbl_style, i18n.tr("loki_field_url")))
+        lay_conn.addWidget(self._lbl(LBL_STYLE, i18n.tr("loki_field_url")))
         self._url_input = QLineEdit()
         self._url_input.setPlaceholderText("http://localhost:3100")
-        self._url_input.setStyleSheet(field_style)
+        self._url_input.setStyleSheet(FIELD_STYLE)
         lay_conn.addWidget(self._url_input)
 
         self._auth_combo = NoScrollComboBox()
@@ -122,12 +98,12 @@ class LokiPanel(QWidget):
         basic_lay.setSpacing(4)
         self._user_input = QLineEdit()
         self._user_input.setPlaceholderText(i18n.tr("loki_field_username"))
-        self._user_input.setStyleSheet(field_style)
+        self._user_input.setStyleSheet(FIELD_STYLE)
         basic_lay.addWidget(self._user_input)
         self._pass_input = QLineEdit()
         self._pass_input.setPlaceholderText(i18n.tr("loki_field_password"))
         self._pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._pass_input.setStyleSheet(field_style)
+        self._pass_input.setStyleSheet(FIELD_STYLE)
         basic_lay.addWidget(self._pass_input)
         self._basic_widget.setVisible(False)
         lay_conn.addWidget(self._basic_widget)
@@ -140,7 +116,7 @@ class LokiPanel(QWidget):
         self._token_input = QLineEdit()
         self._token_input.setPlaceholderText(i18n.tr("loki_field_token"))
         self._token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._token_input.setStyleSheet(field_style)
+        self._token_input.setStyleSheet(FIELD_STYLE)
         token_lay.addWidget(self._token_input)
         self._token_widget.setVisible(False)
         lay_conn.addWidget(self._token_widget)
@@ -155,7 +131,7 @@ class LokiPanel(QWidget):
         lay_conn.addWidget(self._connect_btn_loki)
 
         self._conn_status = QLabel("")
-        self._conn_status.setStyleSheet(lbl_style)
+        self._conn_status.setStyleSheet(LBL_STYLE)
         self._conn_status.setWordWrap(True)
         lay_conn.addWidget(self._conn_status)
 
@@ -164,11 +140,11 @@ class LokiPanel(QWidget):
         # ── Card: Query ──────────────────────────────────────────────
         card_query, lay_query, _ = make_card(i18n.tr("loki_card_query"))
 
-        lay_query.addWidget(self._lbl(lbl_style, i18n.tr("loki_field_query")))
+        lay_query.addWidget(self._lbl(LBL_STYLE, i18n.tr("loki_field_query")))
         query_row = QHBoxLayout()
         self._query_input = QLineEdit()
         self._query_input.setPlaceholderText(i18n.tr("loki_query_hint"))
-        self._query_input.setStyleSheet(field_style)
+        self._query_input.setStyleSheet(FIELD_STYLE)
         self._labels_btn = _ghost_btn(i18n.tr("loki_list_labels"))
         self._labels_btn.clicked.connect(self._show_labels_menu)
         query_row.addWidget(self._query_input)
@@ -176,14 +152,14 @@ class LokiPanel(QWidget):
         lay_query.addLayout(query_row)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_loki = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_loki)
         lay_query.addLayout(lb_row)
 
         iv_row = QHBoxLayout()
-        iv_row.addWidget(self._lbl(lbl_style, i18n.tr("loki_field_interval")))
+        iv_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("loki_field_interval")))
         iv_row.addStretch()
         self._interval_spin = QSpinBox()
         self._interval_spin.setRange(1, 60)
@@ -207,12 +183,6 @@ class LokiPanel(QWidget):
         card_query.setVisible(False)
         vlay.addWidget(card_query)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _on_auth_mode_changed(self, idx: int) -> None:
         self._basic_widget.setVisible(idx == 1)

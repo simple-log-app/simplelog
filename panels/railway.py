@@ -6,22 +6,19 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
-    QScrollArea,
     QSpinBox,
-    QVBoxLayout,
-    QWidget,
 )
 
 import i18n
 import profiles_store
 import railway_utils
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
     OpenModeWidget,
     _ghost_btn,
@@ -46,9 +43,7 @@ class _RailwayConnectWorker(BackgroundWorker):
         return (projects,)
 
 
-class RailwayPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class RailwayPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._projects: list[dict] = []
@@ -56,34 +51,7 @@ class RailwayPanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
-        list_style = (
-            f"QListWidget {{ background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f" border-radius: 4px; font-size: 12px; }}"
-            f"QListWidget::item:selected {{ background: {C_SEL_BG}; }}"
-        )
+        vlay = self._scaffold()
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_rw, saved_lay_rw, _ = make_card(i18n.tr("saved_configs"))
@@ -95,10 +63,10 @@ class RailwayPanel(QWidget):
         # ── Card: Auth ───────────────────────────────────────────────
         card_auth, lay_auth, _ = make_card(i18n.tr("new_config"), help_key="help_railway")
 
-        lay_auth.addWidget(self._lbl(lbl_style, i18n.tr("railway_field_token")))
+        lay_auth.addWidget(self._lbl(LBL_STYLE, i18n.tr("railway_field_token")))
         self._railway_token_input = QLineEdit()
         self._railway_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._railway_token_input.setStyleSheet(field_style)
+        self._railway_token_input.setStyleSheet(FIELD_STYLE)
         lay_auth.addWidget(self._railway_token_input)
 
         self._save_profile_btn_railway = _ghost_btn("Save as profile…")
@@ -111,7 +79,7 @@ class RailwayPanel(QWidget):
         lay_auth.addWidget(self._connect_btn_railway)
 
         self._conn_status_railway = QLabel("")
-        self._conn_status_railway.setStyleSheet(lbl_style)
+        self._conn_status_railway.setStyleSheet(LBL_STYLE)
         self._conn_status_railway.setWordWrap(True)
         lay_auth.addWidget(self._conn_status_railway)
 
@@ -122,7 +90,7 @@ class RailwayPanel(QWidget):
 
         self._project_list = QListWidget()
         self._project_list.setMaximumHeight(140)
-        self._project_list.setStyleSheet(list_style)
+        self._project_list.setStyleSheet(LIST_STYLE)
         self._project_list.currentRowChanged.connect(self._on_project_selected)
         lay_proj.addWidget(self._project_list)
 
@@ -135,11 +103,11 @@ class RailwayPanel(QWidget):
 
         self._service_list = QListWidget()
         self._service_list.setMaximumHeight(120)
-        self._service_list.setStyleSheet(list_style)
+        self._service_list.setStyleSheet(LIST_STYLE)
         lay_svc.addWidget(self._service_list)
 
         iv_row = QHBoxLayout()
-        iv_row.addWidget(self._lbl(lbl_style, i18n.tr("railway_field_interval")))
+        iv_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("railway_field_interval")))
         iv_row.addStretch()
         self._interval_spin_railway = QSpinBox()
         self._interval_spin_railway.setRange(1, 60)
@@ -152,7 +120,7 @@ class RailwayPanel(QWidget):
         lay_svc.addLayout(iv_row)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_railway = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_railway)
@@ -170,12 +138,6 @@ class RailwayPanel(QWidget):
         card_svc.setVisible(False)
         vlay.addWidget(card_svc)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _do_connect(self) -> None:
         token = self._railway_token_input.text().strip()

@@ -6,20 +6,17 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
-    QScrollArea,
-    QVBoxLayout,
-    QWidget,
 )
 
 import cloudflare_utils
 import i18n
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from panels.base import FIELD_STYLE, LIST_STYLE, ProviderPanel
+from ui_theme import C_ERR, C_INFO, C_MUTED
 from ui_widgets import OpenModeWidget, _ghost_btn, _primary_btn, _ProfileBar, make_card
 from ui_workers import BackgroundWorker
 
@@ -38,9 +35,7 @@ class _CloudflareConnectWorker(BackgroundWorker):
         return (workers,)
 
 
-class CloudflarePanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class CloudflarePanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._workers: list[str] = []
@@ -48,35 +43,9 @@ class CloudflarePanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        vlay = self._scaffold()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            "border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style  = f"color: {C_MUTED}; font-size: 11px;"
-        list_style = (
-            f"QListWidget {{ background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            " border-radius: 4px; font-size: 12px; }}"
-            f"QListWidget::item:selected {{ background: {C_SEL_BG}; }}"
-        )
-
+        LBL_STYLE  = f"color: {C_MUTED}; font-size: 11px;"
         # ── Saved configs ─────────────────────────────────────────────
         saved_card, saved_lay, _ = make_card(i18n.tr("saved_configs"))
         self._cf_profile_bar = _ProfileBar("cloudflare", wrapper=saved_card)
@@ -87,16 +56,16 @@ class CloudflarePanel(QWidget):
         # ── Auth card ─────────────────────────────────────────────────
         card_auth, lay_auth, _ = make_card(i18n.tr("new_config"), help_key="help_cloudflare")
 
-        lay_auth.addWidget(self._lbl(lbl_style, i18n.tr("cf_field_token")))
+        lay_auth.addWidget(self._lbl(LBL_STYLE, i18n.tr("cf_field_token")))
         self._cf_token_input = QLineEdit()
         self._cf_token_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._cf_token_input.setStyleSheet(field_style)
+        self._cf_token_input.setStyleSheet(FIELD_STYLE)
         self._cf_token_input.setPlaceholderText("API token with Workers:Read and Tail:Read")
         lay_auth.addWidget(self._cf_token_input)
 
-        lay_auth.addWidget(self._lbl(lbl_style, i18n.tr("cf_field_account_id")))
+        lay_auth.addWidget(self._lbl(LBL_STYLE, i18n.tr("cf_field_account_id")))
         self._cf_account_input = QLineEdit()
-        self._cf_account_input.setStyleSheet(field_style)
+        self._cf_account_input.setStyleSheet(FIELD_STYLE)
         self._cf_account_input.setPlaceholderText("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         lay_auth.addWidget(self._cf_account_input)
 
@@ -110,7 +79,7 @@ class CloudflarePanel(QWidget):
         lay_auth.addWidget(self._connect_btn_cf)
 
         self._conn_status_cf = QLabel("")
-        self._conn_status_cf.setStyleSheet(lbl_style)
+        self._conn_status_cf.setStyleSheet(LBL_STYLE)
         self._conn_status_cf.setWordWrap(True)
         lay_auth.addWidget(self._conn_status_cf)
 
@@ -121,7 +90,7 @@ class CloudflarePanel(QWidget):
 
         self._cf_worker_list = QListWidget()
         self._cf_worker_list.setMaximumHeight(180)
-        self._cf_worker_list.setStyleSheet(list_style)
+        self._cf_worker_list.setStyleSheet(LIST_STYLE)
         self._cf_worker_list.itemSelectionChanged.connect(
             lambda: self._open_btn_cf.setEnabled(self._cf_worker_list.currentRow() >= 0)
         )
@@ -139,12 +108,6 @@ class CloudflarePanel(QWidget):
         card_wk.setVisible(False)
         vlay.addWidget(card_wk)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _do_connect(self) -> None:
         token      = self._cf_token_input.text().strip()

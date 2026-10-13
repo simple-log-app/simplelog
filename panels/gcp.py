@@ -7,12 +7,10 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtWidgets import (
     QFileDialog,
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -21,7 +19,8 @@ from PyQt6.QtWidgets import (
 import gcp_utils
 import i18n
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
     OpenModeWidget,
@@ -66,9 +65,7 @@ class _GCPListProjectsWorker(BackgroundWorker):
         return (gcp_utils.list_projects(self._key_path),)
 
 
-class GCPPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class GCPPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._client: object | None = None
@@ -77,29 +74,8 @@ class GCPPanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        vlay = self._scaffold()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_gcp, saved_lay_gcp, _ = make_card(i18n.tr("saved_configs"))
@@ -128,7 +104,7 @@ class GCPPanel(QWidget):
         key_row = QHBoxLayout()
         self._key_input = QLineEdit()
         self._key_input.setPlaceholderText(i18n.tr("gcp_field_keyfile"))
-        self._key_input.setStyleSheet(field_style)
+        self._key_input.setStyleSheet(FIELD_STYLE)
         self._key_browse = _ghost_btn(i18n.tr("gcp_browse_key"))
         self._key_browse.clicked.connect(self._browse_key)
         key_row.addWidget(self._key_input)
@@ -141,7 +117,7 @@ class GCPPanel(QWidget):
         proj_row = QHBoxLayout()
         self._project_input = QLineEdit()
         self._project_input.setPlaceholderText(i18n.tr("gcp_field_project"))
-        self._project_input.setStyleSheet(field_style)
+        self._project_input.setStyleSheet(FIELD_STYLE)
         self._list_proj_btn = _ghost_btn(i18n.tr("gcp_list_projects"))
         self._list_proj_btn.clicked.connect(self._list_projects)
         proj_row.addWidget(self._project_input)
@@ -167,7 +143,7 @@ class GCPPanel(QWidget):
         lay_auth.addWidget(self._connect_btn_gcp)
 
         self._auth_status = QLabel("")
-        self._auth_status.setStyleSheet(lbl_style)
+        self._auth_status.setStyleSheet(LBL_STYLE)
         self._auth_status.setWordWrap(True)
         lay_auth.addWidget(self._auth_status)
 
@@ -176,7 +152,7 @@ class GCPPanel(QWidget):
         # ── Card: Filter ─────────────────────────────────────────────
         card_filt, lay_filt, _ = make_card(i18n.tr("gcp_card_filter"))
 
-        lay_filt.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_resource")))
+        lay_filt.addWidget(self._lbl(LBL_STYLE, i18n.tr("gcp_field_resource")))
         self._resource_combo = NoScrollComboBox()
         self._resource_combo.addItems(gcp_utils.RESOURCE_TYPES)
         self._resource_combo.setStyleSheet(
@@ -185,7 +161,7 @@ class GCPPanel(QWidget):
         )
         lay_filt.addWidget(self._resource_combo)
 
-        lay_filt.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_severity")))
+        lay_filt.addWidget(self._lbl(LBL_STYLE, i18n.tr("gcp_field_severity")))
         self._severity_combo = NoScrollComboBox()
         self._severity_combo.addItems(gcp_utils.SEVERITIES)
         self._severity_combo.setStyleSheet(
@@ -194,21 +170,21 @@ class GCPPanel(QWidget):
         )
         lay_filt.addWidget(self._severity_combo)
 
-        lay_filt.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_custom")))
+        lay_filt.addWidget(self._lbl(LBL_STYLE, i18n.tr("gcp_field_custom")))
         self._custom_input = QLineEdit()
         self._custom_input.setPlaceholderText(i18n.tr("gcp_custom_hint"))
-        self._custom_input.setStyleSheet(field_style)
+        self._custom_input.setStyleSheet(FIELD_STYLE)
         lay_filt.addWidget(self._custom_input)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_gcp = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_gcp)
         lay_filt.addLayout(lb_row)
 
         iv_row = QHBoxLayout()
-        iv_row.addWidget(self._lbl(lbl_style, i18n.tr("gcp_field_interval")))
+        iv_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("gcp_field_interval")))
         iv_row.addStretch()
         self._interval_spin_gcp = QSpinBox()
         self._interval_spin_gcp.setRange(1, 60)
@@ -232,12 +208,6 @@ class GCPPanel(QWidget):
         card_filt.setVisible(False)
         vlay.addWidget(card_filt)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _on_auth_mode_changed(self, idx: int) -> None:
         self._sa_widget.setVisible(idx == 1)

@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
 import i18n
 import profiles_store
 import ssh_utils
+from panels.base import ProviderPanel
 from ui_theme import C_ERR, C_INFO, C_MUTED, C_SIDE, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
@@ -178,9 +179,7 @@ class _SSHConnectWorker(QThread):
 
 # ── SSHPanel ──────────────────────────────────────────────────────────────────
 
-class SSHPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)   # (cfg, split_mode)
-
+class SSHPanel(ProviderPanel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._client = None

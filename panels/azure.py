@@ -10,14 +10,12 @@ from PyQt6.QtGui import (
     QColor,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QScrollArea,
     QSpinBox,
     QTabWidget,
     QTextEdit,
@@ -28,6 +26,7 @@ from PyQt6.QtWidgets import (
 import azure_utils
 import i18n
 import profiles_store
+from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
 from ui_theme import C_ACCENT, C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
 from ui_widgets import (
     OpenModeWidget,
@@ -59,9 +58,7 @@ class _AzureConnectWorker(BackgroundWorker):
         return (cred, client)
 
 
-class AzurePanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class AzurePanel(ProviderPanel):
     _ALL_TABLES: list[tuple[str, str]] = [
         (cat, tbl)
         for cat, tbls in azure_utils.TABLES.items()
@@ -77,29 +74,8 @@ class AzurePanel(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        vlay = self._scaffold()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_az, saved_lay_az, _ = make_card(i18n.tr("saved_configs"))
@@ -119,7 +95,7 @@ class AzurePanel(QWidget):
         ]:
             fld = QLineEdit()
             fld.setPlaceholderText(i18n.tr(key))
-            fld.setStyleSheet(field_style)
+            fld.setStyleSheet(FIELD_STYLE)
             if pw:
                 fld.setEchoMode(QLineEdit.EchoMode.Password)
             setattr(self, attr, fld)
@@ -135,7 +111,7 @@ class AzurePanel(QWidget):
         lay_auth.addWidget(self._connect_btn_az)
 
         self._auth_status_az = QLabel("")
-        self._auth_status_az.setStyleSheet(lbl_style)
+        self._auth_status_az.setStyleSheet(LBL_STYLE)
         self._auth_status_az.setWordWrap(True)
         lay_auth.addWidget(self._auth_status_az)
 
@@ -162,7 +138,7 @@ class AzurePanel(QWidget):
 
         self._table_search = QLineEdit()
         self._table_search.setPlaceholderText(i18n.tr("azure_search_table"))
-        self._table_search.setStyleSheet(field_style)
+        self._table_search.setStyleSheet(FIELD_STYLE)
         self._table_search.textChanged.connect(self._filter_tables)
         lay_tbl.addWidget(self._table_search)
 
@@ -177,14 +153,14 @@ class AzurePanel(QWidget):
         lay_tbl.addWidget(self._table_list)
 
         ts_row = QHBoxLayout()
-        ts_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        ts_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         ts_row.addStretch()
         self._timespan_combo = _lookback_combo()
         ts_row.addWidget(self._timespan_combo)
         lay_tbl.addLayout(ts_row)
 
         iv_row_t = QHBoxLayout()
-        iv_row_t.addWidget(self._lbl(lbl_style, i18n.tr("azure_field_interval")))
+        iv_row_t.addWidget(self._lbl(LBL_STYLE, i18n.tr("azure_field_interval")))
         iv_row_t.addStretch()
         self._interval_spin_az_t = QSpinBox()
         self._interval_spin_az_t.setRange(5, 300)
@@ -232,14 +208,14 @@ class AzurePanel(QWidget):
         lay_kql.addWidget(hint_kql)
 
         ts_row_k = QHBoxLayout()
-        ts_row_k.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        ts_row_k.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         ts_row_k.addStretch()
         self._timespan_combo_kql = _lookback_combo()
         ts_row_k.addWidget(self._timespan_combo_kql)
         lay_kql.addLayout(ts_row_k)
 
         iv_row_k = QHBoxLayout()
-        iv_row_k.addWidget(self._lbl(lbl_style, i18n.tr("azure_field_interval")))
+        iv_row_k.addWidget(self._lbl(LBL_STYLE, i18n.tr("azure_field_interval")))
         iv_row_k.addStretch()
         self._interval_spin_az_k = QSpinBox()
         self._interval_spin_az_k.setRange(5, 300)
@@ -263,12 +239,6 @@ class AzurePanel(QWidget):
         self._tabs.addTab(tab_kql, i18n.tr("azure_tab_kql"))
 
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _populate_table_list(self, search: str) -> None:
         self._table_list.clear()

@@ -20,7 +20,8 @@ from PyQt6.QtWidgets import (
 
 import i18n
 import kubernetes_utils
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, LIST_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
 from ui_widgets import NoScrollComboBox, OpenModeWidget, _lookback_combo, _primary_btn, make_card
 from ui_workers import BackgroundWorker
 
@@ -52,9 +53,7 @@ class _K8sListPodsWorker(BackgroundWorker):
         return (pods,)
 
 
-class KubernetesPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class KubernetesPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._context = ""
@@ -91,21 +90,10 @@ class KubernetesPanel(QWidget):
         vlay.setContentsMargins(12, 12, 12, 12)
         vlay.setSpacing(10)
 
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
-        list_style = (
-            f"QListWidget {{ background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f" border-radius: 4px; font-size: 12px; }}"
-            f"QListWidget::item:selected {{ background: {C_SEL_BG}; }}"
-        )
-
         # ── Card: Cluster ────────────────────────────────────────────
         card_cluster, lay_cluster, _ = make_card(i18n.tr("kubernetes_card_cluster"), help_key="help_kubernetes")
 
-        lay_cluster.addWidget(self._lbl(lbl_style, i18n.tr("kubernetes_field_context")))
+        lay_cluster.addWidget(self._lbl(LBL_STYLE, i18n.tr("kubernetes_field_context")))
         self._k8s_context_combo = NoScrollComboBox()
         try:
             contexts = kubernetes_utils.list_contexts()
@@ -129,7 +117,7 @@ class KubernetesPanel(QWidget):
         lay_cluster.addWidget(self._connect_btn_k8s)
 
         self._conn_status_k8s = QLabel("")
-        self._conn_status_k8s.setStyleSheet(lbl_style)
+        self._conn_status_k8s.setStyleSheet(LBL_STYLE)
         self._conn_status_k8s.setWordWrap(True)
         lay_cluster.addWidget(self._conn_status_k8s)
 
@@ -138,7 +126,7 @@ class KubernetesPanel(QWidget):
         # ── Card: Namespace / Pod ────────────────────────────────────
         card_pod, lay_pod, _ = make_card(i18n.tr("kubernetes_card_pod"))
 
-        lay_pod.addWidget(self._lbl(lbl_style, i18n.tr("kubernetes_field_ns")))
+        lay_pod.addWidget(self._lbl(LBL_STYLE, i18n.tr("kubernetes_field_ns")))
         self._k8s_ns_combo = NoScrollComboBox()
         self._k8s_ns_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -149,20 +137,20 @@ class KubernetesPanel(QWidget):
 
         self._k8s_pod_list = QListWidget()
         self._k8s_pod_list.setMaximumHeight(150)
-        self._k8s_pod_list.setStyleSheet(list_style)
+        self._k8s_pod_list.setStyleSheet(LIST_STYLE)
         self._k8s_pod_list.itemSelectionChanged.connect(
             lambda: self._open_btn_k8s.setEnabled(self._k8s_pod_list.currentRow() >= 0)
         )
         lay_pod.addWidget(self._k8s_pod_list)
 
-        lay_pod.addWidget(self._lbl(lbl_style, i18n.tr("kubernetes_field_container")))
+        lay_pod.addWidget(self._lbl(LBL_STYLE, i18n.tr("kubernetes_field_container")))
         self._k8s_container_input = QLineEdit()
         self._k8s_container_input.setPlaceholderText("(auto)")
-        self._k8s_container_input.setStyleSheet(field_style)
+        self._k8s_container_input.setStyleSheet(FIELD_STYLE)
         lay_pod.addWidget(self._k8s_container_input)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_k8s = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_k8s)
@@ -180,12 +168,6 @@ class KubernetesPanel(QWidget):
         card_pod.setVisible(False)
         vlay.addWidget(card_pod)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _do_connect(self) -> None:
         ctx_text = self._k8s_context_combo.currentText()

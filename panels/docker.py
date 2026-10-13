@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    pyqtSignal,
 )
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -21,6 +20,7 @@ from PyQt6.QtWidgets import (
 
 import docker_utils
 import i18n
+from panels.base import ProviderPanel
 from ui_theme import C_ACCENT, C_MUTED, C_SIDE, C_TEXT
 from ui_widgets import (
     OpenModeWidget,
@@ -33,9 +33,7 @@ from ui_widgets import (
 
 # ── DockerPanel ───────────────────────────────────────────────────────────────
 
-class DockerPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)   # (cfg, split_mode)
-
+class DockerPanel(ProviderPanel):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._build_ui()

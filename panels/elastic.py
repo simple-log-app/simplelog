@@ -6,12 +6,10 @@ from PyQt6.QtCore import (
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
-    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -20,7 +18,8 @@ from PyQt6.QtWidgets import (
 import elastic_utils
 import i18n
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_TEXT
+from panels.base import FIELD_STYLE, LBL_STYLE, ProviderPanel
+from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_TEXT
 from ui_widgets import (
     NoScrollComboBox,
     OpenModeWidget,
@@ -50,38 +49,15 @@ class _ElasticConnectWorker(BackgroundWorker):
         return (indices,)
 
 
-class ElasticPanel(QWidget):
-    open_tab = pyqtSignal(dict, str)
-
+class ElasticPanel(ProviderPanel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._connect_worker: _ElasticConnectWorker | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        vlay = self._scaffold()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        root.addWidget(scroll)
-
-        inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
-        scroll.setWidget(inner)
-
-        vlay = QVBoxLayout(inner)
-        vlay.setContentsMargins(12, 12, 12, 12)
-        vlay.setSpacing(10)
-
-        field_style = (
-            f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-            f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
-        )
-        lbl_style = f"color: {C_MUTED}; font-size: 11px;"
 
         # ── Saved configs card ────────────────────────────────────────
         saved_card_es, saved_lay_es, _ = make_card(i18n.tr("saved_configs"))
@@ -93,10 +69,10 @@ class ElasticPanel(QWidget):
         # ── Card: Connection ─────────────────────────────────────────
         card_conn, lay_conn, _ = make_card(i18n.tr("new_config"), help_key="help_elastic")
 
-        lay_conn.addWidget(self._lbl(lbl_style, i18n.tr("elastic_field_url")))
+        lay_conn.addWidget(self._lbl(LBL_STYLE, i18n.tr("elastic_field_url")))
         self._es_url_input = QLineEdit()
         self._es_url_input.setPlaceholderText("http://localhost:9200")
-        self._es_url_input.setStyleSheet(field_style)
+        self._es_url_input.setStyleSheet(FIELD_STYLE)
         lay_conn.addWidget(self._es_url_input)
 
         self._es_auth_combo = NoScrollComboBox()
@@ -119,7 +95,7 @@ class ElasticPanel(QWidget):
         self._es_apikey_input = QLineEdit()
         self._es_apikey_input.setPlaceholderText(i18n.tr("elastic_field_apikey"))
         self._es_apikey_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._es_apikey_input.setStyleSheet(field_style)
+        self._es_apikey_input.setStyleSheet(FIELD_STYLE)
         ak_lay.addWidget(self._es_apikey_input)
         self._es_apikey_widget.setVisible(False)
         lay_conn.addWidget(self._es_apikey_widget)
@@ -130,12 +106,12 @@ class ElasticPanel(QWidget):
         bas_lay.setSpacing(4)
         self._es_user_input = QLineEdit()
         self._es_user_input.setPlaceholderText(i18n.tr("elastic_field_username"))
-        self._es_user_input.setStyleSheet(field_style)
+        self._es_user_input.setStyleSheet(FIELD_STYLE)
         bas_lay.addWidget(self._es_user_input)
         self._es_pass_input = QLineEdit()
         self._es_pass_input.setPlaceholderText(i18n.tr("elastic_field_password"))
         self._es_pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._es_pass_input.setStyleSheet(field_style)
+        self._es_pass_input.setStyleSheet(FIELD_STYLE)
         bas_lay.addWidget(self._es_pass_input)
         self._es_basic_widget.setVisible(False)
         lay_conn.addWidget(self._es_basic_widget)
@@ -150,7 +126,7 @@ class ElasticPanel(QWidget):
         lay_conn.addWidget(self._connect_btn_es)
 
         self._conn_status_es = QLabel("")
-        self._conn_status_es.setStyleSheet(lbl_style)
+        self._conn_status_es.setStyleSheet(LBL_STYLE)
         self._conn_status_es.setWordWrap(True)
         lay_conn.addWidget(self._conn_status_es)
 
@@ -159,11 +135,11 @@ class ElasticPanel(QWidget):
         # ── Card: Query ──────────────────────────────────────────────
         card_query, lay_query, _ = make_card(i18n.tr("elastic_card_query"))
 
-        lay_query.addWidget(self._lbl(lbl_style, i18n.tr("elastic_field_index")))
+        lay_query.addWidget(self._lbl(LBL_STYLE, i18n.tr("elastic_field_index")))
         idx_row = QHBoxLayout()
         self._es_index_input = QLineEdit()
         self._es_index_input.setPlaceholderText("logs-*")
-        self._es_index_input.setStyleSheet(field_style)
+        self._es_index_input.setStyleSheet(FIELD_STYLE)
         self._es_index_combo = NoScrollComboBox()
         self._es_index_combo.setStyleSheet(
             f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
@@ -177,28 +153,28 @@ class ElasticPanel(QWidget):
         idx_row.addWidget(self._es_index_combo)
         lay_query.addLayout(idx_row)
 
-        lay_query.addWidget(self._lbl(lbl_style, i18n.tr("elastic_field_ts")))
+        lay_query.addWidget(self._lbl(LBL_STYLE, i18n.tr("elastic_field_ts")))
         self._es_ts_input = QLineEdit()
         self._es_ts_input.setPlaceholderText("@timestamp")
         self._es_ts_input.setText("@timestamp")
-        self._es_ts_input.setStyleSheet(field_style)
+        self._es_ts_input.setStyleSheet(FIELD_STYLE)
         lay_query.addWidget(self._es_ts_input)
 
-        lay_query.addWidget(self._lbl(lbl_style, i18n.tr("elastic_field_query")))
+        lay_query.addWidget(self._lbl(LBL_STYLE, i18n.tr("elastic_field_query")))
         self._es_query_input = QLineEdit()
         self._es_query_input.setPlaceholderText(i18n.tr("elastic_query_hint"))
-        self._es_query_input.setStyleSheet(field_style)
+        self._es_query_input.setStyleSheet(FIELD_STYLE)
         lay_query.addWidget(self._es_query_input)
 
         lb_row = QHBoxLayout()
-        lb_row.addWidget(self._lbl(lbl_style, i18n.tr("field_time_range")))
+        lb_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("field_time_range")))
         lb_row.addStretch()
         self._lookback_combo_es = _lookback_combo()
         lb_row.addWidget(self._lookback_combo_es)
         lay_query.addLayout(lb_row)
 
         iv_row = QHBoxLayout()
-        iv_row.addWidget(self._lbl(lbl_style, i18n.tr("elastic_field_interval")))
+        iv_row.addWidget(self._lbl(LBL_STYLE, i18n.tr("elastic_field_interval")))
         iv_row.addStretch()
         self._interval_spin_es = QSpinBox()
         self._interval_spin_es.setRange(1, 60)
@@ -222,12 +198,6 @@ class ElasticPanel(QWidget):
         card_query.setVisible(False)
         vlay.addWidget(card_query)
         vlay.addStretch()
-
-    @staticmethod
-    def _lbl(style: str, text: str) -> QLabel:
-        lbl = QLabel(text)
-        lbl.setStyleSheet(style)
-        return lbl
 
     def _on_auth_mode_changed_es(self, idx: int) -> None:
         self._es_apikey_widget.setVisible(idx == 1)
