@@ -4,6 +4,8 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [1.0.9] - 2026-10-13
+
 ### Ajouté
 - Journal des modifications, disponible en 5 langues et dans l'application (Aide → Nouveautés).
 - Quand une nouvelle version est disponible, la fenêtre de mise à jour liste les changements depuis votre version.

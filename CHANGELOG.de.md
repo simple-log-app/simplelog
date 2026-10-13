@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [1.0.9] - 2026-10-13
+
 ### Hinzugefügt
 - Änderungsprotokoll, verfügbar in 5 Sprachen und in der App (Hilfe → Neuigkeiten).
 - Wenn eine neue Version verfügbar ist, zeigt der Update-Dialog die Änderungen seit Ihrer Version an.
