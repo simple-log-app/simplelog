@@ -5,6 +5,7 @@
   "menu_help": "帮助",
   "action_open": "打开…",
   "action_close_all": "关闭所有日志",
+  "action_close_tab": "关闭标签页",
   "action_update": "检查更新",
   "action_quit": "退出",
   "action_copy": "复制",

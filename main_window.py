@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 from PyQt6.QtCore import (
     QPoint,
@@ -71,6 +72,7 @@ from workers import (
     AzureWorker,
     CloudflareWorker,
     DatadogWorker,
+    DebInstallWorker,
     DockerComposeWorker,
     DockerContainerWorker,
     DockerExecFileWorker,
@@ -178,6 +180,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("SimpleLog")
         self.resize(1380, 860)
         self._workers: dict[int, object] = {}
+        self._stopping: set = set()   # stopped workers that are still winding down
         self._cur_viewer: LogViewer | None = None
         self._splitter_style: str = ""
         self._update_worker = None  # UpdateWorker instance (kept alive)
@@ -302,8 +305,13 @@ class MainWindow(QMainWindow):
         self._act_open.triggered.connect(self._action_open_file)
         self._menu_file.addAction(self._act_open)
 
+        self._act_close_tab = QAction(self)
+        self._act_close_tab.setShortcut(QKeySequence("Ctrl+W"))
+        self._act_close_tab.triggered.connect(self._action_close_current_tab)
+        self._menu_file.addAction(self._act_close_tab)
+
         self._act_close_all = QAction(self)
-        self._act_close_all.setShortcut(QKeySequence("Ctrl+W"))
+        self._act_close_all.setShortcut(QKeySequence("Ctrl+Shift+W"))
         self._act_close_all.triggered.connect(self._action_close_all_logs)
         self._menu_file.addAction(self._act_close_all)
 
@@ -387,6 +395,7 @@ class MainWindow(QMainWindow):
         locale = i18n.get_locale()
         self._menu_file.setTitle(i18n.tr("menu_file"))
         self._act_open.setText(i18n.tr("action_open"))
+        self._act_close_tab.setText(i18n.tr("action_close_tab"))
         self._act_close_all.setText(i18n.tr("action_close_all"))
         self._act_update.setText(i18n.tr("action_update"))
         self._act_quit.setText(i18n.tr("action_quit"))
@@ -539,44 +548,10 @@ class MainWindow(QMainWindow):
         progress.close()
 
         if tmp_path.endswith(".deb"):
-            # Run pkexec without capture_output so polkit can show its
-            # authentication dialog and communicate with the session agent.
-            log_path = os.path.join(tempfile.gettempdir(), "simplelog-update.log")
-            with open(log_path, "w") as log_f:
-                result = subprocess.run(  # noqa: S603
-                    ["pkexec", "dpkg", "-i", tmp_path],
-                    stdout=log_f, stderr=log_f,
-                )
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            if result.returncode != 0:
-                try:
-                    error_detail = open(log_path).read(500)  # noqa: SIM115
-                except OSError:
-                    error_detail = f"exit code {result.returncode}"
-                QMessageBox.warning(
-                    self, i18n.tr("update_title"),
-                    i18n.tr("update_install_error", error=error_detail),
-                )
-                return
-            QMessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
-            # Use a background script so the new binary starts after we exit
-            pid = os.getpid()
-            exe = sys.executable
-            fd, script_path = tempfile.mkstemp(suffix=".sh")
-            script = (
-                f"#!/bin/sh\n"
-                f"while kill -0 {pid} 2>/dev/null; do sleep 0.1; done\n"
-                f"setsid '{exe}' >/dev/null 2>&1 &\n"
-                f"rm -- \"$0\"\n"
-            )
-            os.write(fd, script.encode())
-            os.close(fd)
-            os.chmod(script_path, stat.S_IRWXU)
-            subprocess.Popen(["/bin/sh", script_path], close_fds=True)  # noqa: S603
-            QApplication.quit()
+            # pkexec waits for the user to authenticate: keep the UI alive meanwhile
+            self._deb_worker = DebInstallWorker(tmp_path)
+            self._deb_worker.done.connect(self._on_deb_installed)
+            self._deb_worker.start()
             return
 
         QMessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
@@ -605,6 +580,30 @@ class MainWindow(QMainWindow):
             script = macos_update_script(pid, tmp_path, app_bundle)
 
         fd, script_path = tempfile.mkstemp(suffix=".sh")
+        os.write(fd, script.encode())
+        os.close(fd)
+        os.chmod(script_path, stat.S_IRWXU)
+        subprocess.Popen(["/bin/sh", script_path], close_fds=True)  # noqa: S603
+        QApplication.quit()
+
+    def _on_deb_installed(self, code: int, detail: str) -> None:
+        if code != 0:
+            QMessageBox.warning(
+                self, i18n.tr("update_title"),
+                i18n.tr("update_install_error", error=detail),
+            )
+            return
+        QMessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
+        # Use a background script so the new binary starts after we exit
+        pid = os.getpid()
+        exe = sys.executable
+        fd, script_path = tempfile.mkstemp(suffix=".sh")
+        script = (
+            f"#!/bin/sh\n"
+            f"while kill -0 {pid} 2>/dev/null; do sleep 0.1; done\n"
+            f"setsid {shlex.quote(exe)} >/dev/null 2>&1 &\n"
+            f"rm -- \"$0\"\n"
+        )
         os.write(fd, script.encode())
         os.close(fd)
         os.chmod(script_path, stat.S_IRWXU)
@@ -1142,17 +1141,27 @@ class MainWindow(QMainWindow):
         self._set_active_viewer(viewer)
         worker.start()
 
+    def _action_close_current_tab(self) -> None:
+        if self._top_tabs.count() > 0:
+            self._close_tab_at(self._top_tabs.currentIndex())
+
     def _action_close_all_logs(self):
         while self._top_tabs.count() > 0:
             self._close_tab_at(0)
 
     def _stop_viewer(self, viewer: LogViewer):
+        """Ask the viewer's worker to stop; it winds down in the background."""
         worker = self._workers.pop(id(viewer), None)
-        if worker and worker.isRunning():
+        if worker is not None and worker.isRunning():
             worker.stop()
-            worker.wait(3000)
+            self._stopping.add(worker)
+            worker.finished.connect(lambda w=worker: self._reap(w))
         if viewer:
             viewer.stop_btn.setEnabled(False)
+
+    def _reap(self, worker) -> None:
+        worker.wait()   # already finishing: returns at once
+        self._stopping.discard(worker)
 
     def _on_error(self, msg: str, viewer: LogViewer):
         self._stop_viewer(viewer)
@@ -1160,8 +1169,11 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, i18n.tr("err_worker"), msg)
 
     def closeEvent(self, event):  # noqa: N802
-        for worker in list(self._workers.values()):
-            if worker.isRunning():
-                worker.stop()
-                worker.wait(2000)
+        running = [w for w in (*self._workers.values(), *self._stopping) if w.isRunning()]
+        for worker in running:
+            worker.stop()
+        # One shared budget: a worker stuck in a network call must not delay quitting
+        deadline = time.monotonic() + 2.0
+        for worker in running:
+            worker.wait(max(0, int((deadline - time.monotonic()) * 1000)))
         event.accept()

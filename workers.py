@@ -101,6 +101,8 @@ def _batched(lines, is_stopped, max_batch: int = 200, max_wait: float = 0.1):
         try:
             for item in lines:
                 q.put(item)
+        except Exception:
+            pass   # the source was closed under us (stop requested)
         finally:
             q.put(end)
 
@@ -170,9 +172,15 @@ class _PollWorker(QThread):
         super().__init__()
         self._stop = False
         self._fails = 0
+        self._wakeup = threading.Event()
 
     def stop(self) -> None:
         self._stop = True
+        self._wakeup.set()   # cut the current sleep short
+
+    def _sleep(self) -> None:
+        """Wait for the poll interval, returning early if stop() is called."""
+        self._wakeup.wait(self._interval_ms / 1000)   # type: ignore[attr-defined]
 
     def _poll_ok(self) -> None:
         self._fails = 0
@@ -224,7 +232,7 @@ class TailWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -346,14 +354,15 @@ class StdinWorker(QThread):
     def run(self):
         self.status.emit("Reading stdin…")
         try:
-            for raw_line in sys.stdin:
+            for batch in _batched(sys.stdin, lambda: self._stop):
                 if self._stop:
                     break
-                line = raw_line.rstrip()
-                if line:
-                    ts = int(time.time() * 1000)
-                    self.new_lines.emit([(ts, line)])
-            self.status.emit("stdin — stream closed")
+                ts = int(time.time() * 1000)
+                events = [(ts, line) for line in (r.rstrip() for r in batch) if line]
+                if events:
+                    self.new_lines.emit(events)
+            if not self._stop:
+                self.status.emit("stdin — stream closed")
         except Exception as e:
             self.error.emit(str(e))
 
@@ -442,12 +451,47 @@ class DownloadWorker(QThread):
                         downloaded += len(chunk)
                         if total:
                             self.progress.emit(int(downloaded * 100 / total))
+            if total and downloaded != total:
+                raise OSError(f"Incomplete download ({downloaded} of {total} bytes)")
             self.progress.emit(100)
             self.finished.emit(self._dest)
         except Exception as exc:
             with contextlib.suppress(OSError):
                 os.unlink(self._dest)
             self.error.emit(str(exc))
+
+
+class DebInstallWorker(QThread):
+    """Installs a downloaded .deb through pkexec without freezing the UI."""
+    done = pyqtSignal(int, str)   # (return code, error detail — "" on success)
+
+    def __init__(self, deb_path: str) -> None:
+        super().__init__()
+        self._deb = deb_path
+
+    def run(self) -> None:
+        # No output capture: polkit has to show its authentication dialog
+        import tempfile
+        log_path = os.path.join(tempfile.gettempdir(), "simplelog-update.log")
+        detail = ""
+        try:
+            with open(log_path, "w") as log_f:
+                result = subprocess.run(  # noqa: S603
+                    ["pkexec", "dpkg", "-i", self._deb], stdout=log_f, stderr=log_f,
+                )
+            code = result.returncode
+            if code != 0:
+                try:
+                    with open(log_path) as f:
+                        detail = f.read(500)
+                except OSError:
+                    pass
+                detail = detail or f"exit code {code}"
+        except OSError as e:
+            code, detail = 1, str(e)
+        with contextlib.suppress(OSError):
+            os.unlink(self._deb)
+        self.done.emit(code, detail)
 
 
 # ── SSH worker ────────────────────────────────────────────────────────────────
@@ -480,13 +524,13 @@ class SSHWorker(QThread):
             _, stdout, stderr = self._client.exec_command(cmd, get_pty=False)
             self._channel = stdout.channel
             self.status.emit(f"Tailing {self._remote_path}")
-            for raw_line in stdout:
+            for batch in _batched(stdout, lambda: self._stop or self._channel.closed):
                 if self._stop or self._channel.closed:
                     break
-                line = raw_line.rstrip("\n\r")
-                if line:
-                    ts = int(time.time() * 1000)
-                    self.new_lines.emit([(ts, line)])
+                ts = int(time.time() * 1000)
+                events = [(ts, line) for line in (r.rstrip("\n\r") for r in batch) if line]
+                if events:
+                    self.new_lines.emit(events)
             if not self._stop:
                 err = stderr.read().decode("utf-8", errors="replace").strip()
                 if err:
@@ -535,13 +579,12 @@ class DockerContainerWorker(QThread):
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
             )
-            for line in self._proc.stdout:
+            for batch in _batched(self._proc.stdout, lambda: self._stop):
                 if self._stop:
                     break
-                line = line.rstrip()
-                if line:
-                    ts, msg = _parse_docker_ts(line)
-                    self.new_lines.emit([(ts, msg)])
+                events = [_parse_docker_ts(line) for line in (r.rstrip() for r in batch) if line]
+                if events:
+                    self.new_lines.emit(events)
             self._proc.wait()
             if not self._stop and self._proc.returncode not in (0, -15):
                 self.error.emit(f"docker logs exited with code {self._proc.returncode}")
@@ -583,13 +626,12 @@ class DockerComposeWorker(QThread):
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
             )
-            for line in self._proc.stdout:
+            for batch in _batched(self._proc.stdout, lambda: self._stop):
                 if self._stop:
                     break
-                line = line.rstrip()
-                if line:
-                    ts, msg = _parse_docker_ts(line)
-                    self.new_lines.emit([(ts, msg)])
+                events = [_parse_docker_ts(line) for line in (r.rstrip() for r in batch) if line]
+                if events:
+                    self.new_lines.emit(events)
             self._proc.wait()
             if not self._stop and self._proc.returncode not in (0, -15):
                 self.error.emit(f"docker compose logs exited {self._proc.returncode}")
@@ -633,13 +675,13 @@ class DockerExecFileWorker(QThread):
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
             )
-            for line in self._proc.stdout:
+            for batch in _batched(self._proc.stdout, lambda: self._stop):
                 if self._stop:
                     break
-                line = line.rstrip()
-                if line:
-                    ts = int(time.time() * 1000)
-                    self.new_lines.emit([(ts, line)])
+                ts = int(time.time() * 1000)
+                events = [(ts, line) for line in (r.rstrip() for r in batch) if line]
+                if events:
+                    self.new_lines.emit(events)
             self._proc.wait()
             if not self._stop and self._proc.returncode not in (0, -15):
                 self.error.emit(f"docker exec exited with code {self._proc.returncode}")
@@ -687,7 +729,7 @@ class VercelWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -756,7 +798,7 @@ class GCPWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -821,7 +863,7 @@ class AzureWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -884,7 +926,7 @@ class LokiWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -949,7 +991,7 @@ class DatadogWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -994,6 +1036,7 @@ class ElasticWorker(_PollWorker):
         self._ts_field    = ts_field
         self._lookback_h  = lookback_s / 3600
         self._interval_ms = int(interval_s * 1000)
+        self._dedup       = _Dedup()
 
     def run(self) -> None:
         label = self._url.split("//", 1)[-1].split("/")[0]
@@ -1001,13 +1044,13 @@ class ElasticWorker(_PollWorker):
         since = datetime.now(UTC) - timedelta(hours=self._lookback_h)
         since_iso = since.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         try:
-            events, last_sort = elastic_utils.fetch_logs(
+            events, _ = elastic_utils.fetch_logs(
                 self._url, self._index, self._query,
                 since_iso=since_iso,
                 api_key=self._api_key, username=self._username, password=self._password,
                 ts_field=self._ts_field, latest=True,
             )
-            self._last_sort = last_sort
+            events = self._dedup.new(events)
             self._last_iso  = since_iso
             if events:
                 self._last_iso = _ts_ms_to_iso(events[-1][0])
@@ -1019,19 +1062,20 @@ class ElasticWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
-                events, last_sort = elastic_utils.fetch_logs(
+                # Inclusive start (timestamps are compared at millisecond precision):
+                # the entries already shown come back and are dropped by the dedup.
+                events, _ = elastic_utils.fetch_logs(
                     self._url, self._index, self._query,
-                    since_iso=self._last_iso,
-                    search_after=self._last_sort or None,
+                    since_iso=self._last_iso, inclusive=True,
                     api_key=self._api_key, username=self._username, password=self._password,
                     ts_field=self._ts_field, size=200,
                 )
+                events = self._dedup.new(events)
                 if events:
-                    self._last_sort = last_sort
                     self._last_iso  = _ts_ms_to_iso(events[-1][0])
                     self.new_lines.emit(events)
                     self.status.emit(f"Elastic {label} — {len(events)} new hits")
@@ -1085,7 +1129,7 @@ class RailwayWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:
@@ -1143,7 +1187,7 @@ class FlyioWorker(_PollWorker):
             return
 
         while not self._stop:
-            self.msleep(self._interval_ms)
+            self._sleep()
             if self._stop:
                 break
             try:

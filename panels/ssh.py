@@ -41,6 +41,7 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import CallWorker
 
 # ── SSH recent connections manager ────────────────────────────────────────────
 
@@ -552,18 +553,28 @@ class SSHPanel(ProviderPanel):
         recent_entry = {k: v for k, v in cfg.items() if k != "password"}
         SSHRecentManager.push(recent_entry)
         self._refresh_recents()
-        # Open a fresh connection for the worker (the panel keeps its own client)
-        try:
-            worker_client = ssh_utils.make_client(
-                host, user, port,
-                key_path=key_path or None,
-                password=self._password_input.text() if auth_idx == 1 else None,
-            )
-        except RuntimeError as e:
-            QMessageBox.critical(self, i18n.tr("err_connection"), str(e))
-            return
-        cfg["_client"] = worker_client
-        self.open_tab.emit(cfg, self._open_mode_w.get_mode())
+        # Open a fresh connection for the worker (the panel keeps its own client).
+        # Connecting can take seconds: do it in the background.
+        self._open_btn.setEnabled(False)
+        mode = self._open_mode_w.get_mode()
+        worker = CallWorker(
+            ssh_utils.make_client, host, user, port,
+            key_path=key_path or None,
+            password=self._password_input.text() if auth_idx == 1 else None,
+        )
+        worker.success.connect(lambda client: self._on_open_connected(cfg, client, mode))
+        worker.failure.connect(self._on_open_failed)
+        self._open_worker = worker
+        worker.start()
+
+    def _on_open_connected(self, cfg: dict, client, mode: str) -> None:
+        self._open_btn.setEnabled(True)
+        cfg["_client"] = client
+        self.open_tab.emit(cfg, mode)
+
+    def _on_open_failed(self, msg: str) -> None:
+        self._open_btn.setEnabled(True)
+        QMessageBox.critical(self, i18n.tr("err_connection"), msg)
 
     def _on_recent_double_click(self, item: QListWidgetItem) -> None:
         entry = item.data(Qt.ItemDataRole.UserRole)

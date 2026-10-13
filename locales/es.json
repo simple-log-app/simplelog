@@ -5,6 +5,7 @@
   "menu_help": "Ayuda",
   "action_open": "Abrir…",
   "action_close_all": "Cerrar todos los logs",
+  "action_close_tab": "Cerrar pestaña",
   "action_update": "Buscar actualizaciones",
   "action_quit": "Salir",
   "action_copy": "Copiar",

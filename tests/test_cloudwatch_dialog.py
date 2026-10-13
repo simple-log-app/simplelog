@@ -1,6 +1,7 @@
 """Tests for saving / reopening a CloudWatch connection in AddConnectionDialog."""
 import os
 import sys
+import time
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -9,6 +10,17 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 
 import profiles_store
+
+
+def _wait_for(cond, timeout=5.0):
+    """Process events until *cond()* holds (the panel lists groups/streams in the background)."""
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        QApplication.processEvents()
+        if cond():
+            return True
+        time.sleep(0.01)
+    return False
 
 
 @pytest.fixture
@@ -31,7 +43,9 @@ def test_save_and_open_stores_full_cloudwatch_config(cw_env):
     p.access_key_input.setText("AKIA")
     p.secret_key_input.setText("secret")
     p._on_connect()
+    assert _wait_for(lambda: p.group_list.count() == 2)
     p.group_list.setCurrentRow(1)
+    assert _wait_for(lambda: p.stream_list.count() == 3)   # "All streams" + s1 + s2
     p.stream_list.setCurrentRow(2)
     p.filter_input.setText("ERROR")
     dlg._fields["name"].setText("prod")
@@ -67,8 +81,8 @@ def test_reopen_saved_cloudwatch_connection_is_ready_to_open(cw_env):
     assert p.interval_spin.value() == 7
     assert p.lookback_combo.currentData() == 21600
 
-    QApplication.processEvents()  # runs the deferred auto-connect
-
+    # the deferred auto-connect lists groups, selects the saved one, then its streams
+    assert _wait_for(lambda: p.stream_list.currentItem() is not None
+                     and p.stream_list.currentItem().text() == "s2")
     assert p.group_list.currentItem().text() == "/app/b"
-    assert p.stream_list.currentItem().text() == "s2"
     assert dlg._open_btn.isEnabled()

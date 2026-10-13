@@ -77,7 +77,8 @@ def _try_forward_to_existing(args) -> bool:
         return False
 
     payload = json.dumps({
-        "files": args.files,
+        # The running instance has its own working directory: send absolute paths
+        "files": [os.path.abspath(f) for f in args.files],
         "split": args.split,
         "tail": args.tail,
     }).encode() + b"\n"

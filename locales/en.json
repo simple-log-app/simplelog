@@ -5,6 +5,7 @@
   "menu_help": "Help",
   "action_open": "Open…",
   "action_close_all": "Close All Logs",
+  "action_close_tab": "Close Tab",
   "action_update": "Check for Updates",
   "action_quit": "Quit",
   "action_copy": "Copy",

@@ -176,6 +176,11 @@ _PROVIDER_FIELDS: dict[str, list[tuple[str, str, str, bool]]] = {
 _RUNNING_WORKERS: set = set()   # workers of closed dialogs, kept alive until they finish
 
 
+def _reap_worker(worker: QThread) -> None:
+    worker.wait()   # it just emitted finished(): returns at once
+    _RUNNING_WORKERS.discard(worker)
+
+
 def _widget_state(w: QWidget):
     """Snapshot the user-visible value of an input widget."""
     if isinstance(w, QListWidget):
@@ -301,7 +306,7 @@ class AddConnectionDialog(QDialog):
         for value in list(vars(panel).values()):
             if isinstance(value, QThread) and value.isRunning():
                 _RUNNING_WORKERS.add(value)
-                value.finished.connect(lambda v=value: _RUNNING_WORKERS.discard(v))
+                value.finished.connect(lambda v=value: _reap_worker(v))
 
     # ── Step 1 ────────────────────────────────────────────────────────────────
 
@@ -598,6 +603,7 @@ class AddConnectionDialog(QDialog):
         panel.open_btn.setVisible(False)
         panel.open_tab.connect(self._cw_on_panel_tab)
         panel.group_list.currentTextChanged.connect(lambda _: self._cw_update_footer_btns())
+        panel.ready_changed.connect(self._cw_update_footer_btns)
         self._cw_embedded_panel = panel
         self._step2_layout.addWidget(panel, 1)
 

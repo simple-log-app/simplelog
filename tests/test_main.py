@@ -97,7 +97,7 @@ def test_try_forward_writes_payload_when_connected():
     raw_payload = fake_sock.write.call_args.args[0]
     import json
     data = json.loads(raw_payload.rstrip(b"\n"))
-    assert data == {"files": ["x.log"], "split": "vertical", "tail": 50}
+    assert data == {"files": [os.path.abspath("x.log")], "split": "vertical", "tail": 50}
     fake_sock.disconnectFromServer.assert_called_once()
 
 

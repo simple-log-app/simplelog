@@ -216,7 +216,7 @@ class FilterSearchSidebar(QWidget):
         self._lines_timer = QTimer(self)
         self._lines_timer.setSingleShot(True)
         self._lines_timer.setInterval(300)
-        self._lines_timer.timeout.connect(self._apply_search_now)
+        self._lines_timer.timeout.connect(self._refresh_search_keep_position)
 
         self._build_ui()
 
@@ -603,6 +603,20 @@ class FilterSearchSidebar(QWidget):
         self._update_hits_label()
         if self._search_matches:
             self._scroll_to_match(0)
+
+    def _refresh_search_keep_position(self) -> None:
+        """Re-scan after new lines arrived without yanking the view to the first match."""
+        if self._active_viewer is None:
+            return
+        previous = self._search_match_index
+        self._search_matches = self._active_viewer.apply_search(self._current_search_terms())
+        if self._search_matches:
+            self._search_match_index = min(max(previous, 0), len(self._search_matches) - 1)
+            vis_idx, char_start, char_len = self._search_matches[self._search_match_index]
+            self._active_viewer.scroll_to_search_match(vis_idx, char_start, char_len, scroll=False)
+        else:
+            self._search_match_index = -1
+        self._update_hits_label()
 
     def _search_prev(self) -> None:
         if not self._search_matches:

@@ -11,6 +11,9 @@ All notable changes to SimpleLog are documented in this file.
 ### Changed
 - SSH: the server's key fingerprint is now shown for confirmation the first time you connect to a host, and a changed key is refused.
 - Saved credentials and profiles are now readable only by your user account.
+- Much faster with busy log streams (SSH, Docker, Kubernetes, stdin, files): lines are added in groups, and long logs stay smooth while following, resizing or switching tabs.
+- Ctrl+W now closes the current tab; closing all logs is Ctrl+Shift+W.
+- Timestamps in the log view are now shown in your local time instead of UTC.
 
 ### Fixed
 - macOS: the in-app update could delete the whole Applications folder instead of replacing only SimpleLog. It now replaces only the SimpleLog app, and keeps the old one if anything goes wrong. Because the update runs from the version you already have, 1.0.8 and earlier can no longer self-update on macOS: download the new version once from the website or with Homebrew.
@@ -22,6 +25,15 @@ All notable changes to SimpleLog are documented in this file.
 - Opening a log in a split pane when the tab already has 9 panes now shows a message instead of silently starting a log that is never displayed.
 - Opening many saved connections no longer makes the app slower over time: their dialogs, timers and SSH connections are released when closed.
 - Local files: following a file now keeps working after it is rotated or emptied, lines written in two parts are no longer split, and accented characters are no longer garbled.
+- Search: matches are highlighted in translucent yellow, at the right place on wrapped lines; AND / OR between search terms is respected; JSON rows with a match are highlighted; and the view no longer jumps back to the first result while following a log.
+- Right-clicking or selecting with the mouse on a JSON line no longer expands or collapses it; only a plain click does.
+- Opening a file with `simplelog file.log` from another folder while SimpleLog is running now opens it.
+- Closing a tab or quitting no longer freezes the app for several seconds.
+- Turning timestamps on or off now resizes wrapped lines correctly.
+- Saved connections and credentials can no longer be lost if the app crashes while saving.
+- Elasticsearch 8 and later: following logs works again (it relied on a sort that newer versions reject).
+- Updates: an incomplete download is detected, and installing a .deb update no longer freezes the window.
+- CloudWatch, Docker and SSH: listing log groups, streams and containers, and opening an SSH log, no longer freeze the app while waiting for the network.
 
 ## [1.0.8] - 2026-09-30
 

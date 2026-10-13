@@ -55,20 +55,23 @@ def fetch_logs(base_url: str, index: str, query: str,
                since_iso: str = "", search_after: list | None = None,
                api_key: str = "", username: str = "", password: str = "",
                ts_field: str = "@timestamp", size: int = 500, latest: bool = False,
-               ) -> tuple[list[tuple[int, str]], list]:
+               inclusive: bool = False) -> tuple[list[tuple[int, str]], list]:
     """Search logs in index. Returns (events, last_sort_values) for search_after pagination.
 
     With *latest*, the *size* most recent hits are returned (oldest-first) instead of
     the oldest ones; *last_sort_values* is then the sort key of the newest hit.
+    With *inclusive*, ``since_iso`` itself is included (``gte``): the caller drops the
+    repeats. Sorting is on the timestamp only: Elasticsearch 8+ rejects sorting on
+    ``_id`` unless that is explicitly enabled.
     """
     must: list = [{"query_string": {"query": query or "*"}}]
     if since_iso:
-        must.append({"range": {ts_field: {"gt": since_iso}}})
+        must.append({"range": {ts_field: {"gte" if inclusive else "gt": since_iso}}})
 
     order = "desc" if latest else "asc"
     body: dict = {
         "size": size,
-        "sort": [{ts_field: {"order": order}}, {"_id": order}],
+        "sort": [{ts_field: {"order": order}}],
         "query": {"bool": {"must": must}},
     }
     if search_after:

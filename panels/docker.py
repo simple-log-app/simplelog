@@ -30,6 +30,7 @@ from ui_widgets import (
     _primary_btn,
     make_card,
 )
+from ui_workers import CallWorker
 
 # ── DockerPanel ───────────────────────────────────────────────────────────────
 
@@ -314,10 +315,20 @@ class DockerPanel(ProviderPanel):
     # ── Data refresh ──────────────────────────────────────────────────────────
 
     def _refresh_containers(self) -> None:
-        try:
-            containers = docker_utils.list_containers()
-        except RuntimeError:
-            containers = []
+        self._fetch("_containers_worker", docker_utils.list_containers, self._show_containers)
+
+    def _fetch(self, attr: str, fn, on_done) -> None:
+        """Run a docker CLI query off the UI thread; an error shows an empty list."""
+        running = getattr(self, attr, None)
+        if running is not None and running.isRunning():
+            return
+        worker = CallWorker(fn)
+        worker.success.connect(on_done)
+        worker.failure.connect(lambda _msg: on_done([]))
+        setattr(self, attr, worker)
+        worker.start()
+
+    def _show_containers(self, containers: list) -> None:
         self._container_list.clear()
         self._exec_container_list.clear()
         if containers:
@@ -340,10 +351,9 @@ class DockerPanel(ProviderPanel):
             self._exec_container_list.hide()
 
     def _refresh_stacks(self) -> None:
-        try:
-            stacks = docker_utils.list_compose_stacks()
-        except RuntimeError:
-            stacks = []
+        self._fetch("_stacks_worker", docker_utils.list_compose_stacks, self._show_stacks)
+
+    def _show_stacks(self, stacks: list) -> None:
         self._stack_list.clear()
         if stacks:
             self._no_stacks_lbl.hide()

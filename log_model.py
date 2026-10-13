@@ -122,6 +122,9 @@ class LogItem:
     expanded: bool = False
     visible: bool = True
     is_break: bool = False
+    # Row-height cache owned by the delegate: (layout key, height)
+    size_cache: tuple | None = None
+    level: str | None = None   # severity, computed lazily by the delegate
 
 
 _ITEM_ROLE     = Qt.ItemDataRole.UserRole + 1
@@ -194,25 +197,42 @@ class LogModel(QAbstractListModel):
             if json_data:
                 new_keys |= set(json_data.keys())
 
-        # Enforce MAX_LINES — bulk trim + reset if over limit
-        if len(self._items) > self._MAX_LINES:
+        excess = len(self._items) - self._MAX_LINES
+        if excess >= self._MAX_LINES:
+            # The batch alone fills the buffer: nothing of the old content survives
             self._items = self._items[-self._MAX_LINES:]
             self.beginResetModel()
             self._visible = [it for it in self._items if it.visible]
             self.endResetModel()
             self.rows_appended.emit()
         else:
+            if excess > 0:
+                self._drop_oldest(excess)
             newly_visible = [it for it in appended if it.visible]
             if newly_visible:
                 first = len(self._visible)
                 self.beginInsertRows(QModelIndex(), first, first + len(newly_visible) - 1)
                 self._visible.extend(newly_visible)
                 self.endInsertRows()
+            if excess > 0 or newly_visible:
                 self.rows_appended.emit()
 
         if new_keys - self._json_keys:
             self._json_keys |= new_keys
             self.json_keys_updated.emit(self._json_keys.copy())
+
+    def _drop_oldest(self, count: int) -> None:
+        """Remove the *count* oldest items, announcing only the rows that disappear.
+
+        Removing rows (instead of resetting the model) keeps the selection and the
+        scroll position of the remaining rows.
+        """
+        dropped_visible = sum(1 for it in self._items[:count] if it.visible)
+        del self._items[:count]
+        if dropped_visible:
+            self.beginRemoveRows(QModelIndex(), 0, dropped_visible - 1)
+            del self._visible[:dropped_visible]
+            self.endRemoveRows()
 
     def insert_break(self) -> None:
         dt = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
@@ -229,6 +249,10 @@ class LogModel(QAbstractListModel):
         self.rows_appended.emit()
 
     def apply_filter(self, terms: list[TermRow]) -> None:
+        if terms == self._current_filter_terms:
+            # Same filter (e.g. switching back to this tab): nothing to rebuild
+            self.filter_applied.emit()
+            return
         self._current_filter_terms = terms
         self.beginResetModel()
         self._visible = []
@@ -248,6 +272,10 @@ class LogModel(QAbstractListModel):
 
     def get_json_keys(self) -> set[str]:
         return self._json_keys.copy()
+
+    def visible_items(self) -> list[LogItem]:
+        """The rows currently shown, oldest first (not a copy: do not mutate)."""
+        return self._visible
 
     def visible_count(self) -> int:
         return len(self._visible)

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 
 from PyQt6.QtCore import (
     QEvent,
+    QPointF,
     QRect,
+    QRectF,
     QSize,
     Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
@@ -18,6 +21,8 @@ from PyQt6.QtGui import (
     QFont,
     QFontMetrics,
     QPainterPath,
+    QTextLayout,
+    QTextOption,
 )
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -35,7 +40,14 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-from log_model import _EXPANDED_ROLE, _ITEM_ROLE, LogItem, LogModel, _classify_line
+from log_model import (
+    _EXPANDED_ROLE,
+    _ITEM_ROLE,
+    LogItem,
+    LogModel,
+    _classify_line,
+    _line_matches,
+)
 from ui_theme import (
     _SVG_CLOSE_X,
     _SVG_STOP_SQ,
@@ -96,6 +108,54 @@ _LEVEL_BADGE_TEXT = {
 }
 
 
+_SELECTION_BG = QColor(26, 58, 110, 85)
+_MATCH_BG = QColor(255, 213, 79, 102)
+_MATCH_FOCUSED_BG = QColor(255, 213, 79, 170)
+_ROW_MATCH_BG = QColor(255, 213, 79, 36)          # whole JSON row that contains a match
+_ROW_MATCH_FOCUSED_BG = QColor(255, 213, 79, 80)
+
+
+def _match_rects(
+    text: str, font: QFont, width: int, ranges: list[tuple[int, int]],
+) -> list[tuple[int, QRectF]]:
+    """(range index, rectangle) pairs, relative to the text origin, covering *ranges*.
+
+    Uses the same word-wrapping as drawText(..., TextWordWrap), so a match on the second
+    visual line of a long message is highlighted on that line.
+    """
+    if not text:
+        return []
+    layout = QTextLayout(text, font)
+    opt = QTextOption()
+    opt.setWrapMode(QTextOption.WrapMode.WordWrap)
+    layout.setTextOption(opt)
+    lines = []
+    y = 0.0
+    layout.beginLayout()
+    while True:
+        line = layout.createLine()
+        if not line.isValid():
+            break
+        line.setLineWidth(max(1, width))
+        line.setPosition(QPointF(0, y))
+        y += line.height()
+        lines.append(line)
+    layout.endLayout()
+    rects: list[tuple[int, QRectF]] = []
+    for idx, (start, length) in enumerate(ranges):
+        end = start + length
+        for line in lines:
+            a = max(start, line.textStart())
+            b = min(end, line.textStart() + line.textLength())
+            if a < b:
+                x0 = line.cursorToX(a)
+                x1 = line.cursorToX(b)
+                x0 = x0[0] if isinstance(x0, tuple) else x0
+                x1 = x1[0] if isinstance(x1, tuple) else x1
+                rects.append((idx, QRectF(x0, line.y(), max(1.0, x1 - x0), line.height())))
+    return rects
+
+
 class LogDelegate(QStyledItemDelegate):
     """Paints log rows. JSON rows are collapsible; plain rows use level colors."""
 
@@ -105,6 +165,9 @@ class LogDelegate(QStyledItemDelegate):
         self._viewer = viewer
         self._search_highlights: dict[int, list[tuple[int, int]]] = {}
         self._focused_match: tuple[int, int, int] | None = None  # (vis_idx, start, len)
+        self._fm: QFontMetrics | None = None
+        self._fm_key: tuple | None = None
+        self._press: tuple[int, object] | None = None   # (row, pos) of the left-button press
 
     def set_search_highlights(
         self,
@@ -117,9 +180,17 @@ class LogDelegate(QStyledItemDelegate):
 
     # ── QStyledItemDelegate interface ─────────────────────────────────────────
 
+    def _metrics(self) -> tuple[QFontMetrics, tuple]:
+        font = self._viewer._log_font
+        key = (font.family(), font.pointSize())
+        if self._fm_key != key:
+            self._fm = QFontMetrics(font)
+            self._fm_key = key
+        return self._fm, key   # type: ignore[return-value]
+
     def sizeHint(self, option, index):
         item = index.data(_ITEM_ROLE)
-        fm = QFontMetrics(self._viewer._log_font)
+        fm, font_key = self._metrics()
         row_h = max(_ROW_H, fm.height() + 8)
         if item is None:
             return QSize(option.rect.width(), row_h)
@@ -133,11 +204,19 @@ class LogDelegate(QStyledItemDelegate):
             )
         if not item.is_json:
             vp_w = self._viewer._list_view.viewport().width()
-            ts_w = _TS_COL_W if (self._viewer.show_timestamps and item.ts_ms) else 0
-            x_offset = _BADGE_COL_W + ts_w
+            show_ts = bool(self._viewer.show_timestamps and item.ts_ms)
+            # Wrapping a long line is the costly part: only redo it when the width,
+            # the font or the timestamp column changed.
+            key = (vp_w, font_key, show_ts)
+            cached = item.size_cache
+            if cached is not None and cached[0] == key:
+                return QSize(vp_w, cached[1])
+            x_offset = _BADGE_COL_W + (_TS_COL_W if show_ts else 0)
             avail_w = max(1, vp_w - x_offset - 14)
             br = fm.boundingRect(QRect(0, 0, avail_w, 0), Qt.TextFlag.TextWordWrap, item.message)
-            return QSize(vp_w, max(row_h, br.height() + 6))
+            height = max(row_h, br.height() + 6)
+            item.size_cache = (key, height)
+            return QSize(vp_w, height)
         return QSize(option.rect.width(), row_h)
 
     def paint(self, painter, option, index):
@@ -154,7 +233,7 @@ class LogDelegate(QStyledItemDelegate):
         else:
             # Selection background
             if option.state & QStyle.StateFlag.State_Selected:
-                painter.fillRect(option.rect, QColor("#1a3a6e55"))
+                painter.fillRect(option.rect, _SELECTION_BG)
             if item.is_json:
                 self._paint_json(painter, option, index, item)
             else:
@@ -163,9 +242,22 @@ class LogDelegate(QStyledItemDelegate):
         painter.restore()
 
     def editorEvent(self, event, model, option, index):
-        if event.type() == QEvent.Type.MouseButtonRelease:
+        kind = event.type()
+        if kind == QEvent.Type.MouseButtonPress:
+            left = event.button() == Qt.MouseButton.LeftButton
+            self._press = (index.row(), event.position().toPoint()) if left else None
+        elif kind == QEvent.Type.MouseButtonRelease:
+            press, self._press = self._press, None
             item = index.data(_ITEM_ROLE)
-            if item and item.is_json and item.json_data:
+            # A plain left click toggles; right-click, drag-selection and Ctrl/Shift
+            # clicks (multi-select) must not expand the row.
+            if (press is not None
+                    and event.button() == Qt.MouseButton.LeftButton
+                    and press[0] == index.row()
+                    and (event.position().toPoint() - press[1]).manhattanLength() < 5
+                    and not (event.modifiers() & (Qt.KeyboardModifier.ShiftModifier
+                                                  | Qt.KeyboardModifier.ControlModifier))
+                    and item and item.is_json and item.json_data):
                 model.setData(index, not item.expanded, _EXPANDED_ROLE)
                 return True
         return False
@@ -205,10 +297,16 @@ class LogDelegate(QStyledItemDelegate):
         painter.setPen(QColor(C_MUTED))
         painter.drawText(tx, ty, item.message)
 
+    @staticmethod
+    def _level(item: LogItem) -> str:
+        if item.level is None:
+            item.level = _classify_line(item.message)
+        return item.level
+
     def _paint_plain(self, painter, option, index, item: LogItem) -> None:
         fm    = painter.fontMetrics()
         rect  = option.rect
-        level = _classify_line(item.message)
+        level = self._level(item)
         color = _LEVEL_COLORS.get(level, C_TEXT)
 
         vis_idx = index.row()
@@ -216,7 +314,7 @@ class LogDelegate(QStyledItemDelegate):
         msg_x = rect.left() + _BADGE_COL_W
         if self._viewer.show_timestamps and item.ts_ms:
             msg_x += _TS_COL_W
-        self._draw_search_bg(painter, rect, msg_x, item.message, vis_idx, fm)
+        self._draw_search_bg(painter, rect, msg_x, item.message, vis_idx)
 
         # Level badge column
         self._paint_level_badge(painter, rect, level, fm)
@@ -225,7 +323,7 @@ class LogDelegate(QStyledItemDelegate):
 
         # Timestamp column
         if self._viewer.show_timestamps and item.ts_ms:
-            ts = datetime.fromtimestamp(item.ts_ms / 1000, tz=UTC).strftime("%H:%M:%S")
+            ts = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%H:%M:%S")
             ts_rect = QRect(x, rect.top(), _TS_COL_W, rect.height())
             painter.setPen(QColor(C_TS))
             painter.drawText(ts_rect,
@@ -283,8 +381,16 @@ class LogDelegate(QStyledItemDelegate):
         fm   = painter.fontMetrics()
         rect = option.rect
         y    = self._baseline(rect, fm)
-        level = _classify_line(item.message)
+        level = self._level(item)
         color = _LEVEL_COLORS.get(level, C_TEXT)
+
+        # A JSON row only shows part of its message: tint the whole row on a match
+        if self._search_highlights.get(index.row()):
+            focused = self._focused_match is not None and self._focused_match[0] == index.row()
+            painter.fillRect(
+                QRect(rect.left(), rect.top(), rect.width(), _ROW_H),
+                _ROW_MATCH_FOCUSED_BG if focused else _ROW_MATCH_BG,
+            )
 
         # Level badge column
         self._paint_level_badge(painter, rect, level, fm)
@@ -297,7 +403,7 @@ class LogDelegate(QStyledItemDelegate):
 
         # Timestamp column
         if self._viewer.show_timestamps and item.ts_ms:
-            ts = datetime.fromtimestamp(item.ts_ms / 1000, tz=UTC).strftime("%H:%M:%S")
+            ts = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%H:%M:%S")
             x = self._draw_segments(painter, x, y, [(ts + "  ", C_TS)], fm)
         else:
             x += 0  # no ts column when disabled
@@ -387,33 +493,46 @@ class LogDelegate(QStyledItemDelegate):
         text_x: int,
         text: str,
         vis_idx: int,
-        fm: QFontMetrics,
     ) -> None:
-        """Draw yellow background rects behind search match characters."""
-        highlights = self._search_highlights.get(vis_idx, [])
+        """Draw yellow background rects behind search matches of a (wrapped) plain row."""
+        highlights = self._search_highlights.get(vis_idx)
         if not highlights:
             return
-        y = row_rect.top() + 2
-        h = row_rect.height() - 4
-        for char_start, char_len in highlights:
-            prefix_w = fm.horizontalAdvance(text[:char_start])
-            match_w  = fm.horizontalAdvance(text[char_start:char_start + char_len])
-            color = "#ffd54f66"
-            focused = self._focused_match
-            if focused and focused[0] == vis_idx and focused[1] == char_start:
-                color = "#ffd54faa"
-            painter.fillRect(QRect(text_x + prefix_w, y, match_w, h), QColor(color))
+        text_w = row_rect.right() - text_x - 14        # same box as the message column
+        focused = self._focused_match
+        for idx, rect in _match_rects(text, painter.font(), text_w, highlights):
+            is_focused = bool(
+                focused and focused[0] == vis_idx and focused[1] == highlights[idx][0]
+            )
+            painter.fillRect(
+                rect.translated(text_x, row_rect.top() + 3),
+                _MATCH_FOCUSED_BG if is_focused else _MATCH_BG,
+            )
 
 
 # ── LogViewer ─────────────────────────────────────────────────────────────────
 
 class _LogListView(QListView):
-    """QListView that triggers item-size recalculation on every resize."""
+    """QListView that recalculates the item sizes once a resize settles."""
     focus_in = pyqtSignal()
+    break_requested = pyqtSignal()
+
+    _RELAYOUT_DELAY_MS = 100
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        # Wrapping every row for each intermediate width of a window drag is wasted work
+        self._relayout_timer = QTimer(self)
+        self._relayout_timer.setSingleShot(True)
+        self._relayout_timer.setInterval(self._RELAYOUT_DELAY_MS)
+        self._relayout_timer.timeout.connect(self._relayout)
+
+    def _relayout(self) -> None:
+        self.scheduleDelayedItemsLayout()
 
     def resizeEvent(self, event):  # noqa: N802
         super().resizeEvent(event)
-        self.scheduleDelayedItemsLayout()
+        self._relayout_timer.start()
 
     def focusInEvent(self, event) -> None:  # noqa: N802
         super().focusInEvent(event)
@@ -421,9 +540,7 @@ class _LogListView(QListView):
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            m = self.model()
-            if isinstance(m, LogModel):
-                m.insert_break()
+            self.break_requested.emit()
         else:
             super().keyPressEvent(event)
 
@@ -458,6 +575,7 @@ class LogViewer(QWidget):
     pane_close_requested = pyqtSignal()
 
     _MAX_LINES = 10_000
+    _APPEND_COOLDOWN_MS = 50   # lines arriving faster than this are added in one go
 
     _FONT_SIZE_MIN = 6
     _FONT_SIZE_MAX = 20
@@ -474,6 +592,12 @@ class LogViewer(QWidget):
         self._model.rows_appended.connect(self._on_rows_appended)
         self._model.filter_applied.connect(self.filter_applied)
         self._model._MAX_LINES = self._MAX_LINES
+
+        self._pending: list[tuple[int, str]] = []
+        self._append_timer = QTimer(self)
+        self._append_timer.setSingleShot(True)
+        self._append_timer.setInterval(self._APPEND_COOLDOWN_MS)
+        self._append_timer.timeout.connect(self._flush_on_timer)
 
         self._build_ui()
 
@@ -531,9 +655,7 @@ class LogViewer(QWidget):
 
         self.timestamps_cb = QCheckBox()
         self.timestamps_cb.setChecked(True)
-        self.timestamps_cb.stateChanged.connect(
-            lambda _: self._list_view.viewport().update()
-        )
+        self.timestamps_cb.stateChanged.connect(self._on_timestamps_toggled)
 
         _icon_btn_style = (
             f"QPushButton {{ background: transparent; border: 1px solid {C_BORDER};"
@@ -626,6 +748,7 @@ class LogViewer(QWidget):
         self._list_view.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self._list_view)
         self._list_view.focus_in.connect(self.pane_activated)
+        self._list_view.break_requested.connect(self.insert_break)
 
         self.retranslate()
 
@@ -641,15 +764,45 @@ class LogViewer(QWidget):
     def set_title(self, text: str) -> None:
         self.title_label.setText(text)
 
+    def _on_timestamps_toggled(self, _state=None) -> None:
+        # The timestamp column narrows the text area, so wrapped rows change height
+        self._list_view.scheduleDelayedItemsLayout()
+        self._list_view.viewport().update()
+
     def append_events(self, events: list[tuple[int, str]]) -> None:
+        """Add lines. The first ones show immediately; a fast stream is grouped into
+        one update per cooldown period instead of one (costly) re-layout per line."""
+        if not events:
+            return
+        if self._append_timer.isActive():
+            self._pending.extend(events)
+            return
         self._model.append_events(events)
+        self._append_timer.start()
+
+    def _flush_on_timer(self) -> None:
+        if self._pending:
+            self.flush_pending()
+            self._append_timer.start()   # data is flowing: keep grouping
+
+    def flush_pending(self) -> None:
+        """Add the lines grouped since the last update right now."""
+        if self._pending:
+            events, self._pending = self._pending, []
+            self._model.append_events(events)
 
     def apply_filter(self, terms: list) -> None:
+        self.flush_pending()
         self._model.apply_filter(terms)
         self.line_badge.setText(i18n.tr("viewer_lines", n=self._model.visible_count()))
 
     def apply_search(self, terms: list) -> list:
-        """Return (visible_row_idx, char_start, char_len) for every match."""
+        """Return (visible_row_idx, char_start, char_len) for every match.
+
+        A row matches when it satisfies the AND/OR chain of the terms, and every
+        occurrence of every term in a matching row is highlighted.
+        """
+        self.flush_pending()
         self._search_highlights.clear()
         active = [t for t in terms if t.text.strip() and not t.key]
         if not active:
@@ -657,29 +810,30 @@ class LogViewer(QWidget):
             self._list_view.viewport().update()
             return []
 
+        patterns = [re.compile(re.escape(t.text), re.IGNORECASE) for t in active]
         results: list[tuple[int, int, int]] = []
         highlights: dict[int, list[tuple[int, int]]] = {}
 
-        for vis_idx in range(self._model.rowCount()):
-            item = self._model.data(self._model.index(vis_idx), _ITEM_ROLE)
-            if item is None:
+        for vis_idx, item in enumerate(self._model.visible_items()):
+            if item.is_break or not _line_matches(item.message, active):
                 continue
-            for term in active:
-                pattern = re.compile(re.escape(term.text), re.IGNORECASE)
+            for pattern in patterns:
                 for m in pattern.finditer(item.message):
-                    results.append((vis_idx, m.start(), m.end() - m.start()))
-                    highlights.setdefault(vis_idx, []).append(
-                        (m.start(), m.end() - m.start())
-                    )
+                    span = (m.start(), m.end() - m.start())
+                    results.append((vis_idx, *span))
+                    highlights.setdefault(vis_idx, []).append(span)
 
         self._search_highlights = highlights
         self._delegate.set_search_highlights(highlights)
         self._list_view.viewport().update()
         return sorted(results, key=lambda t: (t[0], t[1]))
 
-    def scroll_to_search_match(self, vis_idx: int, char_start: int, char_len: int) -> None:
-        idx = self._model.index(vis_idx)
-        self._list_view.scrollTo(idx, QAbstractItemView.ScrollHint.EnsureVisible)
+    def scroll_to_search_match(
+        self, vis_idx: int, char_start: int, char_len: int, scroll: bool = True,
+    ) -> None:
+        if scroll:
+            idx = self._model.index(vis_idx)
+            self._list_view.scrollTo(idx, QAbstractItemView.ScrollHint.EnsureVisible)
         self._delegate.set_focused_match(vis_idx, char_start, char_len)
         self._list_view.viewport().update()
 
@@ -696,6 +850,7 @@ class LogViewer(QWidget):
         self.font_inc_btn.setEnabled(self._font_size < self._FONT_SIZE_MAX)
 
     def clear(self) -> None:
+        self._pending.clear()
         self._model.clear()
         self._search_highlights.clear()
         self._delegate.set_search_highlights({})
@@ -705,6 +860,7 @@ class LogViewer(QWidget):
         return self._model.get_json_keys()
 
     def insert_break(self) -> None:
+        self.flush_pending()
         self._model.insert_break()
 
     def focus_list(self) -> None:

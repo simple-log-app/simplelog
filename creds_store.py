@@ -23,10 +23,22 @@ def write_private(path: Path, text: str) -> None:
         os.chmod(path.parent, 0o700)
     except OSError:
         pass
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        f.write(text)
-    os.chmod(path, 0o600)  # tighten files created before this fix
+    # Write a private temp file, then rename it over the target: a crash mid-write can
+    # never leave a truncated file (which would read back as "no profiles").
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def save(name: str, data: dict) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
+    pyqtSignal,
 )
 from PyQt6.QtGui import (
     QColor,
@@ -35,6 +36,7 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import CallWorker
 
 
 class CloudWatchPanel(ProviderPanel):
@@ -45,10 +47,16 @@ class CloudWatchPanel(ProviderPanel):
         "ap-south-1", "ca-central-1", "sa-east-1",
     ]
 
+    ready_changed = pyqtSignal()   # the Open button became usable (streams are listed)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._client = None
         self._all_groups: list[str] = []
+        self._connecting = False
+        self._restore: tuple[str, str] | None = None   # saved (group, stream) to re-select
+        self._groups_gen = 0      # bumped per request: older answers are ignored
+        self._streams_gen = 0
         self._build_ui()
         _key = id(self)
         i18n.register(_key, self.retranslate)
@@ -261,14 +269,24 @@ class CloudWatchPanel(ProviderPanel):
         self.filter_input.setText(p.get("filter", ""))
 
     def _restore_saved_target(self, group: str, stream: str) -> None:
-        """Connect and re-select the saved log group / stream."""
+        """Connect, then re-select the saved log group / stream once they are listed."""
+        self._restore = (group, stream) if group else None
         self._on_connect()
-        if not self._client or not group:
+
+    def _apply_restore_group(self) -> None:
+        if not self._restore:
             return
-        items = self.group_list.findItems(group, Qt.MatchFlag.MatchExactly)
-        if not items:
+        items = self.group_list.findItems(self._restore[0], Qt.MatchFlag.MatchExactly)
+        if items:
+            self.group_list.setCurrentItem(items[0])   # loads the streams
+        else:
+            self._restore = None
+
+    def _apply_restore_stream(self, group: str) -> None:
+        if not self._restore or self._restore[0] != group:
             return
-        self.group_list.setCurrentItem(items[0])
+        stream = self._restore[1]
+        self._restore = None
         if stream:
             streams = self.stream_list.findItems(stream, Qt.MatchFlag.MatchExactly)
             if streams:
@@ -296,23 +314,28 @@ class CloudWatchPanel(ProviderPanel):
             w.setVisible(use_keys)
 
     def _on_connect(self):
+        if self._connecting:
+            return
         self._connecting = True
         self.connect_btn.setEnabled(False)
         self.connect_btn.setText(i18n.tr("cw_connecting"))
         try:
             self._make_client(self._REGIONS[0])
-            self._region_section.setVisible(True)
-            self._load_groups()
-            self.connect_btn.setText(i18n.tr("cw_refresh"))
         except Exception as exc:
-            self._client = None
-            self._region_section.setVisible(False)
-            self._card_groups.setVisible(False)
-            QMessageBox.critical(self, i18n.tr("err_connection"), str(exc))
-            self.connect_btn.setText(i18n.tr("cw_connect"))
-        finally:
-            self._connecting = False
-            self.connect_btn.setEnabled(True)
+            self._on_connect_failed(str(exc))
+            return
+        self._region_section.setVisible(True)
+        self._load_groups(first=True)
+
+    def _on_connect_failed(self, msg: str) -> None:
+        self._client = None
+        self._restore = None
+        self._region_section.setVisible(False)
+        self._card_groups.setVisible(False)
+        QMessageBox.critical(self, i18n.tr("err_connection"), msg)
+        self.connect_btn.setText(i18n.tr("cw_connect"))
+        self._connecting = False
+        self.connect_btn.setEnabled(True)
 
     def _make_client(self, region: str) -> None:
         if self._auth_mode_combo.currentIndex() == 1:
@@ -329,16 +352,44 @@ class CloudWatchPanel(ProviderPanel):
                 None if profile == "(default)" else profile, region
             )
 
-    def _load_groups(self) -> None:
+    def _load_groups(self, first: bool = False) -> None:
+        """List the log groups in the background (can be many pages of results)."""
         region = self.region_combo.currentText()
         try:
             self._make_client(region)
-            groups = cloudwatch.list_log_groups(self._client)
-            self._all_groups = groups
-            self._populate_groups(groups)
-            self._card_groups.setVisible(True)
         except Exception as exc:
-            QMessageBox.critical(self, i18n.tr("err_connection"), str(exc))
+            if first:
+                self._on_connect_failed(str(exc))
+            else:
+                QMessageBox.critical(self, i18n.tr("err_connection"), str(exc))
+            return
+        self._groups_gen += 1
+        gen = self._groups_gen
+        worker = CallWorker(cloudwatch.list_log_groups, self._client)
+        worker.success.connect(lambda groups: self._on_groups_loaded(gen, groups, first))
+        worker.failure.connect(lambda msg: self._on_groups_failed(gen, msg, first))
+        self._groups_worker = worker
+        worker.start()
+
+    def _on_groups_loaded(self, gen: int, groups: list, first: bool) -> None:
+        if gen != self._groups_gen:
+            return   # the region changed meanwhile: a newer request is on its way
+        self._all_groups = groups
+        self._populate_groups(groups)
+        self._card_groups.setVisible(True)
+        if first:
+            self.connect_btn.setText(i18n.tr("cw_refresh"))
+            self._connecting = False
+            self.connect_btn.setEnabled(True)
+        self._apply_restore_group()
+
+    def _on_groups_failed(self, gen: int, msg: str, first: bool) -> None:
+        if gen != self._groups_gen:
+            return
+        if first:
+            self._on_connect_failed(msg)
+        else:
+            QMessageBox.critical(self, i18n.tr("err_connection"), msg)
 
     def _on_region_changed(self) -> None:
         if self._client:
@@ -357,19 +408,37 @@ class CloudWatchPanel(ProviderPanel):
         if not group or not self._client:
             return
         self.stream_list.clear()
-        try:
-            streams = cloudwatch.list_log_streams(self._client, group)
-            all_item = QListWidgetItem("— All streams —")
-            all_item.setForeground(QColor(C_ACCENT))
-            self.stream_list.addItem(all_item)
-            for s in streams:
-                self.stream_list.addItem(s)
-            self.stream_list.setCurrentRow(0)
-        except Exception as exc:
-            QMessageBox.warning(self, i18n.tr("err_streams"), str(exc))
+        self._streams_gen += 1
+        gen = self._streams_gen
+        worker = CallWorker(cloudwatch.list_log_streams, self._client, group)
+        worker.success.connect(lambda streams: self._on_streams_loaded(gen, group, streams))
+        worker.failure.connect(lambda msg: self._on_streams_failed(gen, msg))
+        self._streams_worker = worker
+        worker.start()
+
+    def _show_stream_cards(self) -> None:
         self._card_streams.setVisible(True)
         self._card_options.setVisible(True)
         self.open_btn.setEnabled(True)
+        self.ready_changed.emit()
+
+    def _on_streams_loaded(self, gen: int, group: str, streams: list) -> None:
+        if gen != self._streams_gen:
+            return   # another group was selected meanwhile
+        all_item = QListWidgetItem("— All streams —")
+        all_item.setForeground(QColor(C_ACCENT))
+        self.stream_list.addItem(all_item)
+        for s in streams:
+            self.stream_list.addItem(s)
+        self.stream_list.setCurrentRow(0)
+        self._show_stream_cards()
+        self._apply_restore_stream(group)
+
+    def _on_streams_failed(self, gen: int, msg: str) -> None:
+        if gen != self._streams_gen:
+            return
+        QMessageBox.warning(self, i18n.tr("err_streams"), msg)
+        self._show_stream_cards()
 
     def _on_open_clicked(self):
         group_item  = self.group_list.currentItem()

@@ -11,6 +11,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 ### Modifié
 - SSH : l'empreinte de la clé du serveur est désormais affichée pour confirmation à la première connexion à un hôte, et une clé modifiée est refusée.
 - Les identifiants et profils enregistrés ne sont désormais lisibles que par votre compte utilisateur.
+- Beaucoup plus rapide avec les flux de logs soutenus (SSH, Docker, Kubernetes, stdin, fichiers) : les lignes sont ajoutées par groupes, et les longs logs restent fluides pendant le suivi, le redimensionnement ou le changement d'onglet.
+- Ctrl+W ferme désormais l'onglet courant ; fermer tous les logs se fait avec Ctrl+Maj+W.
+- Les horodatages de la vue des logs s'affichent désormais en heure locale au lieu de l'UTC.
 
 ### Corrigé
 - macOS : la mise à jour intégrée pouvait supprimer tout le dossier Applications au lieu de remplacer seulement SimpleLog. Elle ne remplace désormais que l'app SimpleLog, et conserve l'ancienne en cas de problème. La mise à jour s'exécutant depuis la version déjà installée, la 1.0.8 et les versions antérieures ne peuvent plus se mettre à jour toutes seules sur macOS : téléchargez la nouvelle version une fois depuis le site ou avec Homebrew.
@@ -22,6 +25,15 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Ouvrir un log en panneau divisé alors que l'onglet contient déjà 9 panneaux affiche maintenant un message, au lieu de lancer en silence un log qui n'est jamais affiché.
 - Ouvrir de nombreuses connexions enregistrées ne ralentit plus l'application au fil du temps : leurs fenêtres, minuteurs et connexions SSH sont libérés à la fermeture.
 - Fichiers locaux : le suivi d'un fichier continue de fonctionner après sa rotation ou son vidage, les lignes écrites en deux fois ne sont plus coupées et les caractères accentués ne sont plus corrompus.
+- Recherche : les résultats sont surlignés en jaune translucide, au bon endroit sur les lignes qui passent à la ligne ; le ET / OU entre les termes est respecté ; les lignes JSON qui correspondent sont surlignées ; et la vue ne revient plus au premier résultat pendant le suivi d'un log.
+- Un clic droit ou une sélection à la souris sur une ligne JSON ne la déplie ou ne la replie plus ; seul un simple clic le fait.
+- Ouvrir un fichier avec `simplelog fichier.log` depuis un autre dossier alors que SimpleLog est déjà lancé fonctionne désormais.
+- Fermer un onglet ou quitter ne fige plus l'application pendant plusieurs secondes.
+- Activer ou désactiver les horodatages redimensionne maintenant correctement les lignes qui passent à la ligne.
+- Les connexions et identifiants enregistrés ne peuvent plus être perdus si l'application plante pendant l'enregistrement.
+- Elasticsearch 8 et suivants : le suivi des logs refonctionne (il utilisait un tri que les versions récentes refusent).
+- Mises à jour : un téléchargement incomplet est détecté, et l'installation d'une mise à jour .deb ne fige plus la fenêtre.
+- CloudWatch, Docker et SSH : lister les groupes de logs, les flux et les conteneurs, et ouvrir un log SSH, ne figent plus l'application pendant l'attente du réseau.
 
 ## [1.0.8] - 2026-09-30
 

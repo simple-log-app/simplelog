@@ -1,6 +1,6 @@
 # Audit SimpleLog : checklist
 
-Légende : `[x]` fait · `[ ]` à faire.
+Légende : `[x]` fait · `[~]` partiellement fait · `[ ]` à faire.
 Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probable* (à confirmer sur un vrai service).
 
 ## 🔴 Urgent
@@ -25,17 +25,17 @@ Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probab
 
 ## 🟠 Bugs de gravité moyenne
 
-- [ ] 9. Recherche : surlignage rose opaque (`#AARRGGBB` mal lu) ; mal placé sur les lignes à retour à la ligne ; lignes JSON comptées mais jamais surlignées ; AND/OR ignorés ; saut vers le 1ᵉʳ résultat toutes les 300 ms en tail. *(mesuré/code)*
-- [ ] 10. Clic droit (et fin de sélection à la souris) sur une ligne JSON la déplie/replie. *(mesuré)*
-- [ ] 11. Ctrl+W ferme tous les onglets sans confirmation.
-- [ ] 12. `simplelog app.log` lancé depuis un autre dossier avec une instance ouverte : chemin relatif non résolu, rien ne s'ouvre.
-- [ ] 13. Gels à l'arrêt des workers : fermer un onglet fige l'UI ~3 s, quitter 2 s par worker ; un onglet stdin ne peut pas être arrêté. *(mesuré)*
-- [ ] 14. Appels réseau dans le fil de l'interface : CloudWatch (log groups, streams à chaque ↓), Docker (`docker ps`), SSH (2ᵉ connexion, navigateur SFTP), restauration des onglets SSH/GCP/Azure.
-- [ ] 15. Heures affichées en UTC sans l'indiquer (décision à prendre).
-- [ ] 16. Cocher/décocher « timestamps » ne recalcule pas la hauteur des lignes.
-- [ ] 17. `write_private` non atomique : un crash laisse un JSON tronqué → profils effacés à la sauvegarde suivante.
-- [ ] 18. Elastic : tri sur `_id` refusé par défaut depuis Elasticsearch 8. *(probable)*
-- [ ] 19. Mise à jour : pas de contrôle d'intégrité avant `pkexec dpkg -i`, et `pkexec` dans le fil de l'UI.
+- [x] 9. Recherche : surlignage rose opaque (`#AARRGGBB` mal lu) ; mal placé sur les lignes à retour à la ligne ; lignes JSON comptées mais jamais surlignées ; AND/OR ignorés ; saut vers le 1ᵉʳ résultat toutes les 300 ms en tail. *(mesuré/code)*
+- [x] 10. Clic droit (et fin de sélection à la souris) sur une ligne JSON la déplie/replie. *(mesuré)*
+- [x] 11. Ctrl+W ferme tous les onglets sans confirmation.
+- [x] 12. `simplelog app.log` lancé depuis un autre dossier avec une instance ouverte : chemin relatif non résolu, rien ne s'ouvre.
+- [x] 13. Gels à l'arrêt des workers : fermer un onglet fige l'UI ~3 s, quitter 2 s par worker ; un onglet stdin ne peut pas être arrêté. *(mesuré)*
+- [~] 14. *(fait : CloudWatch groupes/streams, Docker, ouverture SSH ; reste : navigateur SFTP, restauration des onglets SSH/GCP/Azure dans `main_window`)* Appels réseau dans le fil de l'interface : CloudWatch (log groups, streams à chaque ↓), Docker (`docker ps`), SSH (2ᵉ connexion, navigateur SFTP), restauration des onglets SSH/GCP/Azure.
+- [x] 15. Heures affichées en UTC sans l'indiquer → désormais en heure locale.
+- [x] 16. Cocher/décocher « timestamps » ne recalcule pas la hauteur des lignes.
+- [x] 17. `write_private` non atomique : un crash laisse un JSON tronqué → profils effacés à la sauvegarde suivante.
+- [x] 18. Elastic : tri sur `_id` refusé par défaut depuis Elasticsearch 8. *(probable)*
+- [x] 19. Mise à jour : pas de contrôle d'intégrité avant `pkexec dpkg -i`, et `pkexec` dans le fil de l'UI.
 
 ## 🟡 Bugs de gravité basse
 
@@ -49,19 +49,19 @@ Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probab
 
 Cause principale : `LogDelegate.sizeHint` (72 % du temps) recalculé pour **toutes** les lignes à chaque ajout.
 
-- [ ] P1. Workers de flux (SSH, Docker, K8s, stdin, fichier) : émettre par paquets (~50 ms / 500 lignes) au lieu d'un signal par ligne.
-- [ ] P2. `LogViewer` : regrouper les ajouts (timer 50–100 ms) et ne défiler qu'une fois par paquet.
-- [ ] P3. Mettre en cache la hauteur de chaque ligne (invalider si largeur / police / timestamps changent).
-- [ ] P4. Log plein : supprimer les plus anciennes lignes par tranches de 10 % au lieu de reconstruire tout le modèle à chaque ajout.
-- [ ] P5. Ne pas réappliquer le filtre s'il n'a pas changé (changement d'onglet, clic dans un panneau).
-- [ ] P6. Retarder (~100 ms) le recalcul au redimensionnement.
+- [x] P1. Workers de flux (SSH, Docker, K8s, stdin, fichier) : émettre par paquets (~50 ms / 500 lignes) au lieu d'un signal par ligne.
+- [x] P2. `LogViewer` : regrouper les ajouts (timer 50–100 ms) et ne défiler qu'une fois par paquet.
+- [x] P3. Mettre en cache la hauteur de chaque ligne (invalider si largeur / police / timestamps changent).
+- [x] P4. Log plein : supprimer les plus anciennes lignes par tranches de 10 % au lieu de reconstruire tout le modèle à chaque ajout.
+- [x] P5. Ne pas réappliquer le filtre s'il n'a pas changé (changement d'onglet, clic dans un panneau).
+- [x] P6. Retarder (~100 ms) le recalcul au redimensionnement.
 - [ ] P7. Option « sans retour à la ligne » (lignes de hauteur fixe).
-- [ ] P8. Dessin : mettre en cache niveau, heure formatée, couleurs, police des badges (5 regex par ligne à chaque dessin).
+- [~] P8. *(fait : niveau de sévérité mis en cache ; reste : heure formatée, couleurs, police des badges)* Dessin : mettre en cache niveau, heure formatée, couleurs, police des badges (5 regex par ligne à chaque dessin).
 - [ ] P9. Recherche incrémentale (nouvelles lignes seulement).
-- [ ] P10. Arrêt immédiat des workers (attente interruptible, plus de `wait()` dans l'UI).
+- [x] P10. Arrêt immédiat des workers (attente interruptible, plus de `wait()` dans l'UI).
 - [ ] P11. Borner l'historique (CloudWatch sans limite ; fichier : 500 000 lignes demandées pour 10 000 gardées) et réécrire `_read_last_n_lines` (18,8 s → < 0,2 s).
-- [ ] P12. Appels réseau des panneaux dans `BackgroundWorker` (cf. bug 14).
-- [ ] P13. Corriger la fuite des dialogues (cf. bug 7).
+- [~] P12. *(fait : CloudWatch, Docker, SSH ; voir bug 14)* Appels réseau des panneaux dans `BackgroundWorker` (cf. bug 14).
+- [x] P13. Corriger la fuite des dialogues (cf. bug 7).
 - [ ] P14. Import paresseux de boto3 / paramiko (~0,2 s au démarrage).
 
 ## 🧹 Refactoring
