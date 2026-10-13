@@ -8,6 +8,10 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Journal des modifications, disponible en 5 langues et dans l'application (Aide → Nouveautés).
 - Quand une nouvelle version est disponible, la fenêtre de mise à jour liste les changements depuis votre version.
 
+### Modifié
+- SSH : l'empreinte de la clé du serveur est désormais affichée pour confirmation à la première connexion à un hôte, et une clé modifiée est refusée.
+- Les identifiants et profils enregistrés ne sont désormais lisibles que par votre compte utilisateur.
+
 ## [1.0.8] - 2026-09-30
 
 ### Ajouté

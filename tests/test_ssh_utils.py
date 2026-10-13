@@ -157,3 +157,37 @@ def test_test_file_readable_quotes_path():
     ssh_utils.test_file_readable(client, "/tmp/has space.log")
     cmd = client.exec_command.call_args.args[0]
     assert "'/tmp/has space.log'" in cmd
+
+
+# -- host key verification -----------------------------------------------------
+
+def test_unknown_host_key_is_refused_by_default():
+    policy = ssh_utils._TrustPolicy(trust_new=False)
+    key = MagicMock()
+    key.get_name.return_value = "ssh-ed25519"
+    key.asbytes.return_value = b"keybytes"
+    with pytest.raises(ssh_utils.UnknownHostKeyError) as exc:
+        policy.missing_host_key(MagicMock(), "h", key)
+    assert exc.value.host == "h"
+    assert exc.value.fingerprint.startswith("SHA256:")
+
+
+def test_trusted_host_key_is_saved(tmp_path, monkeypatch):
+    monkeypatch.setattr(ssh_utils, "_KNOWN_HOSTS", tmp_path / "known_hosts")
+    key = paramiko.RSAKey.generate(1024)
+    ssh_utils._TrustPolicy(trust_new=True).missing_host_key(MagicMock(), "h", key)
+    assert (tmp_path / "known_hosts").read_text().startswith("h ssh-rsa ")
+
+
+def test_make_client_reraises_unknown_host():
+    cls_patch, instance = _patch_sshclient()
+    instance.connect.side_effect = ssh_utils.UnknownHostKeyError("h", "ssh-rsa", "SHA256:x")
+    with cls_patch, pytest.raises(ssh_utils.UnknownHostKeyError):
+        ssh_utils.make_client("h", "u")
+
+
+def test_make_client_host_key_mismatch():
+    cls_patch, instance = _patch_sshclient()
+    instance.connect.side_effect = paramiko.BadHostKeyException("h", MagicMock(), MagicMock())
+    with cls_patch, pytest.raises(RuntimeError, match="mismatch"):
+        ssh_utils.make_client("h", "u")

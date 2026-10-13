@@ -1,0 +1,253 @@
+"""Filter terms, line classification and the log list model."""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from datetime import datetime
+
+from PyQt6.QtCore import (
+    QAbstractListModel,
+    QModelIndex,
+    Qt,
+    pyqtSignal,
+)
+
+# ── Filter / search data model ─────────────────────────────────────────────────
+
+@dataclass
+class TermRow:
+    text: str
+    operator: str  # "AND" | "OR" | "" — empty string for the first term (ignored)
+    key: str = ""  # non-empty → JSON key=value match mode
+
+
+def _line_matches(line: str, terms: list[TermRow]) -> bool:
+    """Return True if *line* satisfies the AND/OR chain of *terms* (case-insensitive)."""
+    if not terms:
+        return True
+
+    def _term_hit(term: TermRow) -> bool:
+        if not term.key:
+            # Plain text match
+            return term.text.lower() in line.lower()
+        # Key=value match: parse line as JSON, check data[key] contains text
+        # Try the full line first, then search for an embedded JSON object
+        data = None
+        stripped = line.strip()
+        try:
+            parsed = json.loads(stripped)
+            if isinstance(parsed, dict):
+                data = parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+        if data is None:
+            # Try to find an embedded JSON object in the line
+            start = line.find("{")
+            if start != -1:
+                try:
+                    parsed = json.loads(line[start:])
+                    if isinstance(parsed, dict):
+                        data = parsed
+                except (json.JSONDecodeError, ValueError):
+                    pass
+        if data is None or term.key not in data:
+            return False
+        if term.text == "":
+            return True  # key presence check
+        return term.text.lower() in str(data[term.key]).lower()
+
+    result = _term_hit(terms[0])
+    for term in terms[1:]:
+        hit = _term_hit(term)
+        result = (result and hit) if term.operator == "AND" else (result or hit)
+    return result
+
+
+# ── JSON parsing + line classification ─────────────────────────────────────────
+
+def _try_parse_json(message: str) -> dict | None:
+    """Try to parse message as a JSON object. Returns dict or None."""
+    stripped = message.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        data = json.loads(stripped)
+        return data if isinstance(data, dict) else None
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+_CLASSIFY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    ("error", re.compile(r"\b(CRITICAL|FATAL|ERROR|ERR)\b", re.IGNORECASE)),
+    ("warn",  re.compile(r"\b(WARN(?:ING)?)\b",             re.IGNORECASE)),
+    ("info",  re.compile(r"\bINFO\b",                       re.IGNORECASE)),
+    ("debug", re.compile(r"\bDEBUG\b",                      re.IGNORECASE)),
+    ("trace", re.compile(r"\bTRACE\b",                      re.IGNORECASE)),
+]
+
+
+def _classify_line(text: str) -> str:
+    """Return severity level string for a log line."""
+    for level, pattern in _CLASSIFY_PATTERNS:
+        if pattern.search(text):
+            return level
+    return "plain"
+
+
+_MAIN_KEYS = (
+    "message", "msg", "error", "err", "data", "content", "text",
+    "body", "log", "description", "details", "payload", "result", "output", "value",
+)
+
+
+def _resolve_main_key(data: dict) -> str | None:
+    """Return the first priority key found in data, or None."""
+    for k in _MAIN_KEYS:
+        if k in data:
+            return k
+    return None
+
+
+# ── LogItem + LogModel ─────────────────────────────────────────────────────────
+
+@dataclass
+class LogItem:
+    ts_ms: int
+    message: str
+    is_json: bool
+    json_data: dict | None
+    main_key: str | None
+    expanded: bool = False
+    visible: bool = True
+    is_break: bool = False
+
+
+_ITEM_ROLE     = Qt.ItemDataRole.UserRole + 1
+_EXPANDED_ROLE = Qt.ItemDataRole.UserRole + 2
+
+
+class LogModel(QAbstractListModel):
+    rows_appended     = pyqtSignal()
+    json_keys_updated = pyqtSignal(set)
+    filter_applied    = pyqtSignal()
+
+    _MAX_LINES = 10_000
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._items: list[LogItem] = []
+        self._visible: list[LogItem] = []   # references into _items
+        self._json_keys: set[str] = set()
+        self._current_filter_terms: list[TermRow] = []
+
+    # ── QAbstractListModel interface ──────────────────────────────────────────
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: B008
+        return 0 if parent.isValid() else len(self._visible)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or index.row() >= len(self._visible):
+            return None
+        item = self._visible[index.row()]
+        if role == _ITEM_ROLE:
+            return item
+        if role == Qt.ItemDataRole.DisplayRole:
+            return item.message
+        return None
+
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole) -> bool:
+        if role == _EXPANDED_ROLE and index.isValid():
+            item = self._visible[index.row()]
+            item.expanded = bool(value)
+            self.dataChanged.emit(index, index, [role])
+            return True
+        return False
+
+    def flags(self, index):
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def append_events(self, events: list[tuple[int, str]]) -> None:
+        if not events:
+            return
+        new_keys: set[str] = set()
+        appended: list[LogItem] = []
+
+        for ts_ms, message in events:
+            json_data = _try_parse_json(message)
+            main_key  = _resolve_main_key(json_data) if json_data else None
+            item = LogItem(
+                ts_ms=ts_ms,
+                message=message,
+                is_json=json_data is not None,
+                json_data=json_data,
+                main_key=main_key,
+                visible=_line_matches(message, self._current_filter_terms),
+            )
+            self._items.append(item)
+            appended.append(item)
+            if json_data:
+                new_keys |= set(json_data.keys())
+
+        # Enforce MAX_LINES — bulk trim + reset if over limit
+        if len(self._items) > self._MAX_LINES:
+            self._items = self._items[-self._MAX_LINES:]
+            self.beginResetModel()
+            self._visible = [it for it in self._items if it.visible]
+            self.endResetModel()
+            self.rows_appended.emit()
+        else:
+            newly_visible = [it for it in appended if it.visible]
+            if newly_visible:
+                first = len(self._visible)
+                self.beginInsertRows(QModelIndex(), first, first + len(newly_visible) - 1)
+                self._visible.extend(newly_visible)
+                self.endInsertRows()
+                self.rows_appended.emit()
+
+        if new_keys - self._json_keys:
+            self._json_keys |= new_keys
+            self.json_keys_updated.emit(self._json_keys.copy())
+
+    def insert_break(self) -> None:
+        dt = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
+        label = f"══════════════  {dt}  ══════════════"
+        item = LogItem(
+            ts_ms=0, message=label, is_json=False, json_data=None,
+            main_key=None, visible=True, is_break=True,
+        )
+        self._items.append(item)
+        first = len(self._visible)
+        self.beginInsertRows(QModelIndex(), first, first)
+        self._visible.append(item)
+        self.endInsertRows()
+        self.rows_appended.emit()
+
+    def apply_filter(self, terms: list[TermRow]) -> None:
+        self._current_filter_terms = terms
+        self.beginResetModel()
+        self._visible = []
+        for item in self._items:
+            item.visible = item.is_break or _line_matches(item.message, self._current_filter_terms)
+            if item.visible:
+                self._visible.append(item)
+        self.endResetModel()
+        self.filter_applied.emit()
+
+    def clear(self) -> None:
+        self.beginResetModel()
+        self._items.clear()
+        self._visible.clear()
+        self._json_keys.clear()
+        self.endResetModel()
+
+    def get_json_keys(self) -> set[str]:
+        return self._json_keys.copy()
+
+    def visible_count(self) -> int:
+        return len(self._visible)

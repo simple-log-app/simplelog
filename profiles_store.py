@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from creds_store import write_private
+
 _DIR = Path.home() / ".config" / "simplelog"
 
 
@@ -16,8 +18,7 @@ def load_all(service: str) -> list[dict]:
 
 
 def save_all(service: str, profiles: list[dict]) -> None:
-    _DIR.mkdir(parents=True, exist_ok=True)
-    (_DIR / f"profiles_{service}.json").write_text(json.dumps(profiles, indent=2))
+    write_private(_DIR / f"profiles_{service}.json", json.dumps(profiles, indent=2))
 
 
 def upsert(service: str, name: str, data: dict) -> None:

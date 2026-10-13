@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 _DIR = Path.home() / ".config" / "simplelog"
@@ -15,10 +16,22 @@ def load(name: str) -> dict:
         return {}
 
 
+def write_private(path: Path, text: str) -> None:
+    """Write *text* to *path* readable by the owner only (0600)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path.parent, 0o700)
+    except OSError:
+        pass
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    os.chmod(path, 0o600)  # tighten files created before this fix
+
+
 def save(name: str, data: dict) -> None:
     """Persist *data* as credentials for *name*."""
-    _DIR.mkdir(parents=True, exist_ok=True)
-    (_DIR / f"creds_{name}.json").write_text(json.dumps(data, indent=2))
+    write_private(_DIR / f"creds_{name}.json", json.dumps(data, indent=2))
 
 
 def clear(name: str) -> None:

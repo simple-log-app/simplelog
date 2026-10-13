@@ -55,3 +55,21 @@ def test_save_overwrites_existing(tmp_path, monkeypatch):
     creds_store.save("s", {"v": 1})
     creds_store.save("s", {"v": 2})
     assert creds_store.load("s") == {"v": 2}
+
+
+def test_save_is_owner_only(tmp_path, monkeypatch):
+    import stat
+    monkeypatch.setattr(creds_store, "_DIR", tmp_path / "cfg")
+    creds_store.save("aws", {"token": "x"})
+    mode = stat.S_IMODE((tmp_path / "cfg" / "creds_aws.json").stat().st_mode)
+    assert mode == 0o600
+
+
+def test_save_tightens_existing_file(tmp_path, monkeypatch):
+    import stat
+    monkeypatch.setattr(creds_store, "_DIR", tmp_path)
+    f = tmp_path / "creds_aws.json"
+    f.write_text("{}")
+    f.chmod(0o644)
+    creds_store.save("aws", {"token": "x"})
+    assert stat.S_IMODE(f.stat().st_mode) == 0o600

@@ -8,6 +8,10 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Änderungsprotokoll, verfügbar in 5 Sprachen und in der App (Hilfe → Neuigkeiten).
 - Wenn eine neue Version verfügbar ist, zeigt der Update-Dialog die Änderungen seit Ihrer Version an.
 
+### Geändert
+- SSH: Beim ersten Verbinden mit einem Host wird der Schlüssel-Fingerabdruck des Servers zur Bestätigung angezeigt; ein geänderter Schlüssel wird abgelehnt.
+- Gespeicherte Zugangsdaten und Profile sind jetzt nur noch für Ihr Benutzerkonto lesbar.
+
 ## [1.0.8] - 2026-09-30
 
 ### Hinzugefügt

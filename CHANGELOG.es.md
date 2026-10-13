@@ -8,6 +8,10 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Registro de cambios, disponible en 5 idiomas y en la aplicación (Ayuda → Novedades).
 - Cuando hay una nueva versión disponible, el diálogo de actualización muestra los cambios desde tu versión.
 
+### Cambiado
+- SSH: la huella de la clave del servidor se muestra ahora para confirmarla la primera vez que te conectas a un host, y una clave modificada se rechaza.
+- Las credenciales y los perfiles guardados ahora solo son legibles por tu cuenta de usuario.
+
 ## [1.0.8] - 2026-09-30
 
 ### Añadido
