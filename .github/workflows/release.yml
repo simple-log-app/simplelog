@@ -89,7 +89,7 @@ jobs:
               -srcfolder "$DMG_STAGING" \
               -ov -format UDZO \
               -imagekey zlib-level=9 \
-              dist/SimpleLog-macOS.dmg && break
+              dist/SimpleLog-macOS-universal.dmg && break
             echo "hdiutil attempt ${attempt} failed, retrying in 10s…"
             sleep 10
           done
@@ -97,7 +97,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal-dmg
-          path: dist/SimpleLog-macOS.dmg
+          path: dist/SimpleLog-macOS-universal.dmg
 
   # ── GitHub Release ─────────────────────────────────────────────────────────
   release:

@@ -12,6 +12,17 @@ All notable changes to SimpleLog are documented in this file.
 - SSH: the server's key fingerprint is now shown for confirmation the first time you connect to a host, and a changed key is refused.
 - Saved credentials and profiles are now readable only by your user account.
 
+### Fixed
+- macOS: the in-app update could delete the whole Applications folder instead of replacing only SimpleLog. It now replaces only the SimpleLog app, and keeps the old one if anything goes wrong. Because the update runs from the version you already have, 1.0.8 and earlier can no longer self-update on macOS: download the new version once from the website or with Homebrew.
+- Kubernetes: logs now appear right away instead of only after 200 lines.
+- Loki, GCP, Datadog and Fly.io: the same log lines no longer appear again and again while following a source.
+- Loki, Datadog and Elasticsearch: the initial load now shows the most recent logs instead of the oldest ones of the period. GCP no longer skips entries during bursts.
+- A short network problem no longer stops following a source and pops up an error: SimpleLog retries, and only reports an error after several failures in a row.
+- Pressing Enter in a text field (search, filter, forms) no longer inserts a separator line in the current log.
+- Opening a log in a split pane when the tab already has 9 panes now shows a message instead of silently starting a log that is never displayed.
+- Opening many saved connections no longer makes the app slower over time: their dialogs, timers and SSH connections are released when closed.
+- Local files: following a file now keeps working after it is rotated or emptied, lines written in two parts are no longer split, and accented characters are no longer garbled.
+
 ## [1.0.8] - 2026-09-30
 
 ### Added

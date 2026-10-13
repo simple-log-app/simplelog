@@ -119,21 +119,23 @@ def fetch_entries(
     client,
     filter_str: str,
     max_results: int = 500,
+    ascending: bool = False,
 ) -> list[tuple[int, str]]:
     """Fetch log entries matching *filter_str*.
 
-    Returns [(ts_ms, message), ...] in ascending timestamp order.
+    Returns [(ts_ms, message), ...] in ascending timestamp order. By default the
+    *max_results* most recent entries are returned; with *ascending* the oldest ones.
     """
     try:
         from google.cloud import logging as gcp_logging
         raw = list(client.list_entries(
             filter_=filter_str,
-            order_by=gcp_logging.DESCENDING,
+            order_by=gcp_logging.ASCENDING if ascending else gcp_logging.DESCENDING,
             max_results=max_results,
             page_size=min(max_results, 1000),
         ))
         result: list[tuple[int, str]] = []
-        for entry in reversed(raw):
+        for entry in (raw if ascending else reversed(raw)):
             ts = entry.timestamp
             ts_ms = int(ts.timestamp() * 1000) if ts else 0
             result.append((ts_ms, _entry_to_text(entry)))

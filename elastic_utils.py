@@ -54,16 +54,21 @@ def list_indices(base_url: str, api_key: str = "",
 def fetch_logs(base_url: str, index: str, query: str,
                since_iso: str = "", search_after: list | None = None,
                api_key: str = "", username: str = "", password: str = "",
-               ts_field: str = "@timestamp", size: int = 500,
+               ts_field: str = "@timestamp", size: int = 500, latest: bool = False,
                ) -> tuple[list[tuple[int, str]], list]:
-    """Search logs in index. Returns (events, last_sort_values) for search_after pagination."""
+    """Search logs in index. Returns (events, last_sort_values) for search_after pagination.
+
+    With *latest*, the *size* most recent hits are returned (oldest-first) instead of
+    the oldest ones; *last_sort_values* is then the sort key of the newest hit.
+    """
     must: list = [{"query_string": {"query": query or "*"}}]
     if since_iso:
         must.append({"range": {ts_field: {"gt": since_iso}}})
 
+    order = "desc" if latest else "asc"
     body: dict = {
         "size": size,
-        "sort": [{ts_field: {"order": "asc"}}, {"_id": "asc"}],
+        "sort": [{ts_field: {"order": order}}, {"_id": order}],
         "query": {"bool": {"must": must}},
     }
     if search_after:
@@ -89,4 +94,7 @@ def fetch_logs(base_url: str, index: str, query: str,
                 ts_ms = 0
         result.append((ts_ms, str(msg).rstrip()))
         last_sort = hit.get("sort", [])
+    if latest:
+        result.reverse()
+        last_sort = hits[0].get("sort", []) if hits else []
     return result, last_sort

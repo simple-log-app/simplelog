@@ -51,7 +51,7 @@ brew install --cask simplelog
 
 **Via .dmg:**
 
-Download [SimpleLog-macOS.dmg](https://github.com/simple-log-app/simplelog/releases/latest/download/SimpleLog-macOS.dmg) and drag the app to `/Applications`.
+Download [SimpleLog-macOS-universal.dmg](https://github.com/simple-log-app/simplelog/releases/latest/download/SimpleLog-macOS-universal.dmg) and drag the app to `/Applications`.
 
 > If macOS blocks the app: right-click → **Open** → **Open**
 

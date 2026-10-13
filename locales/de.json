@@ -78,6 +78,7 @@
   "err_file_not_found": "Datei nicht gefunden",
   "err_cannot_open": "Kann nicht geöffnet werden: {path}",
   "err_worker": "Worker-Fehler",
+  "err_max_panes": "Maximal {n} Bereiche pro Tab erreicht — öffnen Sie es in einem neuen Tab",
   "err_connection": "Verbindungsfehler",
   "err_streams": "Fehler beim Laden der Streams",
   "err_prefix": "Fehler: {msg}",

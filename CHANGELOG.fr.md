@@ -12,6 +12,17 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - SSH : l'empreinte de la clé du serveur est désormais affichée pour confirmation à la première connexion à un hôte, et une clé modifiée est refusée.
 - Les identifiants et profils enregistrés ne sont désormais lisibles que par votre compte utilisateur.
 
+### Corrigé
+- macOS : la mise à jour intégrée pouvait supprimer tout le dossier Applications au lieu de remplacer seulement SimpleLog. Elle ne remplace désormais que l'app SimpleLog, et conserve l'ancienne en cas de problème. La mise à jour s'exécutant depuis la version déjà installée, la 1.0.8 et les versions antérieures ne peuvent plus se mettre à jour toutes seules sur macOS : téléchargez la nouvelle version une fois depuis le site ou avec Homebrew.
+- Kubernetes : les logs apparaissent immédiatement au lieu de seulement après 200 lignes.
+- Loki, GCP, Datadog et Fly.io : les mêmes lignes de log ne réapparaissent plus en boucle pendant le suivi d'une source.
+- Loki, Datadog et Elasticsearch : le chargement initial affiche désormais les logs les plus récents au lieu des plus anciens de la période. GCP ne saute plus d'entrées lors des pics d'activité.
+- Un court problème réseau n'interrompt plus le suivi d'une source avec une fenêtre d'erreur : SimpleLog réessaie, et ne signale une erreur qu'après plusieurs échecs consécutifs.
+- Appuyer sur Entrée dans un champ de texte (recherche, filtre, formulaires) n'insère plus de ligne de séparation dans le log courant.
+- Ouvrir un log en panneau divisé alors que l'onglet contient déjà 9 panneaux affiche maintenant un message, au lieu de lancer en silence un log qui n'est jamais affiché.
+- Ouvrir de nombreuses connexions enregistrées ne ralentit plus l'application au fil du temps : leurs fenêtres, minuteurs et connexions SSH sont libérés à la fermeture.
+- Fichiers locaux : le suivi d'un fichier continue de fonctionner après sa rotation ou son vidage, les lignes écrites en deux fois ne sont plus coupées et les caractères accentués ne sont plus corrompus.
+
 ## [1.0.8] - 2026-09-30
 
 ### Ajouté

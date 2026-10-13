@@ -78,6 +78,7 @@
   "err_file_not_found": "Fichier introuvable",
   "err_cannot_open": "Impossible d'ouvrir : {path}",
   "err_worker": "Erreur worker",
+  "err_max_panes": "Maximum de {n} panneaux par onglet atteint — ouvrez-le dans un nouvel onglet",
   "err_connection": "Erreur de connexion",
   "err_streams": "Erreur lors du chargement des flux",
   "err_prefix": "Erreur : {msg}",

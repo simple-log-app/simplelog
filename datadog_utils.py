@@ -51,14 +51,15 @@ def verify_connection(base_url: str, api_key: str, app_key: str) -> None:
 
 def fetch_logs(base_url: str, query: str, from_iso: str, to_iso: str,
                api_key: str, app_key: str,
-               limit: int = 500) -> list[tuple[int, str]]:
+               limit: int = 500, latest: bool = False) -> list[tuple[int, str]]:
     """Fetch log events between from_iso and to_iso.
 
-    Returns list of (ts_ms, message) tuples sorted oldest-first.
+    Returns list of (ts_ms, message) tuples sorted oldest-first. With *latest*, the
+    *limit* most recent events of the range are returned instead of the oldest ones.
     """
     data = _post(base_url, "/api/v2/logs/events/search", {
         "filter": {"query": query, "from": from_iso, "to": to_iso},
-        "sort":   "timestamp",
+        "sort":   "-timestamp" if latest else "timestamp",
         "page":   {"limit": limit},
     }, api_key, app_key)
 

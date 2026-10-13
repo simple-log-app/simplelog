@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
+    QThread,
     QTimer,
     pyqtSignal,
 )
@@ -172,6 +173,9 @@ _PROVIDER_FIELDS: dict[str, list[tuple[str, str, str, bool]]] = {
 }
 
 
+_RUNNING_WORKERS: set = set()   # workers of closed dialogs, kept alive until they finish
+
+
 def _widget_state(w: QWidget):
     """Snapshot the user-visible value of an input widget."""
     if isinstance(w, QListWidget):
@@ -253,6 +257,7 @@ class AddConnectionDialog(QDialog):
         self._is_existing: bool = prefill_profile is not None
         _key = id(self)
         i18n.register(_key, self._retranslate_dlg)
+        self.finished.connect(lambda _=0, k=_key: self._release(k))
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -273,6 +278,30 @@ class AddConnectionDialog(QDialog):
 
         if preselect:
             self._go_step2(preselect)
+
+    def _release(self, i18n_key: int) -> None:
+        """Free what the dialog keeps alive once it is closed (timer, callbacks, SSH)."""
+        i18n.unregister(i18n_key)
+        if self._ready_timer:
+            self._ready_timer.stop()
+            self._ready_timer = None
+        panel = self._embedded_panel or self._cw_embedded_panel
+        if panel is None:
+            return
+        # The panel's own SSH connection is only used for browsing; the tab opened from
+        # it gets a separate one.
+        client = getattr(panel, "_client", None) if isinstance(panel, SSHPanel) else None
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
+        # A connect/list worker may still be running: keep it referenced until it ends,
+        # otherwise Qt aborts with "QThread destroyed while running".
+        for value in list(vars(panel).values()):
+            if isinstance(value, QThread) and value.isRunning():
+                _RUNNING_WORKERS.add(value)
+                value.finished.connect(lambda v=value: _RUNNING_WORKERS.discard(v))
 
     # ── Step 1 ────────────────────────────────────────────────────────────────
 
@@ -1622,6 +1651,7 @@ class RemoteHomePanel(QWidget):
         dlg = AddConnectionDialog(parent=self, preselect=preselect)
         dlg.tab_requested.connect(self.tab_requested)
         dlg.exec()
+        dlg.deleteLater()
         self.reload()
 
     def _on_open_profile(self, svc: str, profile: dict) -> None:
@@ -1632,4 +1662,5 @@ class RemoteHomePanel(QWidget):
         )
         dlg.tab_requested.connect(self.tab_requested)
         dlg.exec()
+        dlg.deleteLater()
         self.reload()

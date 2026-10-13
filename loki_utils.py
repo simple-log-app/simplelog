@@ -43,17 +43,18 @@ def verify_connection(base_url: str, username: str = "", password: str = "",
 
 def fetch_logs(base_url: str, query: str, start_ns: int, end_ns: int,
                username: str = "", password: str = "", token: str = "",
-               limit: int = 500) -> list[tuple[int, str]]:
+               limit: int = 500, latest: bool = False) -> list[tuple[int, str]]:
     """Fetch log entries from Loki for [start_ns, end_ns] (nanoseconds).
 
-    Returns list of (ts_ms, message) tuples sorted oldest-first.
+    Returns list of (ts_ms, message) tuples sorted oldest-first. With *latest*, the
+    *limit* most recent entries of the range are returned instead of the oldest ones.
     """
     params = {
         "query":     query,
         "start":     str(start_ns),
         "end":       str(end_ns),
         "limit":     str(limit),
-        "direction": "forward",
+        "direction": "backward" if latest else "forward",
     }
     data = _request(base_url, "/loki/api/v1/query_range", params, username, password, token)
     result: list[tuple[int, str]] = []

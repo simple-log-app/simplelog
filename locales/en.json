@@ -78,6 +78,7 @@
   "err_file_not_found": "File not found",
   "err_cannot_open": "Cannot open: {path}",
   "err_worker": "Worker error",
+  "err_max_panes": "Maximum of {n} panes per tab reached — open it in a new tab instead",
   "err_connection": "Connection error",
   "err_streams": "Error loading streams",
   "err_prefix": "Error: {msg}",

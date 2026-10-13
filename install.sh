@@ -29,7 +29,7 @@ title ""
 
 if [ "$OS" = "Darwin" ]; then
     PLATFORM="macOS"
-    ASSET_PATTERN="SimpleLog-macOS.dmg"
+    ASSET_PATTERN="SimpleLog-macOS-universal.dmg"
 elif [ "$OS" = "Linux" ]; then
     PLATFORM="Linux"
     if command -v dpkg &>/dev/null && [ -f /etc/debian_version ]; then

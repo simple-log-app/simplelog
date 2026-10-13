@@ -8,7 +8,7 @@ VERSION=${1:?Usage: $0 <version>  e.g. $0 2.3.0}
 OWNER="simple-log-app"
 REPO="simplelog"
 TAP_REPO="homebrew-tap"
-DMG_URL="https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/SimpleLog-macOS.dmg"
+DMG_URL="https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/SimpleLog-macOS-universal.dmg"
 
 log() { echo "▶ $*"; }
 ok()  { echo "✓ $*"; }
@@ -46,7 +46,7 @@ CASK="$TMPDIR/Casks/simplelog.rb"
 
 sed -i.bak "s|version \".*\"|version \"${VERSION}\"|" "$CASK"
 sed -i.bak "s|sha256 .*|sha256 \"${SHA256}\"|"        "$CASK"
-sed -i.bak "s|url \".*\"|url \"https://github.com/${OWNER}/${REPO}/releases/download/v#{version}/SimpleLog-macOS.dmg\"|" "$CASK"
+sed -i.bak "s|url \".*\"|url \"https://github.com/${OWNER}/${REPO}/releases/download/v#{version}/SimpleLog-macOS-universal.dmg\"|" "$CASK"
 rm -f "${CASK}.bak"
 
 git -C "$TMPDIR" config user.name  "GitHub Actions"

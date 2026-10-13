@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shlex
 import shutil
 import stat
 import subprocess
@@ -85,6 +86,51 @@ from workers import (
     TailWorker,
     VercelWorker,
 )
+
+# ── macOS in-place update helpers ─────────────────────────────────────────────
+
+def macos_app_bundle(executable: str) -> str | None:
+    """Return the `.app` bundle that contains *executable*, or None if it isn't in one.
+
+    A PyInstaller bundle runs `X.app/Contents/MacOS/<exe>`; anything else must never
+    be treated as replaceable (the update script deletes the returned path).
+    """
+    bundle = os.path.abspath(os.path.join(os.path.dirname(executable), "..", ".."))
+    if bundle.endswith(".app") and os.path.basename(os.path.dirname(executable)) == "MacOS":
+        return bundle
+    return None
+
+
+def macos_update_script(pid: int, dmg_path: str, app_bundle: str) -> str:
+    """Shell script that swaps *app_bundle* for the app in *dmg_path* once *pid* exits.
+
+    The new app is copied next to the old one first; the old one is only removed once
+    the swap succeeded, and is put back if it did not.
+    """
+    q = shlex.quote
+    app_dir = os.path.dirname(app_bundle)
+    new = os.path.join(app_dir, ".SimpleLog.new.app")
+    old = os.path.join(app_dir, ".SimpleLog.old.app")
+    return (
+        "#!/bin/sh\n"
+        f"while kill -0 {int(pid)} 2>/dev/null; do sleep 0.1; done\n"
+        'MP=$(mktemp -d /tmp/simplelog-mnt.XXXXXX)\n'
+        f'hdiutil attach {q(dmg_path)} -nobrowse -quiet -mountpoint "$MP" || exit 1\n'
+        f"rm -rf {q(new)} {q(old)}\n"
+        f'if cp -R "$MP/SimpleLog.app" {q(new)} && mv {q(app_bundle)} {q(old)} '
+        f"&& mv {q(new)} {q(app_bundle)}; then\n"
+        f"  rm -rf {q(old)}\n"
+        "else\n"
+        f"  if [ -d {q(old)} ] && [ ! -d {q(app_bundle)} ]; then mv {q(old)} {q(app_bundle)}; fi\n"
+        f"  rm -rf {q(new)}\n"
+        "fi\n"
+        'hdiutil detach "$MP" -quiet\n'
+        'rmdir "$MP"\n'
+        f"rm {q(dmg_path)}\n"
+        f"open {q(app_bundle)}\n"
+        'rm -- "$0"\n'
+    )
+
 
 # ── SideStack ─────────────────────────────────────────────────────────────────
 
@@ -283,8 +329,9 @@ class MainWindow(QMainWindow):
 
         self._menu_edit.addSeparator()
 
+        # No "Return" shortcut here: a window-wide shortcut fired from every text field.
+        # The log list inserts the break itself when it has the focus (_LogListView).
         self._act_break = QAction(self)
-        self._act_break.setShortcut(QKeySequence("Return"))
         self._act_break.triggered.connect(self._action_break)
         self._menu_edit.addAction(self._act_break)
 
@@ -448,8 +495,9 @@ class MainWindow(QMainWindow):
         base = f"https://github.com/simple-log-app/simplelog/releases/download/{tag}"
         if os.environ.get("APPIMAGE"):
             return f"{base}/simplelog-x86_64.AppImage"
-        if getattr(sys, "frozen", False) and platform.system() == "Darwin":
-            return f"{base}/SimpleLog-macOS.dmg"
+        if (getattr(sys, "frozen", False) and platform.system() == "Darwin"
+                and macos_app_bundle(sys.executable) is not None):
+            return f"{base}/SimpleLog-macOS-universal.dmg"
         if getattr(sys, "frozen", False) and platform.system() == "Linux" and shutil.which("pkexec"):
             return f"{base}/simplelog_amd64.deb"
         return None
@@ -547,21 +595,14 @@ class MainWindow(QMainWindow):
             )
         else:
             # macOS: replace .app bundle from mounted DMG
-            app_bundle = os.path.abspath(
-                os.path.join(os.path.dirname(sys.executable), "..", "..", "..")
-            )
-            app_dir = os.path.dirname(app_bundle)
-            script = (
-                f"#!/bin/sh\n"
-                f"while kill -0 {pid} 2>/dev/null; do sleep 0.1; done\n"
-                f"MOUNT=$(hdiutil attach '{tmp_path}' -nobrowse -quiet | awk 'END{{print $NF}}')\n"
-                f"rm -rf '{app_bundle}'\n"
-                f"cp -R \"$MOUNT/SimpleLog.app\" '{app_dir}/'\n"
-                f"hdiutil detach \"$MOUNT\" -quiet\n"
-                f"rm '{tmp_path}'\n"
-                f"open '{app_bundle}'\n"
-                f"rm -- \"$0\"\n"
-            )
+            app_bundle = macos_app_bundle(sys.executable)
+            if app_bundle is None:
+                QMessageBox.warning(
+                    self, i18n.tr("update_title"),
+                    i18n.tr("update_install_error", error=sys.executable),
+                )
+                return
+            script = macos_update_script(pid, tmp_path, app_bundle)
 
         fd, script_path = tempfile.mkstemp(suffix=".sh")
         os.write(fd, script.encode())
@@ -1069,7 +1110,23 @@ class MainWindow(QMainWindow):
         viewer.stop_btn.setEnabled(True)
         self._workers[id(viewer)] = worker
 
+    def _discard(self, viewer: LogViewer, worker) -> None:
+        """Throw away a viewer/worker pair that was never wired or started."""
+        client = getattr(worker, "_client", None)
+        if hasattr(client, "close"):
+            try:
+                client.close()
+            except Exception:
+                pass
+        viewer.deleteLater()
+
     def _add_tab(self, title: str, viewer: LogViewer, worker, split: str = "tab"):
+        if split in ("vertical", "horizontal"):
+            spl = self._current_tab_splitter()
+            if spl is not None and self._count_viewers_in(spl) >= self._MAX_PANES:
+                self._status.showMessage(i18n.tr("err_max_panes", n=self._MAX_PANES))
+                self._discard(viewer, worker)
+                return
         self._wire_viewer(viewer, worker)
 
         if split == "vertical":

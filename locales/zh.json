@@ -78,6 +78,7 @@
   "err_file_not_found": "文件未找到",
   "err_cannot_open": "无法打开：{path}",
   "err_worker": "Worker 错误",
+  "err_max_panes": "每个标签页最多 {n} 个窗格 — 请在新标签页中打开",
   "err_connection": "连接错误",
   "err_streams": "加载流时出错",
   "err_prefix": "错误：{msg}",

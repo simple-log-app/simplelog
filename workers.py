@@ -4,9 +4,11 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import queue
 import shlex
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from datetime import UTC, datetime, timedelta
@@ -85,7 +87,109 @@ def _read_last_n_lines(path: str, n: int) -> tuple[list[str], int]:
     return result, file_size
 
 
-class TailWorker(QThread):
+def _batched(lines, is_stopped, max_batch: int = 200, max_wait: float = 0.1):
+    """Group a blocking line iterator into lists, flushing every *max_wait* seconds.
+
+    Lets a worker show the first lines of a slow stream right away instead of waiting
+    for a full batch or for the stream to end. Stops when the iterator is exhausted
+    or *is_stopped()* turns true.
+    """
+    q: queue.Queue = queue.Queue()
+    end = object()
+
+    def _reader() -> None:
+        try:
+            for item in lines:
+                q.put(item)
+        finally:
+            q.put(end)
+
+    threading.Thread(target=_reader, daemon=True).start()
+    batch: list = []
+    started = 0.0
+    while True:
+        try:
+            item = q.get(timeout=max_wait if batch else 0.2)
+        except queue.Empty:
+            if batch:
+                yield batch
+                batch = []
+            if is_stopped():
+                return
+            continue
+        if item is end:
+            if batch:
+                yield batch
+            return
+        if not batch:
+            started = time.monotonic()
+        batch.append(item)
+        if len(batch) >= max_batch or time.monotonic() - started >= max_wait:
+            yield batch
+            batch = []
+
+
+class _Dedup:
+    """Drops events already delivered when a poll re-reads a window it overlaps.
+
+    Pollers restart slightly before the last event (timestamps are truncated to the
+    millisecond or second by the APIs), so the same entries come back. *window_ms* is
+    the precision loss to absorb; events older than ``newest - window_ms`` are assumed
+    already delivered.
+    """
+
+    def __init__(self, window_ms: int = 0) -> None:
+        self._window = window_ms
+        self._newest: int | None = None
+        self._seen: set[tuple[int, str]] = set()
+
+    def new(self, events: list[tuple[int, str]]) -> list[tuple[int, str]]:
+        if self._newest is not None:
+            floor = self._newest - self._window
+            events = [e for e in events if e[0] >= floor and e not in self._seen]
+        else:
+            events = list(events)
+        if events:
+            self._seen.update(events)
+            self._newest = max(e[0] for e in events + ([(self._newest, "")] if self._newest else []))
+            floor = self._newest - self._window
+            self._seen = {e for e in self._seen if e[0] >= floor}
+        return events
+
+
+class _PollWorker(QThread):
+    """Base for workers that poll an API: tolerates transient failures.
+
+    A failed poll is reported in the status bar and retried; only after
+    ``_MAX_FAILS`` consecutive failures is an error raised (which stops the tail).
+    """
+
+    _MAX_FAILS = 5
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._stop = False
+        self._fails = 0
+
+    def stop(self) -> None:
+        self._stop = True
+
+    def _poll_ok(self) -> None:
+        self._fails = 0
+
+    def _poll_failed(self, exc: Exception) -> bool:
+        """Record a failed poll. Returns True when the worker should give up."""
+        self._fails += 1
+        if self._fails >= self._MAX_FAILS:
+            self.error.emit(str(exc))  # type: ignore[attr-defined]
+            return True
+        self.status.emit(  # type: ignore[attr-defined]
+            f"Connection problem ({self._fails}/{self._MAX_FAILS}), retrying… {exc}"
+        )
+        return False
+
+
+class TailWorker(_PollWorker):
     new_lines    = pyqtSignal(list)  # [(ts_ms, message), ...]
     error        = pyqtSignal(str)
     status       = pyqtSignal(str)
@@ -100,10 +204,6 @@ class TailWorker(QThread):
         self._filter_pattern = filter_pattern
         self._interval_ms    = int(interval_s * 1000)
         self._lookback_s     = lookback_s
-        self._stop           = False
-
-    def stop(self):
-        self._stop = True
 
     def run(self):
         start_ms = int((time.time() - self._lookback_s) * 1000)
@@ -140,14 +240,18 @@ class TailWorker(QThread):
                     self.status.emit(f"Updated  —  {len(events)} new events")
                 else:
                     self.status.emit("Tailing…  no new events")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 class FileWorker(QThread):
     new_lines = pyqtSignal(list)  # [(ts_ms, message), ...]
     status    = pyqtSignal(str)
     error     = pyqtSignal(str)
+
+    _PARTIAL_LINE_MS = 1000   # show an unterminated last line after this much silence
 
     def __init__(self, path, tail_lines=100, interval_ms=200):
         super().__init__()
@@ -159,31 +263,70 @@ class FileWorker(QThread):
     def stop(self):
         self._stop = True
 
+    def _ends_with_newline(self, size: int) -> bool:
+        with open(self._path, "rb") as f:
+            f.seek(size - 1)
+            return f.read(1) == b"\n"
+
+    def _emit_lines(self, raw_lines: list[bytes]) -> None:
+        """Decode each line on its own (so a multi-byte character is never split)."""
+        now = int(time.time() * 1000)
+        events = []
+        for raw in raw_lines:
+            line = raw.decode("utf-8", errors="replace").rstrip("\r")
+            if line:
+                events.append((now, line))
+        if events:
+            self.new_lines.emit(events)
+
+    def _was_rotated(self, f, inode: int) -> bool:
+        """True when the file was replaced (logrotate) or truncated since we opened it."""
+        try:
+            st = os.stat(self._path)
+        except OSError:
+            return False   # briefly missing while being rotated: keep waiting
+        return st.st_ino != inode or st.st_size < f.tell()
+
     def run(self):
         try:
             self.status.emit(f"Loading {self._path}…")
             lines, eof_pos = _read_last_n_lines(self._path, self._tail_lines)
+            pending = b""
+            if lines and eof_pos > 0 and not self._ends_with_newline(eof_pos):
+                # The last line is still being written: show it once it is complete
+                pending = lines.pop().encode("utf-8")
             if lines:
-                now = int(time.time() * 1000)
-                self.new_lines.emit([(now, line) for line in lines if line])
+                self._emit_lines([line.encode("utf-8") for line in lines])
             self.status.emit(f"Tailing {self._path}")
 
             # Resume tailing from EOF — only new bytes are read from here on
-            with open(self._path, "rb") as f:
+            f = open(self._path, "rb")  # noqa: SIM115
+            try:
+                inode = os.fstat(f.fileno()).st_ino
                 f.seek(eof_pos)
+                idle_ms = 0
                 while not self._stop:
+                    if self._was_rotated(f, inode):
+                        if pending:
+                            self._emit_lines([pending])
+                            pending = b""
+                        f.close()
+                        f = open(self._path, "rb")  # noqa: SIM115
+                        inode = os.fstat(f.fileno()).st_ino
+                        continue
                     raw = f.read()
                     if raw:
-                        now = int(time.time() * 1000)
-                        events = [
-                            (now, line)
-                            for line in raw.decode("utf-8", errors="replace").splitlines()
-                            if line
-                        ]
-                        if events:
-                            self.new_lines.emit(events)
-                    else:
-                        self.msleep(self._interval_ms)
+                        idle_ms = 0
+                        *complete, pending = (pending + raw).split(b"\n")
+                        self._emit_lines(complete)
+                        continue
+                    idle_ms += self._interval_ms
+                    if pending and idle_ms >= self._PARTIAL_LINE_MS:
+                        self._emit_lines([pending])   # the writer never finished this line
+                        pending = b""
+                    self.msleep(self._interval_ms)
+            finally:
+                f.close()
         except OSError as e:
             self.error.emit(str(e))
 
@@ -509,7 +652,7 @@ class DockerExecFileWorker(QThread):
 
 # ── Vercel worker ─────────────────────────────────────────────────────────────
 
-class VercelWorker(QThread):
+class VercelWorker(_PollWorker):
     """Polls Vercel deployment events and emits new log lines."""
     new_lines    = pyqtSignal(list)  # [(ts_ms, message), ...]
     status       = pyqtSignal(str)
@@ -526,10 +669,6 @@ class VercelWorker(QThread):
         self._deployment_id = deployment_id
         self._interval_ms   = int(interval_s * 1000)
         self._lookback_s    = lookback_s
-        self._stop          = False
-
-    def stop(self) -> None:
-        self._stop = True
 
     def run(self) -> None:
         self.status.emit(f"Loading logs for {self._project_name}…")
@@ -561,13 +700,15 @@ class VercelWorker(QThread):
                     self.status.emit(f"{self._project_name} — {len(events)} new events")
                 else:
                     self.status.emit(f"Tailing {self._project_name}…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── GCP Cloud Logging worker ──────────────────────────────────────────────────
 
-class GCPWorker(QThread):
+class GCPWorker(_PollWorker):
     """Polls Google Cloud Logging and emits new log entries."""
     new_lines    = pyqtSignal(list)  # [(ts_ms, message), ...]
     status       = pyqtSignal(str)
@@ -585,10 +726,7 @@ class GCPWorker(QThread):
         self._custom        = custom_filter
         self._lookback_h    = lookback_s / 3600
         self._interval_ms   = int(interval_s * 1000)
-        self._stop          = False
-
-    def stop(self) -> None:
-        self._stop = True
+        self._dedup         = _Dedup(window_ms=1000)   # filter is truncated to the second
 
     def _make_filter(self, since: datetime | None) -> str:
         return gcp_utils.build_filter(
@@ -602,7 +740,9 @@ class GCPWorker(QThread):
         self.status.emit(f"Loading GCP logs for {self._project_id}…")
         since = datetime.now(UTC) - timedelta(hours=self._lookback_h)
         try:
-            events = gcp_utils.fetch_entries(self._client, self._make_filter(since))
+            events = self._dedup.new(
+                gcp_utils.fetch_entries(self._client, self._make_filter(since))
+            )
             self._last_ts = (
                 datetime.fromtimestamp(events[-1][0] / 1000, tz=UTC)
                 if events else datetime.now(UTC)
@@ -620,24 +760,29 @@ class GCPWorker(QThread):
             if self._stop:
                 break
             try:
-                events = gcp_utils.fetch_entries(
+                # Oldest first: a burst larger than one page is drained over several
+                # polls instead of silently skipping its oldest entries.
+                events = self._dedup.new(gcp_utils.fetch_entries(
                     self._client,
                     self._make_filter(self._last_ts),
-                    max_results=200,
-                )
+                    max_results=500,
+                    ascending=True,
+                ))
                 if events:
                     self._last_ts = datetime.fromtimestamp(events[-1][0] / 1000, tz=UTC)
                     self.new_lines.emit(events)
                     self.status.emit(f"GCP {self._project_id} — {len(events)} new entries")
                 else:
                     self.status.emit(f"GCP {self._project_id} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Azure Monitor worker ──────────────────────────────────────────────────────
 
-class AzureWorker(QThread):
+class AzureWorker(_PollWorker):
     """Polls Azure Monitor Log Analytics and emits new log rows."""
     new_lines    = pyqtSignal(list)  # [(ts_ms, message), ...]
     status       = pyqtSignal(str)
@@ -654,18 +799,15 @@ class AzureWorker(QThread):
         self._label        = label or workspace_id[:8]
         self._timespan_h   = lookback_s / 3600
         self._interval_ms  = int(interval_s * 1000)
-        self._stop         = False
-
-    def stop(self) -> None:
-        self._stop = True
+        self._dedup        = _Dedup()
 
     def run(self) -> None:
         self.status.emit(f"Loading Azure logs — {self._label}…")
         try:
-            events = azure_utils.fetch_logs(
+            events = self._dedup.new(azure_utils.fetch_logs(
                 self._client, self._workspace_id,
                 self._query, self._timespan_h,
-            )
+            ))
             self._last_dt = (
                 datetime.fromtimestamp(events[-1][0] / 1000, tz=UTC)
                 if events else datetime.now(UTC)
@@ -683,23 +825,25 @@ class AzureWorker(QThread):
             if self._stop:
                 break
             try:
-                events = azure_utils.fetch_logs_since(
+                events = self._dedup.new(azure_utils.fetch_logs_since(
                     self._client, self._workspace_id,
                     self._query, self._last_dt,
-                )
+                ))
                 if events:
                     self._last_dt = datetime.fromtimestamp(events[-1][0] / 1000, tz=UTC)
                     self.new_lines.emit(events)
                     self.status.emit(f"Azure {self._label} — {len(events)} new rows")
                 else:
                     self.status.emit(f"Azure {self._label} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Grafana Loki worker ───────────────────────────────────────────────────────
 
-class LokiWorker(QThread):
+class LokiWorker(_PollWorker):
     """Polls Grafana Loki via query_range and emits new log entries."""
     new_lines    = pyqtSignal(list)  # [(ts_ms, message), ...]
     status       = pyqtSignal(str)
@@ -717,10 +861,7 @@ class LokiWorker(QThread):
         self._token      = token
         self._lookback_h = lookback_s / 3600
         self._interval_ms = int(interval_s * 1000)
-        self._stop       = False
-
-    def stop(self) -> None:
-        self._stop = True
+        self._dedup      = _Dedup()
 
     def run(self) -> None:
         label = self._url.split("//", 1)[-1].split("/")[0]
@@ -728,11 +869,12 @@ class LokiWorker(QThread):
         now_ns   = int(time.time() * 1e9)
         start_ns = int((time.time() - self._lookback_h * 3600) * 1e9)
         try:
-            events = loki_utils.fetch_logs(
+            events = self._dedup.new(loki_utils.fetch_logs(
                 self._url, self._query, start_ns, now_ns,
                 self._username, self._password, self._token,
-            )
-            self._last_ns = events[-1][0] * 1_000_000 + 1 if events else now_ns
+                latest=True,
+            ))
+            self._last_ns = events[-1][0] * 1_000_000 if events else now_ns
             if events:
                 self.new_lines.emit(events)
             self.history_done.emit(len(events))
@@ -747,24 +889,27 @@ class LokiWorker(QThread):
                 break
             try:
                 end_ns = int(time.time() * 1e9)
-                events = loki_utils.fetch_logs(
+                # _last_ns is inclusive (ms precision): the dedup drops the repeats
+                events = self._dedup.new(loki_utils.fetch_logs(
                     self._url, self._query, self._last_ns, end_ns,
                     self._username, self._password, self._token,
                     limit=200,
-                )
+                ))
                 if events:
-                    self._last_ns = events[-1][0] * 1_000_000 + 1
+                    self._last_ns = events[-1][0] * 1_000_000
                     self.new_lines.emit(events)
                     self.status.emit(f"Loki {label} — {len(events)} new entries")
                 else:
                     self.status.emit(f"Loki {label} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Datadog Logs worker ───────────────────────────────────────────────────────
 
-class DatadogWorker(QThread):
+class DatadogWorker(_PollWorker):
     """Polls Datadog Logs Search API v2 and emits new log entries."""
     new_lines    = pyqtSignal(list)
     status       = pyqtSignal(str)
@@ -780,10 +925,7 @@ class DatadogWorker(QThread):
         self._app_key     = app_key
         self._lookback_h  = lookback_s / 3600
         self._interval_ms = int(interval_s * 1000)
-        self._stop        = False
-
-    def stop(self) -> None:
-        self._stop = True
+        self._dedup       = _Dedup()
 
     def run(self) -> None:
         site = self._base_url.split("//", 1)[-1]
@@ -791,10 +933,10 @@ class DatadogWorker(QThread):
         from_iso = datadog_utils.offset_iso(self._lookback_h)
         to_iso   = datadog_utils.now_iso()
         try:
-            events = datadog_utils.fetch_logs(
+            events = self._dedup.new(datadog_utils.fetch_logs(
                 self._base_url, self._query, from_iso, to_iso,
-                self._api_key, self._app_key,
-            )
+                self._api_key, self._app_key, latest=True,
+            ))
             if events:
                 self._last_iso = _ts_ms_to_iso(events[-1][0])
                 self.new_lines.emit(events)
@@ -812,23 +954,26 @@ class DatadogWorker(QThread):
                 break
             try:
                 to_iso = datadog_utils.now_iso()
-                events = datadog_utils.fetch_logs(
+                # _last_iso is inclusive: the dedup drops the entry already shown
+                events = self._dedup.new(datadog_utils.fetch_logs(
                     self._base_url, self._query, self._last_iso, to_iso,
                     self._api_key, self._app_key, limit=200,
-                )
+                ))
                 if events:
                     self._last_iso = _ts_ms_to_iso(events[-1][0])
                     self.new_lines.emit(events)
                     self.status.emit(f"Datadog {site} — {len(events)} new entries")
                 else:
                     self.status.emit(f"Datadog {site} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Elasticsearch / OpenSearch worker ────────────────────────────────────────
 
-class ElasticWorker(QThread):
+class ElasticWorker(_PollWorker):
     """Polls Elasticsearch / OpenSearch _search API and emits new log entries."""
     new_lines    = pyqtSignal(list)
     status       = pyqtSignal(str)
@@ -849,10 +994,6 @@ class ElasticWorker(QThread):
         self._ts_field    = ts_field
         self._lookback_h  = lookback_s / 3600
         self._interval_ms = int(interval_s * 1000)
-        self._stop        = False
-
-    def stop(self) -> None:
-        self._stop = True
 
     def run(self) -> None:
         label = self._url.split("//", 1)[-1].split("/")[0]
@@ -864,7 +1005,7 @@ class ElasticWorker(QThread):
                 self._url, self._index, self._query,
                 since_iso=since_iso,
                 api_key=self._api_key, username=self._username, password=self._password,
-                ts_field=self._ts_field,
+                ts_field=self._ts_field, latest=True,
             )
             self._last_sort = last_sort
             self._last_iso  = since_iso
@@ -896,13 +1037,15 @@ class ElasticWorker(QThread):
                     self.status.emit(f"Elastic {label} — {len(events)} new hits")
                 else:
                     self.status.emit(f"Elastic {label} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Railway worker ────────────────────────────────────────────────────────────
 
-class RailwayWorker(QThread):
+class RailwayWorker(_PollWorker):
     """Polls Railway deployment logs and emits new entries."""
     new_lines    = pyqtSignal(list)
     status       = pyqtSignal(str)
@@ -919,10 +1062,6 @@ class RailwayWorker(QThread):
         self._service_id   = service_id
         self._interval_ms  = int(interval_s * 1000)
         self._lookback_s   = lookback_s
-        self._stop         = False
-
-    def stop(self) -> None:
-        self._stop = True
 
     def run(self) -> None:
         label = f"{self._project_name}/{self._service_name}"
@@ -963,13 +1102,15 @@ class RailwayWorker(QThread):
                     self.status.emit(f"Railway {label} — {len(new)} new lines")
                 else:
                     self.status.emit(f"Railway {label} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Fly.io worker ─────────────────────────────────────────────────────────────
 
-class FlyioWorker(QThread):
+class FlyioWorker(_PollWorker):
     """Polls Fly.io SSE log stream and emits new log entries."""
     new_lines    = pyqtSignal(list)
     status       = pyqtSignal(str)
@@ -983,17 +1124,15 @@ class FlyioWorker(QThread):
         self._app_name    = app_name
         self._interval_ms = int(interval_s * 1000)
         self._lookback_s  = lookback_s
-        self._stop        = False
-
-    def stop(self) -> None:
-        self._stop = True
+        self._dedup       = _Dedup(window_ms=60_000)
 
     def run(self) -> None:
         self.status.emit(f"Loading Fly.io logs for {self._app_name}…")
         since_ts_ms = int(time.time() * 1000) - int(self._lookback_s * 1000)
         try:
-            events = flyio_utils.fetch_logs_sse(self._token, self._app_name, limit=300)
-            self._last_ts = since_ts_ms
+            events = self._dedup.new(
+                flyio_utils.fetch_logs_sse(self._token, self._app_name, limit=300)
+            )
             visible = [(ts, m) for ts, m in events if ts >= since_ts_ms]
             if visible:
                 self.new_lines.emit(visible)
@@ -1008,16 +1147,18 @@ class FlyioWorker(QThread):
             if self._stop:
                 break
             try:
-                events = flyio_utils.fetch_logs_sse(self._token, self._app_name, limit=100)
-                new = [(ts, m) for ts, m in events if ts > self._last_ts]
+                new = self._dedup.new(
+                    flyio_utils.fetch_logs_sse(self._token, self._app_name, limit=100)
+                )
                 if new:
-                    self._last_ts = new[-1][0]
                     self.new_lines.emit(new)
                     self.status.emit(f"Fly.io {self._app_name} — {len(new)} new entries")
                 else:
                     self.status.emit(f"Fly.io {self._app_name} — tailing…")
+                self._poll_ok()
             except RuntimeError as e:
-                self.error.emit(str(e))
+                if self._poll_failed(e):
+                    return
 
 
 # ── Kubernetes worker ─────────────────────────────────────────────────────────
@@ -1062,27 +1203,18 @@ class KubernetesWorker(QThread):
             self.error.emit(str(e))
             return
 
-        history: list[tuple[int, str]] = []
         now_ms = int(time.time() * 1000)
-
-        for raw_line in self._proc.stdout:  # type: ignore[union-attr]
+        first = True
+        for batch in _batched((raw.rstrip("\n") for raw in self._proc.stdout),  # type: ignore[union-attr]
+                              lambda: self._stop):
             if self._stop:
                 break
-            line = raw_line.rstrip("\n")
-            ts_ms, msg = _parse_k8s_line(line, now_ms)
-            if len(history) < 200:
-                history.append((ts_ms, msg))
-            else:
-                if history:
-                    self.new_lines.emit(history)
-                    self.history_done.emit(len(history))
-                    history = []
-                self.new_lines.emit([(ts_ms, msg)])
+            events = [_parse_k8s_line(line, now_ms) for line in batch]
+            self.new_lines.emit(events)
+            if first:
+                self.history_done.emit(len(events))
                 self.status.emit(f"k8s {label} — streaming")
-
-        if history:
-            self.new_lines.emit(history)
-            self.history_done.emit(len(history))
+                first = False
 
         if self._proc.poll() != 0 and not self._stop:
             err = (self._proc.stderr.read() or "").strip()  # type: ignore[union-attr]

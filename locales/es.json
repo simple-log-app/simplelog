@@ -78,6 +78,7 @@
   "err_file_not_found": "Archivo no encontrado",
   "err_cannot_open": "No se puede abrir: {path}",
   "err_worker": "Error del worker",
+  "err_max_panes": "Máximo de {n} paneles por pestaña alcanzado — ábrelo en una pestaña nueva",
   "err_connection": "Error de conexión",
   "err_streams": "Error al cargar los flujos",
   "err_prefix": "Error: {msg}",

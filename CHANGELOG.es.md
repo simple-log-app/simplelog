@@ -12,6 +12,17 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - SSH: la huella de la clave del servidor se muestra ahora para confirmarla la primera vez que te conectas a un host, y una clave modificada se rechaza.
 - Las credenciales y los perfiles guardados ahora solo son legibles por tu cuenta de usuario.
 
+### Corregido
+- macOS: la actualización integrada podía borrar toda la carpeta Aplicaciones en lugar de reemplazar solo SimpleLog. Ahora solo reemplaza la app SimpleLog y conserva la anterior si algo falla. Como la actualización se ejecuta desde la versión ya instalada, la 1.0.8 y las anteriores ya no pueden actualizarse solas en macOS: descarga la nueva versión una vez desde la web o con Homebrew.
+- Kubernetes: los logs aparecen de inmediato en lugar de solo después de 200 líneas.
+- Loki, GCP, Datadog y Fly.io: las mismas líneas de log ya no reaparecen una y otra vez al seguir una fuente.
+- Loki, Datadog y Elasticsearch: la carga inicial ahora muestra los logs más recientes en lugar de los más antiguos del periodo. GCP ya no omite entradas en los picos de actividad.
+- Un fallo de red breve ya no detiene el seguimiento de una fuente con una ventana de error: SimpleLog reintenta y solo informa de un error tras varios fallos seguidos.
+- Pulsar Intro en un campo de texto (búsqueda, filtro, formularios) ya no inserta una línea separadora en el log actual.
+- Abrir un log en un panel dividido cuando la pestaña ya tiene 9 paneles ahora muestra un mensaje, en lugar de iniciar en silencio un log que nunca se muestra.
+- Abrir muchas conexiones guardadas ya no ralentiza la aplicación con el tiempo: sus diálogos, temporizadores y conexiones SSH se liberan al cerrarlos.
+- Archivos locales: el seguimiento de un archivo sigue funcionando tras su rotación o vaciado, las líneas escritas en dos partes ya no se dividen y los caracteres acentuados ya no se corrompen.
+
 ## [1.0.8] - 2026-09-30
 
 ### Añadido
