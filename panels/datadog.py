@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -31,12 +30,12 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── DatadogPanel ──────────────────────────────────────────────────────────────
 
-class _DatadogConnectWorker(QThread):
+class _DatadogConnectWorker(BackgroundWorker):
     success = pyqtSignal()
-    failure = pyqtSignal(str)
 
     def __init__(self, base_url: str, api_key: str, app_key: str) -> None:
         super().__init__()
@@ -44,12 +43,9 @@ class _DatadogConnectWorker(QThread):
         self._api_key  = api_key
         self._app_key  = app_key
 
-    def run(self) -> None:
-        try:
-            datadog_utils.verify_connection(self._base_url, self._api_key, self._app_key)
-            self.success.emit()
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        datadog_utils.verify_connection(self._base_url, self._api_key, self._app_key)
+        return ()
 
 
 class DatadogPanel(QWidget):

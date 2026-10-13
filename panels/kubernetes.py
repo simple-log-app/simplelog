@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -23,41 +22,34 @@ import i18n
 import kubernetes_utils
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
 from ui_widgets import NoScrollComboBox, OpenModeWidget, _lookback_combo, _primary_btn, make_card
+from ui_workers import BackgroundWorker
 
 # ── KubernetesPanel ───────────────────────────────────────────────────────────
 
-class _K8sConnectWorker(QThread):
+class _K8sConnectWorker(BackgroundWorker):
     success = pyqtSignal(list, list)  # namespaces, contexts
-    failure = pyqtSignal(str)
 
     def __init__(self, context: str) -> None:
         super().__init__()
         self._context = context
 
-    def run(self) -> None:
-        try:
-            namespaces = kubernetes_utils.list_namespaces(self._context)
-            contexts   = kubernetes_utils.list_contexts()
-            self.success.emit(namespaces, contexts)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        namespaces = kubernetes_utils.list_namespaces(self._context)
+        contexts   = kubernetes_utils.list_contexts()
+        return (namespaces, contexts)
 
 
-class _K8sListPodsWorker(QThread):
+class _K8sListPodsWorker(BackgroundWorker):
     success = pyqtSignal(list)
-    failure = pyqtSignal(str)
 
     def __init__(self, namespace: str, context: str) -> None:
         super().__init__()
         self._namespace = namespace
         self._context   = context
 
-    def run(self) -> None:
-        try:
-            pods = kubernetes_utils.list_pods(self._namespace, self._context)
-            self.success.emit(pods)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        pods = kubernetes_utils.list_pods(self._namespace, self._context)
+        return (pods,)
 
 
 class KubernetesPanel(QWidget):

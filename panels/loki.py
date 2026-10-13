@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -32,12 +31,12 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── LokiPanel ─────────────────────────────────────────────────────────────────
 
-class _LokiConnectWorker(QThread):
+class _LokiConnectWorker(BackgroundWorker):
     success = pyqtSignal(list)   # label names
-    failure = pyqtSignal(str)
 
     def __init__(self, url: str, username: str, password: str, token: str) -> None:
         super().__init__()
@@ -46,14 +45,11 @@ class _LokiConnectWorker(QThread):
         self._password = password
         self._token    = token
 
-    def run(self) -> None:
-        try:
-            labels = loki_utils.verify_connection(
-                self._url, self._username, self._password, self._token
-            )
-            self.success.emit(labels)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        labels = loki_utils.verify_connection(
+            self._url, self._username, self._password, self._token
+        )
+        return (labels,)
 
 
 class LokiPanel(QWidget):

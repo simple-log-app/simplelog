@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -31,12 +30,12 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── ElasticPanel ──────────────────────────────────────────────────────────────
 
-class _ElasticConnectWorker(QThread):
+class _ElasticConnectWorker(BackgroundWorker):
     success = pyqtSignal(list)   # index names
-    failure = pyqtSignal(str)
 
     def __init__(self, url: str, api_key: str, username: str, password: str) -> None:
         super().__init__()
@@ -45,13 +44,10 @@ class _ElasticConnectWorker(QThread):
         self._username = username
         self._password = password
 
-    def run(self) -> None:
-        try:
-            elastic_utils.verify_connection(self._url, self._api_key, self._username, self._password)
-            indices = elastic_utils.list_indices(self._url, self._api_key, self._username, self._password)
-            self.success.emit(indices)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        elastic_utils.verify_connection(self._url, self._api_key, self._username, self._password)
+        indices = elastic_utils.list_indices(self._url, self._api_key, self._username, self._password)
+        return (indices,)
 
 
 class ElasticPanel(QWidget):

@@ -22,7 +22,7 @@ simplelog = "main:main"
 
 [tool.setuptools]
 packages = ["panels"]
-py-modules = ["ui_theme", "ui_widgets", "remote_dialogs", "log_model", "log_view", "sidebar", "main_window", "main", "ui", "workers", "changelog", "cloudwatch", "cloudflare_utils", "ssh_utils", "docker_utils", "vercel_utils", "gcp_utils", "azure_utils", "creds_store", "profiles_store", "i18n", "version", "datadog_utils", "elastic_utils", "flyio_utils", "kubernetes_utils", "loki_utils", "railway_utils"]
+py-modules = ["ui_theme", "ui_workers", "ui_widgets", "remote_dialogs", "log_model", "log_view", "sidebar", "main_window", "main", "ui", "workers", "changelog", "cloudwatch", "cloudflare_utils", "ssh_utils", "docker_utils", "vercel_utils", "gcp_utils", "azure_utils", "creds_store", "profiles_store", "i18n", "version", "datadog_utils", "elastic_utils", "flyio_utils", "kubernetes_utils", "loki_utils", "railway_utils"]
 
 [tool.ruff]
 target-version = "py311"

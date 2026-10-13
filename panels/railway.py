@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -31,23 +30,20 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── RailwayPanel ──────────────────────────────────────────────────────────────
 
-class _RailwayConnectWorker(QThread):
+class _RailwayConnectWorker(BackgroundWorker):
     success = pyqtSignal(list)   # list of project dicts
-    failure = pyqtSignal(str)
 
     def __init__(self, token: str) -> None:
         super().__init__()
         self._token = token
 
-    def run(self) -> None:
-        try:
-            projects = railway_utils.list_projects(self._token)
-            self.success.emit(projects)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        projects = railway_utils.list_projects(self._token)
+        return (projects,)
 
 
 class RailwayPanel(QWidget):

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -32,46 +31,39 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── GCPPanel ──────────────────────────────────────────────────────────────────
 
-class _GCPConnectWorker(QThread):
+class _GCPConnectWorker(BackgroundWorker):
     success = pyqtSignal(object)  # gcp client
-    failure = pyqtSignal(str)
 
     def __init__(self, project_id: str, key_path: str | None) -> None:
         super().__init__()
         self._project_id = project_id
         self._key_path   = key_path or None
 
-    def run(self) -> None:
-        try:
-            client = gcp_utils.make_client(self._project_id, self._key_path)
-            # cheap probe: fetch 0 entries to validate auth
-            gcp_utils.fetch_entries(client,
-                gcp_utils.build_filter(since=__import__("datetime").datetime.now(
-                    __import__("datetime").timezone.utc
-                )),
-                max_results=1,
-            )
-            self.success.emit(client)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        client = gcp_utils.make_client(self._project_id, self._key_path)
+        # cheap probe: fetch 0 entries to validate auth
+        gcp_utils.fetch_entries(client,
+            gcp_utils.build_filter(since=__import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            )),
+            max_results=1,
+        )
+        return (client,)
 
 
-class _GCPListProjectsWorker(QThread):
+class _GCPListProjectsWorker(BackgroundWorker):
     success = pyqtSignal(list)
-    failure = pyqtSignal(str)
 
     def __init__(self, key_path: str | None) -> None:
         super().__init__()
         self._key_path = key_path or None
 
-    def run(self) -> None:
-        try:
-            self.success.emit(gcp_utils.list_projects(self._key_path))
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        return (gcp_utils.list_projects(self._key_path),)
 
 
 class GCPPanel(QWidget):

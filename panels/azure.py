@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
@@ -38,12 +37,12 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── AzurePanel ─────────────────────────────────────────────────────────────────
 
-class _AzureConnectWorker(QThread):
+class _AzureConnectWorker(BackgroundWorker):
     success = pyqtSignal(object, object)  # credential, logs_client
-    failure = pyqtSignal(str)
 
     def __init__(self, tenant_id: str, client_id: str, client_secret: str,
                  workspace_id: str) -> None:
@@ -53,14 +52,11 @@ class _AzureConnectWorker(QThread):
         self._secret    = client_secret
         self._workspace = workspace_id
 
-    def run(self) -> None:
-        try:
-            cred   = azure_utils.make_credential(self._tenant, self._client_id, self._secret)
-            client = azure_utils.make_logs_client(cred)
-            azure_utils.verify_credential(cred, self._workspace)
-            self.success.emit(cred, client)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        cred   = azure_utils.make_credential(self._tenant, self._client_id, self._secret)
+        client = azure_utils.make_logs_client(cred)
+        azure_utils.verify_credential(cred, self._workspace)
+        return (cred, client)
 
 
 class AzurePanel(QWidget):

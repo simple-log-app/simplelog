@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -34,48 +33,40 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── VercelPanel ───────────────────────────────────────────────────────────────
 
-class _VercelConnectWorker(QThread):
+class _VercelConnectWorker(BackgroundWorker):
     """Verifies a Vercel token in a background thread."""
     success = pyqtSignal(str)   # username
-    failure = pyqtSignal(str)   # error message
 
     def __init__(self, token: str) -> None:
         super().__init__()
         self._token = token
 
-    def run(self) -> None:
-        try:
-            data = vercel_utils.verify_token(self._token)
-            name = data.get("user", {}).get("name") or data.get("user", {}).get("email") or "OK"
-            self.success.emit(name)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        data = vercel_utils.verify_token(self._token)
+        name = data.get("user", {}).get("name") or data.get("user", {}).get("email") or "OK"
+        return (name,)
 
 
-class _VercelFetchProjectsWorker(QThread):
+class _VercelFetchProjectsWorker(BackgroundWorker):
     """Fetches project list in background."""
     success = pyqtSignal(list)
-    failure = pyqtSignal(str)
 
     def __init__(self, token: str) -> None:
         super().__init__()
         self._token = token
 
-    def run(self) -> None:
-        try:
-            projects = vercel_utils.list_projects(self._token)
-            self.success.emit(projects)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        projects = vercel_utils.list_projects(self._token)
+        return (projects,)
 
 
-class _VercelFetchDeployWorker(QThread):
+class _VercelFetchDeployWorker(BackgroundWorker):
     """Fetches latest deployment for a project in background."""
     success = pyqtSignal(dict)   # deployment dict
-    failure = pyqtSignal(str)
 
     def __init__(self, token: str, project_id: str, target: str) -> None:
         super().__init__()
@@ -83,15 +74,11 @@ class _VercelFetchDeployWorker(QThread):
         self._project_id = project_id
         self._target     = target
 
-    def run(self) -> None:
-        try:
-            deploy = vercel_utils.get_latest_deployment(self._token, self._project_id, self._target)
-            if deploy:
-                self.success.emit(deploy)
-            else:
-                self.failure.emit(i18n.tr("vercel_no_deploy"))
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        deploy = vercel_utils.get_latest_deployment(self._token, self._project_id, self._target)
+        if not deploy:
+            raise RuntimeError(i18n.tr("vercel_no_deploy"))
+        return (deploy,)
 
 
 class VercelPanel(QWidget):

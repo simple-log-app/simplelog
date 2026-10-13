@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import (
     Qt,
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -33,23 +32,20 @@ from ui_widgets import (
     _ProfileBar,
     make_card,
 )
+from ui_workers import BackgroundWorker
 
 # ── FlyioPanel ────────────────────────────────────────────────────────────────
 
-class _FlyioConnectWorker(QThread):
+class _FlyioConnectWorker(BackgroundWorker):
     success = pyqtSignal(list)   # app dicts
-    failure = pyqtSignal(str)
 
     def __init__(self, token: str) -> None:
         super().__init__()
         self._token = token
 
-    def run(self) -> None:
-        try:
-            apps = flyio_utils.list_apps(self._token)
-            self.success.emit(apps)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        apps = flyio_utils.list_apps(self._token)
+        return (apps,)
 
 
 class FlyioPanel(QWidget):

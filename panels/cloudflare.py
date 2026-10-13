@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
-    QThread,
     pyqtSignal,
 )
 from PyQt6.QtWidgets import (
@@ -22,24 +21,21 @@ import i18n
 import profiles_store
 from ui_theme import C_BG, C_BORDER, C_ERR, C_INFO, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
 from ui_widgets import OpenModeWidget, _ghost_btn, _primary_btn, _ProfileBar, make_card
+from ui_workers import BackgroundWorker
 
 # ── CloudflarePanel ───────────────────────────────────────────────────────────
 
-class _CloudflareConnectWorker(QThread):
+class _CloudflareConnectWorker(BackgroundWorker):
     success = pyqtSignal(list)   # list[str] — worker script names
-    failure = pyqtSignal(str)
 
     def __init__(self, api_token: str, account_id: str) -> None:
         super().__init__()
         self._api_token  = api_token
         self._account_id = account_id
 
-    def run(self) -> None:
-        try:
-            workers = cloudflare_utils.list_workers(self._api_token, self._account_id)
-            self.success.emit(workers)
-        except RuntimeError as e:
-            self.failure.emit(str(e))
+    def _work(self) -> tuple:
+        workers = cloudflare_utils.list_workers(self._api_token, self._account_id)
+        return (workers,)
 
 
 class CloudflarePanel(QWidget):
