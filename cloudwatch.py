@@ -36,6 +36,16 @@ def list_profiles() -> list[str]:
     return sorted(profiles)
 
 
+def profile_region(profile=None) -> str:
+    """Region configured for an AWS profile (~/.aws/config, AWS_DEFAULT_REGION…), or ""."""
+    import boto3
+
+    try:
+        return boto3.Session(profile_name=profile or None).region_name or ""
+    except Exception:
+        return ""
+
+
 def make_client(profile=None, region="us-east-1",
                 access_key_id=None, secret_access_key=None):
     import boto3

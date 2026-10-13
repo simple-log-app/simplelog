@@ -55,6 +55,7 @@ class CloudWatchPanel(ProviderPanel):
         self._client = None
         self._all_groups: list[str] = []
         self._connecting = False
+        self._region_chosen = False   # True: keep the region instead of the profile's
         self._restore: tuple[str, str] | None = None   # saved (group, stream) to re-select
         self._saved_target: tuple[str, str] = ("", "")
         self._groups_gen = 0      # bumped per request: older answers are ignored
@@ -260,6 +261,7 @@ class CloudWatchPanel(ProviderPanel):
             if idx >= 0:
                 self.profile_combo.setCurrentIndex(idx)
         region_idx = self.region_combo.findText(p.get("region", ""))
+        self._region_chosen = region_idx >= 0   # a saved region wins over the profile's
         if region_idx >= 0:
             self.region_combo.setCurrentIndex(region_idx)
         lookback_idx = self.lookback_combo.findData(p.get("lookback"))
@@ -306,13 +308,28 @@ class CloudWatchPanel(ProviderPanel):
         self._connecting = True
         self.connect_btn.setEnabled(False)
         self.connect_btn.setText(i18n.tr("cw_connecting"))
+        self._apply_profile_region()
         try:
-            self._make_client(self._REGIONS[0])
+            self._make_client(self.region_combo.currentText())
         except Exception as exc:
             self._on_connect_failed(str(exc))
             return
         self._region_section.setVisible(True)
         self._load_groups(first=True)
+
+    def _apply_profile_region(self) -> None:
+        """Pre-select the region configured for the chosen AWS profile."""
+        if self._region_chosen or self._auth_mode_combo.currentIndex() == 1:
+            return
+        profile = self.profile_combo.currentText()
+        region = cloudwatch.profile_region(None if profile == "(default)" else profile)
+        if not region:
+            return
+        if self.region_combo.findText(region) < 0:
+            self.region_combo.addItem(region)
+        self.region_combo.blockSignals(True)
+        self.region_combo.setCurrentText(region)
+        self.region_combo.blockSignals(False)
 
     def _on_connect_failed(self, msg: str) -> None:
         self._client = None
@@ -379,6 +396,7 @@ class CloudWatchPanel(ProviderPanel):
             QMessageBox.critical(self, i18n.tr("err_connection"), msg)
 
     def _on_region_changed(self) -> None:
+        self._region_chosen = True   # picked by the user
         if self._client:
             self._load_groups()
 

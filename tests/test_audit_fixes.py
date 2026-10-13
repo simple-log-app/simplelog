@@ -221,3 +221,38 @@ def test_checksum_list_without_the_asset_is_refused():
     with patch("urllib.request.urlopen", return_value=R()):
         with pytest.raises(OSError):
             w._expected_sha256()
+
+
+# ── CloudWatch: region of the AWS profile ───────────────────────────────────
+
+def test_connect_uses_the_region_of_the_aws_profile(monkeypatch):
+    from panels.cloudwatch import CloudWatchPanel
+    monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-west-3")
+    panel = CloudWatchPanel()
+    panel._apply_profile_region()
+    assert panel.region_combo.currentText() == "eu-west-3"
+
+
+def test_region_unknown_to_the_list_is_added(monkeypatch):
+    from panels.cloudwatch import CloudWatchPanel
+    monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-south-2")
+    panel = CloudWatchPanel()
+    panel._apply_profile_region()
+    assert panel.region_combo.currentText() == "eu-south-2"
+
+
+def test_region_chosen_by_the_user_is_kept(monkeypatch):
+    from panels.cloudwatch import CloudWatchPanel
+    monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-west-3")
+    panel = CloudWatchPanel()
+    panel.region_combo.setCurrentIndex(3)
+    panel._apply_profile_region()
+    assert panel.region_combo.currentText() == "us-west-2"
+
+
+def test_profile_region_reads_the_config(tmp_path, monkeypatch):
+    (tmp_path / ".aws").mkdir()
+    (tmp_path / ".aws" / "config").write_text("[profile dev]\nregion = eu-west-3\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("AWS_CONFIG_FILE", str(tmp_path / ".aws" / "config"))
+    assert cloudwatch.profile_region("dev") == "eu-west-3"

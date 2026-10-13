@@ -21,6 +21,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Updates werden jetzt mit der zur Version veröffentlichten Prüfsumme geprüft; ein beschädigter Download wird verworfen.
 
 ### Behoben
+- CloudWatch: Eine Verbindung auf Basis eines AWS-Profils verwendet jetzt die für dieses Profil in `~/.aws/config` festgelegte Region.
 - Die Anwendung stürzt nicht mehr ab, wenn eine Verbindung direkt nach dem Schließen ihres Tabs fehlschlägt oder wenn Ihre AWS-Konfigurationsdatei ein doppeltes Profil enthält.
 - Datei → Öffnen (Strg+O) öffnet die Datei nicht mehr doppelt.
 - Docker-, Kubernetes-, SSH- und Pipe-Logs brechen bei einer Zeile mit ungültigen Zeichen nicht mehr stillschweigend ab.
