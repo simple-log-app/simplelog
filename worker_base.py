@@ -80,6 +80,10 @@ class Dedup:
         self._newest: int | None = None
         self._seen: set[tuple[int, str]] = set()
 
+    @property
+    def newest(self) -> int | None:
+        return self._newest
+
     def new(self, events: list[tuple[int, str]]) -> list[tuple[int, str]]:
         if self._newest is not None:
             floor = self._newest - self._window

@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import shlex
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 
@@ -298,12 +300,31 @@ class DownloadWorker(QThread):
         self._dest = dest
         self._current = current_version
 
+    def _expected_sha256(self) -> str | None:
+        """The published SHA-256 of the asset, or None for releases without SHA256SUMS."""
+        sums_url = self._url.rsplit("/", 1)[0] + "/SHA256SUMS"
+        name = self._url.rsplit("/", 1)[1]
+        req = urllib.request.Request(sums_url, headers={"User-Agent": f"SimpleLog/{self._current}"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                text = resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
+        for line in text.splitlines():
+            digest, _, entry = line.strip().partition(" ")
+            if entry.strip().lstrip("*") == name:
+                return digest.lower()
+        return None
+
     def run(self):
         try:
             req = urllib.request.Request(
                 self._url,
                 headers={"User-Agent": f"SimpleLog/{self._current}"},
             )
+            sha = hashlib.sha256()
             with urllib.request.urlopen(req, timeout=60) as resp:
                 total = int(resp.headers.get("Content-Length", 0))
                 downloaded = 0
@@ -313,11 +334,15 @@ class DownloadWorker(QThread):
                         if not chunk:
                             break
                         f.write(chunk)
+                        sha.update(chunk)
                         downloaded += len(chunk)
                         if total:
                             self.progress.emit(int(downloaded * 100 / total))
             if total and downloaded != total:
                 raise OSError(i18n.tr("err_incomplete_download", done=downloaded, total=total))
+            expected = self._expected_sha256()
+            if expected is not None and expected != sha.hexdigest():
+                raise OSError(i18n.tr("err_checksum_mismatch"))
             self.progress.emit(100)
             self.finished.emit(self._dest)
         except Exception as exc:
@@ -802,8 +827,10 @@ class RailwayWorker(PollingWorker):
         if deploy and deploy["id"] != self._deploy_id:
             self._deploy_id = deploy["id"]
             self._dedup = Dedup(window_ms=60_000)
+        newest = self._dedup.newest
+        since = None if newest is None else max(newest - 60_000, 0)
         return self._dedup.new(
-            railway_utils.fetch_deployment_logs(self._token, self._deploy_id))
+            railway_utils.fetch_deployment_logs(self._token, self._deploy_id, since))
 
 # ── Fly.io worker ─────────────────────────────────────────────────────────────
 

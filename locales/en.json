@@ -351,5 +351,6 @@
   "provider_desc_railway": "Railway deployment logs",
   "provider_desc_flyio": "Fly.io app logs",
   "provider_desc_kubernetes": "Kubernetes pod logs",
-  "provider_desc_cloudflare": "Cloudflare Workers real-time logs"
+  "provider_desc_cloudflare": "Cloudflare Workers real-time logs",
+  "err_checksum_mismatch": "The downloaded update does not match its published checksum and was discarded."
 }

@@ -18,6 +18,7 @@ All notable changes to SimpleLog are documented in this file.
 - Faster startup, and opening a big file with a very large number of lines is now almost instant.
 - The provider cards in “Add connection” now show a short description of each source when you hover them.
 - Status messages, connection errors and tooltips that were always in English now follow the language you chose.
+- Updates are now checked against the checksum published with the release, and a corrupted download is discarded.
 
 ### Fixed
 - macOS: the in-app update could delete the whole Applications folder instead of replacing only SimpleLog. It now replaces only the SimpleLog app, and keeps the old one if anything goes wrong. Because the update runs from the version you already have, 1.0.8 and earlier can no longer self-update on macOS: download the new version once from the website or with Homebrew.
@@ -44,6 +45,8 @@ All notable changes to SimpleLog are documented in this file.
 - Azure: live following now also works with queries written on a single line or with a row limit (`take`/`limit`) before the filter.
 - CloudWatch: events that arrive a few seconds late are no longer missed while following.
 - Railway: following a service no longer keeps every line in memory, and choosing several services in a row no longer opens extra connections.
+- Azure: the initial load of a table or of a query that caps its rows now shows the most recent rows instead of the oldest ones.
+- Railway: following a service only fetches new lines instead of downloading all its logs on every refresh.
 
 ## [1.0.8] - 2026-09-30
 

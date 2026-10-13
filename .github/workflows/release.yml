@@ -118,6 +118,9 @@ jobs:
           name: macos-universal-dmg
           path: release-assets/
 
+      - name: Checksums
+        run: cd release-assets && sha256sum * > SHA256SUMS
+
       - name: Show artifacts
         run: ls -lh release-assets/
 

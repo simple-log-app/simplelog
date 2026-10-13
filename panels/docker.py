@@ -109,7 +109,7 @@ class DockerPanel(ProviderPanel):
         t0.setSpacing(12)
         self._tabs.addTab(tab0, "")
 
-        card_c, cl_c, self._lbl_card_containers = make_card()
+        card_c, cl_c, _ = make_card()
         # Refresh button header row
         hdr0 = QHBoxLayout()
         self._lbl_running = QLabel()
@@ -165,7 +165,7 @@ class DockerPanel(ProviderPanel):
         t1.setSpacing(12)
         self._tabs.addTab(tab1, "")
 
-        card_s, sl, self._lbl_card_stacks = make_card()
+        card_s, sl, _ = make_card()
         hdr1 = QHBoxLayout()
         self._lbl_stacks = QLabel()
         self._lbl_stacks.setStyleSheet(
@@ -220,7 +220,7 @@ class DockerPanel(ProviderPanel):
         t2.setSpacing(12)
         self._tabs.addTab(tab2, "")
 
-        card_ec, ecl, self._lbl_card_exec_c = make_card()
+        card_ec, ecl, _ = make_card()
         hdr2 = QHBoxLayout()
         self._lbl_exec_c = QLabel()
         self._lbl_exec_c.setStyleSheet(
@@ -244,7 +244,7 @@ class DockerPanel(ProviderPanel):
         ecl.addWidget(self._no_exec_lbl)
         t2.addWidget(card_ec)
 
-        card_ef, efl, self._lbl_card_exec_f = make_card()
+        card_ef, efl, _ = make_card()
         t2.addWidget(card_ef)
         self._lbl_exec_path = QLabel()
         self._lbl_exec_path.setStyleSheet(

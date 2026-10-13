@@ -18,6 +18,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Schnellerer Start, und das Öffnen einer großen Datei mit sehr vielen angeforderten Zeilen geht jetzt fast sofort.
 - Die Anbieter-Karten in „Verbindung hinzufügen“ zeigen beim Darüberfahren jetzt eine kurze Beschreibung der jeweiligen Quelle.
 - Statusmeldungen, Verbindungsfehler und Tooltips, die bisher immer englisch waren, folgen jetzt der gewählten Sprache.
+- Updates werden jetzt mit der zur Version veröffentlichten Prüfsumme geprüft; ein beschädigter Download wird verworfen.
 
 ### Behoben
 - macOS: Das integrierte Update konnte den gesamten Programme-Ordner löschen, statt nur SimpleLog zu ersetzen. Jetzt wird nur noch die SimpleLog-App ersetzt, und die alte bleibt bei Problemen erhalten. Da das Update von der bereits installierten Version ausgeführt wird, können sich 1.0.8 und frühere Versionen unter macOS nicht mehr selbst aktualisieren: Laden Sie die neue Version einmalig von der Website oder mit Homebrew herunter.
@@ -44,6 +45,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Azure: Das Live-Verfolgen funktioniert jetzt auch mit einzeiligen Abfragen oder mit einer Zeilenbegrenzung (`take`/`limit`) vor dem Filter.
 - CloudWatch: Ereignisse, die einige Sekunden verspätet eintreffen, gehen beim Verfolgen nicht mehr verloren.
 - Railway: Das Verfolgen eines Dienstes behält nicht mehr alle Zeilen im Speicher, und die mehrfache Auswahl von Diensten öffnet keine zusätzlichen Verbindungen mehr.
+- Azure: Das erste Laden einer Tabelle oder einer Abfrage mit begrenzter Zeilenzahl zeigt jetzt die neuesten statt der ältesten Zeilen.
+- Railway: Das Verfolgen eines Dienstes lädt nur noch neue Zeilen, statt bei jeder Aktualisierung alle Logs erneut herunterzuladen.
 
 ## [1.0.8] - 2026-09-30
 

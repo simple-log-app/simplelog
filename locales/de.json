@@ -338,5 +338,6 @@
   "provider_desc_railway": "Railway-Deployment-Logs",
   "provider_desc_flyio": "Fly.io-App-Logs",
   "provider_desc_kubernetes": "Kubernetes-Pod-Logs",
-  "provider_desc_cloudflare": "Cloudflare-Workers-Echtzeit-Logs"
+  "provider_desc_cloudflare": "Cloudflare-Workers-Echtzeit-Logs",
+  "err_checksum_mismatch": "Das heruntergeladene Update stimmt nicht mit seiner veröffentlichten Prüfsumme überein und wurde verworfen."
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import UTC, datetime
 
 _GQL_URL = "https://backboard.railway.app/graphql/v2"
 
@@ -79,8 +79,23 @@ def get_latest_deployment(token: str, service_id: str) -> dict | None:
             "createdAt": n.get("createdAt", "")}
 
 
-def fetch_deployment_logs(token: str, deployment_id: str) -> list[tuple[int, str]]:
-    """Return (ts_ms, message) tuples for a deployment."""
+def fetch_deployment_logs(token: str, deployment_id: str,
+                          since_ms: int | None = None) -> list[tuple[int, str]]:
+    """Return (ts_ms, message) tuples for a deployment, only those after *since_ms* if given."""
+    if since_ms is not None:
+        start = datetime.fromtimestamp(since_ms / 1000, tz=UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        try:
+            data = _gql("""
+            query($did: String!, $start: DateTime) {
+              deploymentLogs(deploymentId: $did, startDate: $start) {
+                message severity timestamp
+              }
+            }
+            """, token, {"did": deployment_id, "start": start})
+            return _parse_logs(data)
+        except RuntimeError as e:
+            if "startDate" not in str(e) and "$start" not in str(e):
+                raise                      # a real failure; only a schema mismatch falls back
     data = _gql("""
     query($did: String!) {
       deploymentLogs(deploymentId: $did) {
@@ -88,6 +103,10 @@ def fetch_deployment_logs(token: str, deployment_id: str) -> list[tuple[int, str
       }
     }
     """, token, {"did": deployment_id})
+    return _parse_logs(data)
+
+
+def _parse_logs(data: dict) -> list[tuple[int, str]]:
     result: list[tuple[int, str]] = []
     for entry in data.get("deploymentLogs") or []:
         msg = entry.get("message", "")

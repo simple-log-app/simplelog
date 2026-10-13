@@ -1,6 +1,7 @@
 """azure_utils.py — Azure Monitor Logs helpers for SimpleLog."""
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 
 import i18n
@@ -106,7 +107,7 @@ def build_table_query(table: str, since_dt: datetime | None = None, limit: int =
     return (
         f"{table}\n"
         f"| where TimeGenerated > ago(1h)\n"
-        f"| order by TimeGenerated asc\n"
+        f"| order by TimeGenerated desc\n"      # newest page; fetch_logs re-sorts oldest first
         f"| limit {limit}"
     )
 
@@ -181,6 +182,16 @@ def _run_query(client, workspace_id: str, query: str, timespan) -> list[tuple[in
     return result
 
 
+_ASC_SORT = re.compile(r"\b((?:order|sort)\s+by\s+[\w\[\]'\"]+)\s+asc\b", re.IGNORECASE)
+_PAGED = re.compile(r"\|\s*(?:take|limit|top)\b", re.IGNORECASE)
+
+
+def _newest_first(query: str) -> str:
+    """A query that sorts ascending *and* caps its rows would load the oldest page of the
+    period: sort it descending instead (the caller re-sorts the rows oldest first)."""
+    return _ASC_SORT.sub(r"\1 desc", query) if _PAGED.search(query) else query
+
+
 def fetch_logs(
     client,
     workspace_id: str,
@@ -191,7 +202,9 @@ def fetch_logs(
 
     Returns [(ts_ms, message), ...].
     """
-    return _run_query(client, workspace_id, query, timedelta(hours=timespan_hours))
+    rows = _run_query(client, workspace_id, _newest_first(query), timedelta(hours=timespan_hours))
+    rows.sort(key=lambda row: row[0])
+    return rows
 
 
 def fetch_logs_since(

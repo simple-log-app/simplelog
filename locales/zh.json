@@ -351,5 +351,6 @@
   "provider_desc_railway": "Railway 部署日志",
   "provider_desc_flyio": "Fly.io 应用日志",
   "provider_desc_kubernetes": "Kubernetes Pod 日志",
-  "provider_desc_cloudflare": "Cloudflare Workers 实时日志"
+  "provider_desc_cloudflare": "Cloudflare Workers 实时日志",
+  "err_checksum_mismatch": "下载的更新与其发布的校验和不一致，已被丢弃。"
 }

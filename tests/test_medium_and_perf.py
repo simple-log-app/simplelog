@@ -2,6 +2,7 @@
 import os
 import threading
 import time
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -693,10 +694,16 @@ def test_complete_download_succeeds(tmp_path):
     resp.read.side_effect = [b"12345", b""]
     resp.__enter__ = lambda s: s
     resp.__exit__ = MagicMock(return_value=False)
-    w = workers.DownloadWorker("http://x", str(dest), "1.0.0")
+    w = workers.DownloadWorker("http://x/r/x.deb", str(dest), "1.0.0")
     done = []
     w.finished.connect(done.append)
-    with patch("urllib.request.urlopen", return_value=resp):
+
+    def opener(req, timeout=0):
+        if req.full_url.endswith("SHA256SUMS"):      # an old release: no checksums published
+            raise urllib.error.HTTPError(req.full_url, 404, "nf", {}, None)
+        return resp
+
+    with patch("urllib.request.urlopen", opener):
         w.run()
     assert done == [str(dest)] and dest.read_bytes() == b"12345"
 

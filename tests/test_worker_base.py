@@ -319,7 +319,7 @@ def test_railway_worker_follows_new_deployments(monkeypatch):
             w.stop()
             return {"id": "d2"}
 
-    def fetch(token, did):
+    def fetch(token, did, since=None):
         seen_deploy.append(did)
         return logs[did]
 

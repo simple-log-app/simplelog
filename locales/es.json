@@ -338,5 +338,6 @@
   "provider_desc_railway": "Logs de despliegue de Railway",
   "provider_desc_flyio": "Logs de aplicaciones de Fly.io",
   "provider_desc_kubernetes": "Logs de pods de Kubernetes",
-  "provider_desc_cloudflare": "Logs en tiempo real de Cloudflare Workers"
+  "provider_desc_cloudflare": "Logs en tiempo real de Cloudflare Workers",
+  "err_checksum_mismatch": "La actualización descargada no coincide con su suma de verificación publicada y se descartó."
 }
