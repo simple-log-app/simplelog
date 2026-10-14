@@ -38,6 +38,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+import highlight_rules
 import i18n
 import providers
 from log_model import (
@@ -345,6 +346,27 @@ class LogDelegate(QStyledItemDelegate):
     def _level(item: LogItem) -> str:
         return level_of(item)
 
+    @staticmethod
+    def _rule_spans(item: LogItem) -> list[tuple[int, int, str]]:
+        """The user's highlight rules matching this row (cached until the rules change)."""
+        version = highlight_rules.version()
+        cached = item.highlight
+        if cached is None or cached[0] != version:
+            cached = item.highlight = (version, highlight_rules.spans(item.message))
+        return cached[1]
+
+    def _draw_rule_bg(self, painter, row_rect: QRect, text_x: int, item: LogItem) -> None:
+        """Colour the parts of a plain row matched by the highlight rules."""
+        found = self._rule_spans(item)
+        if not found:
+            return
+        text_w = row_rect.right() - text_x - 14        # same box as the message column
+        ranges = [(start, length) for start, length, _ in found]
+        for idx, rect in _match_rects(item.message, painter.font(), text_w, ranges):
+            painter.fillRect(
+                rect.translated(text_x, row_rect.top() + 3), _alpha(found[idx][2], 80),
+            )
+
     def _paint_plain(self, painter, option, index, item: LogItem) -> None:
         fm    = painter.fontMetrics()
         rect  = option.rect
@@ -356,6 +378,7 @@ class LogDelegate(QStyledItemDelegate):
         msg_x = rect.left() + _BADGE_COL_W
         if self._viewer.show_timestamps and item.ts_ms:
             msg_x += _TS_COL_W
+        self._draw_rule_bg(painter, rect, msg_x, item)
         self._draw_search_bg(painter, rect, msg_x, item.message, vis_idx)
 
         # Level badge column
@@ -432,7 +455,15 @@ class LogDelegate(QStyledItemDelegate):
         level = self._level(item)
         color = _LEVEL_COLORS.get(level, C_TEXT)
 
-        # A JSON row only shows part of its message: tint the whole row on a match
+        # A JSON row only shows part of its message: tint the whole row on a rule match
+        rule_spans = self._rule_spans(item)
+        if rule_spans:
+            painter.fillRect(
+                QRect(rect.left(), rect.top(), rect.width(), _ROW_H),
+                _alpha(rule_spans[0][2], 40),
+            )
+
+        # ...and on a search match
         if self._search_highlights.get(index.row()):
             focused = self._focused_match is not None and self._focused_match[0] == index.row()
             painter.fillRect(
@@ -805,6 +836,10 @@ class LogViewer(QWidget):
 
     def set_title(self, text: str) -> None:
         self.title_label.setText(text)
+
+    def refresh_rules(self) -> None:
+        """Repaint after the highlight rules changed (rows re-match lazily)."""
+        self._list_view.viewport().update()
 
     def retheme(self) -> None:
         """Re-colour the toolbar icons and repaint the rows after a theme switch."""

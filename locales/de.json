@@ -356,5 +356,11 @@
   "theme_auto": "Automatisch (System)",
   "sidebar_levels": "Stufen",
   "tip_match_case": "Groß-/Kleinschreibung beachten",
-  "tip_regex": "Regulärer Ausdruck"
+  "tip_regex": "Regulärer Ausdruck",
+  "action_highlight_rules": "Hervorhebungsregeln…",
+  "highlight_title": "Hervorhebungsregeln",
+  "highlight_hint": "Zeilen mit diesen Wörtern werden in jedem Log-Tab farbig hervorgehoben.",
+  "highlight_placeholder": "Zu markierender Text…",
+  "highlight_add": "+ Regel hinzufügen",
+  "highlight_apply": "Übernehmen"
 }

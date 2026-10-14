@@ -5,6 +5,10 @@ log_view, sidebar and main_window; this module re-exports their names so
 `from ui import MainWindow` keeps working.
 """
 
+from highlight_dialog import (  # noqa: F401
+    HighlightRulesDialog,
+    _RuleRow,
+)
 from log_model import (  # noqa: F401
     _CLASSIFY_PATTERNS,
     _EXPANDED_ROLE,

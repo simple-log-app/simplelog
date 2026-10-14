@@ -171,6 +171,8 @@ class LogItem:
     ts_text: str | None = None  # formatted HH:MM:SS, computed lazily by the delegate
     # Last search outcome for this row: (terms key, [(start, length), ...])
     search: tuple | None = None
+    # Highlight-rule matches: (rules version, [(start, length, colour), ...])
+    highlight: tuple | None = None
 
 
 _ITEM_ROLE     = Qt.ItemDataRole.UserRole + 1

@@ -369,5 +369,11 @@
   "theme_auto": "Auto (système)",
   "sidebar_levels": "Niveaux",
   "tip_match_case": "Respecter la casse",
-  "tip_regex": "Expression régulière"
+  "tip_regex": "Expression régulière",
+  "action_highlight_rules": "Règles de coloration…",
+  "highlight_title": "Règles de coloration",
+  "highlight_hint": "Les lignes contenant ces mots sont colorées dans tous les onglets de logs.",
+  "highlight_placeholder": "Texte à colorer…",
+  "highlight_add": "+ Ajouter une règle",
+  "highlight_apply": "Appliquer"
 }

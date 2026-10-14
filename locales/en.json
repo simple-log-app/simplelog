@@ -369,5 +369,11 @@
   "theme_auto": "Auto (system)",
   "sidebar_levels": "Levels",
   "tip_match_case": "Match case",
-  "tip_regex": "Regular expression"
+  "tip_regex": "Regular expression",
+  "action_highlight_rules": "Highlight rules…",
+  "highlight_title": "Highlight rules",
+  "highlight_hint": "Lines containing these words are coloured in every log tab.",
+  "highlight_placeholder": "Text to highlight…",
+  "highlight_add": "+ Add rule",
+  "highlight_apply": "Apply"
 }

@@ -53,6 +53,7 @@ import changelog
 import i18n
 import providers
 import ui_theme
+from highlight_dialog import HighlightRulesDialog
 from log_view import LogViewer
 from panels.file import FilePanel
 from remote_dialogs import RemoteHomePanel
@@ -339,6 +340,10 @@ class MainWindow(QMainWindow):
         self._act_break.triggered.connect(self._action_break)
         self._menu_edit.addAction(self._act_break)
 
+        self._act_highlight = QAction(self)
+        self._act_highlight.triggered.connect(self._action_highlight_rules)
+        self._menu_edit.addAction(self._act_highlight)
+
         # ── Language ──
         self._menu_lang = mb.addMenu("")
 
@@ -457,6 +462,7 @@ class MainWindow(QMainWindow):
         self._menu_edit.setTitle(i18n.tr("menu_edit"))
         self._act_copy.setText(i18n.tr("action_copy"))
         self._act_break.setText(i18n.tr("action_break"))
+        self._act_highlight.setText(i18n.tr("action_highlight_rules"))
         self._menu_lang.setTitle(i18n.tr("menu_language"))
         for code, action in self._lang_actions.items():
             action.setChecked(code == locale)
@@ -466,6 +472,12 @@ class MainWindow(QMainWindow):
         self._act_changelog.setText(i18n.tr("action_changelog"))
 
     # ── Menu action handlers ───────────────────────────────────────────────────
+
+    def _action_highlight_rules(self) -> None:
+        """Edit → Highlight rules: colour the lines that contain chosen words."""
+        if HighlightRulesDialog(self).exec() == QDialog.DialogCode.Accepted:
+            for viewer in self.findChildren(LogViewer):
+                viewer.refresh_rules()
 
     def _action_open_file(self) -> None:
         """File → Open: browse and open a log file."""

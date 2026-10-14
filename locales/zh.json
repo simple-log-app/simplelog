@@ -369,5 +369,11 @@
   "theme_auto": "自动（跟随系统）",
   "sidebar_levels": "级别",
   "tip_match_case": "区分大小写",
-  "tip_regex": "正则表达式"
+  "tip_regex": "正则表达式",
+  "action_highlight_rules": "高亮规则…",
+  "highlight_title": "高亮规则",
+  "highlight_hint": "包含这些词的行会在所有日志标签页中着色。",
+  "highlight_placeholder": "要高亮的文本…",
+  "highlight_add": "+ 添加规则",
+  "highlight_apply": "应用"
 }

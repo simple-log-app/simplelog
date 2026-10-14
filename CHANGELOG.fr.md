@@ -8,6 +8,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Le thème peut désormais suivre le réglage clair / sombre de votre système : choisissez « Auto » avec la flèche à côté du bouton Jour / Nuit.
 - Filtre par niveau : affichez ou masquez les lignes ERROR, WARN, INFO, DEBUG et TRACE avec les pastilles de l'onglet Filtre.
 - Recherche et filtre : nouvelles options « respecter la casse » et « expression régulière », et vos termes récents sont proposés pendant la saisie (↓ dans un champ vide pour les lister).
+- Règles de coloration (menu Édition) : colorez dans tous vos logs les mots qui comptent pour vous, avec respect de la casse et expressions régulières en option.
 
 ## [2.0.0] - 2026-10-14
 

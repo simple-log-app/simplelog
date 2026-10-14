@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QApplication
 
 UI_MODULES = [
     "ui_theme", "ui_widgets", "log_model", "log_view", "sidebar", "remote_dialogs",
-    "main_window", "panels.base",
+    "main_window", "highlight_dialog", "panels.base",
     "panels.cloudwatch", "panels.file", "panels.ssh", "panels.docker", "panels.vercel",
     "panels.gcp", "panels.azure", "panels.loki", "panels.datadog", "panels.elastic",
     "panels.railway", "panels.flyio", "panels.kubernetes", "panels.cloudflare",

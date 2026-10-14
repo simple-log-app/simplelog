@@ -8,6 +8,7 @@ All notable changes to SimpleLog are documented in this file.
 - The theme can now follow your system's light / dark setting: pick “Auto” from the arrow next to the Day / Night button.
 - Filter by level: show or hide ERROR, WARN, INFO, DEBUG and TRACE lines with the chips in the Filter tab.
 - Search and filter: new “match case” and “regular expression” options, and your recent terms are suggested as you type (press ↓ in an empty field to list them).
+- Highlight rules (Edit menu): colour the words you care about in every log, with optional case matching and regular expressions.
 
 ## [2.0.0] - 2026-10-14
 

@@ -20,6 +20,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+import highlight_rules
 import i18n
 from ui import MainWindow
 from ui_theme import apply_mode, load_theme
@@ -163,6 +164,7 @@ def main():
 
     # ── First (primary) instance ───────────────────────────────────────────────
     i18n.load_locale()
+    highlight_rules.load()
     window = MainWindow()
     window.show()
 

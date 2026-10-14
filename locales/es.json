@@ -356,5 +356,11 @@
   "theme_auto": "Auto (sistema)",
   "sidebar_levels": "Niveles",
   "tip_match_case": "Distinguir mayúsculas",
-  "tip_regex": "Expresión regular"
+  "tip_regex": "Expresión regular",
+  "action_highlight_rules": "Reglas de resaltado…",
+  "highlight_title": "Reglas de resaltado",
+  "highlight_hint": "Las líneas que contienen estas palabras se colorean en todas las pestañas de logs.",
+  "highlight_placeholder": "Texto a resaltar…",
+  "highlight_add": "+ Añadir regla",
+  "highlight_apply": "Aplicar"
 }
