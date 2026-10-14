@@ -4,6 +4,8 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [2.0.0] - 2026-10-14
+
 ### Ajouté
 - Recherche : F3 passe au résultat suivant et Maj+F3 au précédent ; les raccourcis sont indiqués dans l'infobulle des boutons.
 - Mode Jour / Nuit : changez de thème avec le bouton à droite de la barre de menus (ou avec Ctrl+Maj+L) ; votre choix est mémorisé.

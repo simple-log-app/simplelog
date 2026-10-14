@@ -4,6 +4,8 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-14
+
 ### Added
 - Search: F3 jumps to the next match and Shift+F3 to the previous one; the shortcuts are shown in the buttons' tooltips.
 - Day / Night mode: switch the theme from the button at the right of the menu bar (or with Ctrl+Shift+L); your choice is remembered.

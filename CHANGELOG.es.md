@@ -4,6 +4,8 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.0.0] - 2026-10-14
+
 ### Añadido
 - Búsqueda: F3 pasa al siguiente resultado y Mayús+F3 al anterior; los atajos aparecen en la información sobre herramientas de los botones.
 - Modo Día / Noche: cambia el tema con el botón situado a la derecha de la barra de menús (o con Ctrl+Mayús+L); tu elección se recuerda.

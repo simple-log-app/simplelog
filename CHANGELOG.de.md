@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.0.0] - 2026-10-14
+
 ### Hinzugefügt
 - Suche: F3 springt zum nächsten Treffer und Umschalt+F3 zum vorherigen; die Tastenkürzel stehen in den Tooltips der Schaltflächen.
 - Tag-/Nachtmodus: Wechseln Sie das Design mit der Schaltfläche rechts in der Menüleiste (oder mit Strg+Umschalt+L); Ihre Wahl wird gespeichert.
