@@ -18,6 +18,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 ### Modifié
 - Ajout d'une connexion : les choix « Split » de « Ouvrir comme » sont grisés tant qu'aucun log n'est ouvert, puisqu'il n'y a encore rien à scinder.
 
+### Corrigé
+- Le curseur de souris « chargement » ne reste plus affiché environ 12 secondes au lancement de SimpleLog (Linux/GNOME).
+
 ## [2.0.0] - 2026-10-14
 
 ### Ajouté

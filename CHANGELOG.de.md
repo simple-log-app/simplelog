@@ -18,6 +18,9 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 ### Geändert
 - Verbindung hinzufügen: Die „Split“-Optionen von „Öffnen als“ sind ausgegraut, solange kein Log geöffnet ist, da es noch nichts zu teilen gibt.
 
+### Behoben
+- Der Mauszeiger „Laden“ bleibt beim Start von SimpleLog nicht mehr etwa 12 Sekunden lang sichtbar (Linux/GNOME).
+
 ## [2.0.0] - 2026-10-14
 
 ### Hinzugefügt

@@ -18,6 +18,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 ### Cambiado
 - Añadir conexión: las opciones «Split» de «Abrir como» aparecen atenuadas mientras no haya ningún log abierto, ya que aún no hay nada que dividir.
 
+### Corregido
+- El cursor de «carga» del ratón ya no permanece unos 12 segundos al iniciar SimpleLog (Linux/GNOME).
+
 ## [2.0.0] - 2026-10-14
 
 ### Añadido

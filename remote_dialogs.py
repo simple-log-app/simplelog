@@ -795,7 +795,6 @@ class RemoteHomePanel(QWidget):
         # Expandable content
         content = QWidget()
         content.setStyleSheet("background: transparent;")
-        content.setVisible(is_expanded)
         c_lay = QVBoxLayout(content)
         c_lay.setContentsMargins(0, 0, 0, 4)
         c_lay.setSpacing(0)
@@ -805,6 +804,7 @@ class RemoteHomePanel(QWidget):
 
         c_lay.addWidget(self._make_add_inline_row(svc))
         w_lay.addWidget(content)
+        content.setVisible(is_expanded)  # once parented: shown earlier it flashes as a top-level window
 
         def _toggle() -> None:
             exp = not content.isVisible()

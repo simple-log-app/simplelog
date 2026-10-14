@@ -610,3 +610,28 @@ def test_merge_logs_is_greyed_out_with_fewer_than_two_logs(monkeypatch):
             assert states["ctx"] == [count == 2]
     finally:
         win.close()
+
+
+def test_remote_home_panel_never_shows_a_top_level_window_while_building():
+    from PyQt6.QtCore import QEvent, QObject
+    from PyQt6.QtWidgets import QApplication
+
+    import ui
+
+    class Spy(QObject):
+        shown: list = []
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Type.Show and obj.isWidgetType() and obj.isWindow():
+                self.shown.append(type(obj).__name__)
+            return False
+
+    spy = Spy()
+    app = QApplication.instance()
+    app.installEventFilter(spy)
+    try:
+        panel = ui.RemoteHomePanel()      # a flashing parentless widget makes GNOME show a busy cursor
+        assert spy.shown == []
+        panel.deleteLater()
+    finally:
+        app.removeEventFilter(spy)

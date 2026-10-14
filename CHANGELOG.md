@@ -18,6 +18,9 @@ All notable changes to SimpleLog are documented in this file.
 ### Changed
 - Add connection: the “Split” choices of “Open as” are greyed out while no log is open, since there is nothing to split yet.
 
+### Fixed
+- The "loading" mouse cursor no longer stays on for about 12 seconds when SimpleLog starts (Linux/GNOME).
+
 ## [2.0.0] - 2026-10-14
 
 ### Added
