@@ -527,3 +527,13 @@ def test_bookmark_entries_of_the_edit_menu_are_in_reading_order():
         assert [order.index(a) for a in names] == sorted(order.index(a) for a in names)
     finally:
         win.close()
+
+
+def test_merge_logs_lives_in_the_edit_menu_not_the_file_menu():
+    import main_window
+    win = main_window.MainWindow()
+    try:
+        assert win._act_merge in win._menu_edit.actions()
+        assert win._act_merge not in win._menu_file.actions()
+    finally:
+        win.close()

@@ -316,10 +316,6 @@ class MainWindow(QMainWindow):
         self._act_export.triggered.connect(lambda: self._action_export(False))
         self._menu_file.addAction(self._act_export)
 
-        self._act_merge = QAction(self)
-        self._act_merge.triggered.connect(self._action_merge_tabs)
-        self._menu_file.addAction(self._act_merge)
-
         self._act_reconnect = QAction(self, checkable=True)
         self._act_reconnect.setChecked(self._auto_reconnect)
         self._act_reconnect.toggled.connect(self._set_auto_reconnect)
@@ -385,6 +381,10 @@ class MainWindow(QMainWindow):
         self._act_highlight = QAction(self)
         self._act_highlight.triggered.connect(self._action_highlight_rules)
         self._menu_edit.addAction(self._act_highlight)
+
+        self._act_merge = QAction(self)
+        self._act_merge.triggered.connect(self._action_merge_tabs)
+        self._menu_edit.addAction(self._act_merge)
 
         # ── Language ──
         self._menu_lang = mb.addMenu("")
@@ -569,7 +569,7 @@ class MainWindow(QMainWindow):
                 self._refresh_tab_state(viewer)
 
     def _action_merge_tabs(self) -> None:
-        """File → Merge logs: one tab that shows several logs interleaved by time."""
+        """Edit → Merge logs: one tab that shows several logs interleaved by time."""
         sources: list[tuple[str, LogViewer]] = []
         for i in range(self._top_tabs.count()):
             spl = self._top_tabs.widget(i)

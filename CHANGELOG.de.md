@@ -11,7 +11,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Hervorhebungsregeln (Menü Bearbeiten): Färben Sie wichtige Wörter in jedem Log ein, optional mit Groß-/Kleinschreibung und regulären Ausdrücken.
 - Lesezeichen: Markieren Sie Zeilen mit Strg+B (oder dem Rechtsklickmenü) und springen Sie mit F2 / Umschalt+F2 zwischen ihnen oder entfernen Sie alle auf einmal (Strg+Umschalt+B).
 - Export: Speichern Sie die aktuell angezeigten Zeilen (nach Ihren Filtern) oder nur die Auswahl in einer Datei – über das Menü Datei (Strg+Umschalt+E) oder das Rechtsklickmenü.
-- Zusammengeführte Ansicht (Menü Datei): Zeigen Sie mehrere geöffnete Logs in einem Tab in zeitlicher Reihenfolge an, jede Zeile mit ihrer Quelle.
+- Zusammengeführte Ansicht (Menü Bearbeiten): Zeigen Sie mehrere geöffnete Logs in einem Tab in zeitlicher Reihenfolge an, jede Zeile mit ihrer Quelle.
 - Remote-Tabs zeigen ihren Verbindungsstatus (farbiger Punkt am Logo) und verbinden sich bei Abbruch von selbst neu, ohne Zeilen zu duplizieren; im Menü Datei abschaltbar.
 - Neue Log-Quellen: das lokale systemd-Journal, Heroku, Render, Splunk, Better Stack und Sentry (Fehlerereignisse).
 

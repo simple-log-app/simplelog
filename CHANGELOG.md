@@ -11,7 +11,7 @@ All notable changes to SimpleLog are documented in this file.
 - Highlight rules (Edit menu): colour the words you care about in every log, with optional case matching and regular expressions.
 - Bookmarks: mark lines with Ctrl+B (or the right-click menu) and jump between them with F2 / Shift+F2, or remove them all at once (Ctrl+Shift+B).
 - Export: save the lines currently shown (after your filters) or just the selected ones to a file, from the File menu (Ctrl+Shift+E) or the right-click menu.
-- Merged view (File menu): show several open logs together in one tab, in time order, each line tagged with its source.
+- Merged view (Edit menu): show several open logs together in one tab, in time order, each line tagged with its source.
 - Remote tabs show their connection state (a coloured dot on the logo) and reconnect by themselves when the stream drops, without duplicating lines; this can be turned off in the File menu.
 - New log sources: the local systemd journal, Heroku, Render, Splunk, Better Stack and Sentry (error events).
 
