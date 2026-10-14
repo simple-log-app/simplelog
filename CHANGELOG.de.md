@@ -10,6 +10,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Suche und Filter: neue Optionen „Groß-/Kleinschreibung beachten“ und „Regulärer Ausdruck“; zuletzt verwendete Begriffe werden beim Tippen vorgeschlagen (↓ in einem leeren Feld zeigt sie an).
 - Hervorhebungsregeln (Menü Bearbeiten): Färben Sie wichtige Wörter in jedem Log ein, optional mit Groß-/Kleinschreibung und regulären Ausdrücken.
 - Lesezeichen: Markieren Sie Zeilen mit Strg+B (oder dem Rechtsklickmenü) und springen Sie mit F2 / Umschalt+F2 zwischen ihnen.
+- Export: Speichern Sie die aktuell angezeigten Zeilen (nach Ihren Filtern) oder nur die Auswahl in einer Datei – über das Menü Datei (Strg+Umschalt+E) oder das Rechtsklickmenü.
 
 ## [2.0.0] - 2026-10-14
 

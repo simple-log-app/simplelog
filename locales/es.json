@@ -366,5 +366,11 @@
   "action_toggle_bookmark": "Poner / quitar marcador",
   "action_next_bookmark": "Marcador siguiente",
   "action_prev_bookmark": "Marcador anterior",
-  "status_no_bookmarks": "No hay marcadores en este log (Ctrl+B para añadir uno)"
+  "status_no_bookmarks": "No hay marcadores en este log (Ctrl+B para añadir uno)",
+  "action_export": "Exportar líneas visibles…",
+  "action_export_selection": "Exportar selección…",
+  "filter_export_files": "Archivos de log (*.log *.txt);;Todos los archivos (*)",
+  "status_nothing_to_export": "Abre primero un log: no hay nada que exportar",
+  "status_exported": "{n} líneas exportadas a {path}",
+  "err_export": "No se pudo escribir el archivo: {error}"
 }

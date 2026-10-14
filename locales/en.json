@@ -379,5 +379,11 @@
   "action_toggle_bookmark": "Toggle bookmark",
   "action_next_bookmark": "Next bookmark",
   "action_prev_bookmark": "Previous bookmark",
-  "status_no_bookmarks": "No bookmarks in this log (Ctrl+B to add one)"
+  "status_no_bookmarks": "No bookmarks in this log (Ctrl+B to add one)",
+  "action_export": "Export visible lines…",
+  "action_export_selection": "Export selection…",
+  "filter_export_files": "Log files (*.log *.txt);;All files (*)",
+  "status_nothing_to_export": "Open a log first: there is nothing to export",
+  "status_exported": "{n} lines exported to {path}",
+  "err_export": "Could not write the file: {error}"
 }

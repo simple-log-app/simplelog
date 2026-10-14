@@ -379,5 +379,11 @@
   "action_toggle_bookmark": "Poser / retirer un marque-page",
   "action_next_bookmark": "Marque-page suivant",
   "action_prev_bookmark": "Marque-page précédent",
-  "status_no_bookmarks": "Aucun marque-page dans ce log (Ctrl+B pour en ajouter un)"
+  "status_no_bookmarks": "Aucun marque-page dans ce log (Ctrl+B pour en ajouter un)",
+  "action_export": "Exporter les lignes affichées…",
+  "action_export_selection": "Exporter la sélection…",
+  "filter_export_files": "Fichiers de log (*.log *.txt);;Tous les fichiers (*)",
+  "status_nothing_to_export": "Ouvrez d'abord un log : il n'y a rien à exporter",
+  "status_exported": "{n} lignes exportées vers {path}",
+  "err_export": "Impossible d'écrire le fichier : {error}"
 }

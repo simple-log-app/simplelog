@@ -10,6 +10,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Recherche et filtre : nouvelles options « respecter la casse » et « expression régulière », et vos termes récents sont proposés pendant la saisie (↓ dans un champ vide pour les lister).
 - Règles de coloration (menu Édition) : colorez dans tous vos logs les mots qui comptent pour vous, avec respect de la casse et expressions régulières en option.
 - Marque-pages : repérez des lignes avec Ctrl+B (ou le menu clic droit) et passez de l'une à l'autre avec F2 / Maj+F2.
+- Export : enregistrez dans un fichier les lignes affichées (après vos filtres) ou seulement la sélection, depuis le menu Fichier (Ctrl+Maj+E) ou le menu clic droit.
 
 ## [2.0.0] - 2026-10-14
 

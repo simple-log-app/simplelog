@@ -302,6 +302,11 @@ class MainWindow(QMainWindow):
         self._act_open.triggered.connect(self._action_open_file)
         self._menu_file.addAction(self._act_open)
 
+        self._act_export = QAction(self)
+        self._act_export.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        self._act_export.triggered.connect(lambda: self._action_export(False))
+        self._menu_file.addAction(self._act_export)
+
         self._act_close_tab = QAction(self)
         self._act_close_tab.setShortcut(QKeySequence("Ctrl+W"))
         self._act_close_tab.triggered.connect(self._action_close_current_tab)
@@ -471,6 +476,7 @@ class MainWindow(QMainWindow):
         self._menu_file.setTitle(i18n.tr("menu_file"))
         self._act_open.setText(i18n.tr("action_open"))
         self._act_close_tab.setText(i18n.tr("action_close_tab"))
+        self._act_export.setText(i18n.tr("action_export"))
         self._act_close_all.setText(i18n.tr("action_close_all"))
         self._act_update.setText(i18n.tr("action_update"))
         self._act_quit.setText(i18n.tr("action_quit"))
@@ -519,6 +525,27 @@ class MainWindow(QMainWindow):
         if path and os.path.isfile(path):
             # Updates FilePanel's recent list and opens the tab (open_tab signal)
             self._file_panel._open_path(path)
+
+    def _action_export(self, selection_only: bool = False) -> None:
+        """File → Export: save the lines shown in the active log (or its selection)."""
+        viewer = self._active_viewer()
+        if viewer is None:
+            self._status.showMessage(i18n.tr("status_nothing_to_export"), 3000)
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            i18n.tr("action_export"),
+            os.path.join(os.path.expanduser("~"), "simplelog-export.log"),
+            i18n.tr("filter_export_files"),
+        )
+        if not path:
+            return
+        try:
+            count = viewer.export_lines(path, selection_only)
+        except OSError as exc:
+            QMessageBox.warning(self, i18n.tr("action_export"), i18n.tr("err_export", error=exc))
+            return
+        self._status.showMessage(i18n.tr("status_exported", n=count, path=path), 5000)
 
     def _action_check_update(self) -> None:
         """File → Check for Updates: async GitHub release check."""
@@ -1024,6 +1051,9 @@ class MainWindow(QMainWindow):
         viewer.stop_requested.connect(lambda v=viewer: self._stop_viewer(v))
         viewer.pane_close_requested.connect(lambda v=viewer: self._close_pane(v))
         viewer.pane_activated.connect(lambda v=viewer: self._set_active_viewer(v))
+        viewer.export_requested.connect(
+            lambda selection, v=viewer: (self._set_active_viewer(v), self._action_export(selection))
+        )
         viewer.stop_btn.setEnabled(True)
         self._workers[id(viewer)] = worker
 

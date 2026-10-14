@@ -10,6 +10,7 @@ All notable changes to SimpleLog are documented in this file.
 - Search and filter: new “match case” and “regular expression” options, and your recent terms are suggested as you type (press ↓ in an empty field to list them).
 - Highlight rules (Edit menu): colour the words you care about in every log, with optional case matching and regular expressions.
 - Bookmarks: mark lines with Ctrl+B (or the right-click menu) and jump between them with F2 / Shift+F2.
+- Export: save the lines currently shown (after your filters) or just the selected ones to a file, from the File menu (Ctrl+Shift+E) or the right-click menu.
 
 ## [2.0.0] - 2026-10-14
 

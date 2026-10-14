@@ -646,6 +646,7 @@ class LogViewer(QWidget):
     pane_activated       = pyqtSignal()
     pane_close_requested = pyqtSignal()
     bookmarks_changed    = pyqtSignal()
+    export_requested     = pyqtSignal(bool)   # True: the selection only
 
     _MAX_LINES = 10_000
     _APPEND_COOLDOWN_MS = 50   # lines arriving faster than this are added in one go
@@ -982,6 +983,35 @@ class LogViewer(QWidget):
     def focus_list(self) -> None:
         self._list_view.setFocus()
 
+    # ── Export ────────────────────────────────────────────────────────────────
+
+    def export_text(self, selection_only: bool = False) -> str:
+        """The shown lines (after the filters) as text, one per line; timestamps follow
+        the "Timestamps" checkbox. With *selection_only*, just the selected rows."""
+        self.flush_pending()
+        items = self._model.visible_items()
+        if selection_only:
+            rows = sorted({i.row() for i in self._list_view.selectedIndexes()})
+            items = [items[r] for r in rows if r < len(items)]
+        lines = []
+        for item in items:
+            if self.show_timestamps and item.ts_ms and not item.is_break:
+                stamp = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                lines.append(f"{stamp}  {item.message}")
+            else:
+                lines.append(item.message)
+        return "\n".join(lines) + ("\n" if lines else "")
+
+    def export_lines(self, path: str, selection_only: bool = False) -> int:
+        """Write the shown (or selected) lines to *path*; returns how many were written.
+
+        Raises OSError when the file cannot be written.
+        """
+        text = self.export_text(selection_only)
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        return text.count("\n")
+
     # ── Bookmarks ─────────────────────────────────────────────────────────────
 
     def _target_rows(self) -> list[int]:
@@ -1035,6 +1065,9 @@ class LogViewer(QWidget):
         copy_action = menu.addAction(i18n.tr("action_copy"))
         copy_action.setEnabled(bool(self._list_view.selectedIndexes()))
         copy_action.triggered.connect(self.copy)
+        export_action = menu.addAction(i18n.tr("action_export_selection"))
+        export_action.setEnabled(bool(self._list_view.selectedIndexes()))
+        export_action.triggered.connect(lambda: self.export_requested.emit(True))
         bookmark_action = menu.addAction(i18n.tr("action_toggle_bookmark"))
         bookmark_action.setEnabled(bool(self._target_rows()))
         bookmark_action.triggered.connect(self.toggle_bookmark)

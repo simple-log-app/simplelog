@@ -382,3 +382,64 @@ def test_bookmarked_rows_paint_a_marker():
     marker = QColor(img.pixel(1, rect.center().y()))
     plain = QColor(img.pixel(1, v._list_view.visualRect(v._model.index(0)).center().y()))
     assert marker != plain
+
+
+def test_export_writes_the_filtered_lines(tmp_path):
+    from log_model import TermRow
+    v = _viewer_with_lines(5)
+    v.append_events([(10, "ERROR special")])
+    v.flush_pending()
+    out = tmp_path / "all.log"
+    assert v.export_lines(str(out)) == 6
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines[0].endswith("line 0") and lines[-1].endswith("ERROR special")
+    assert lines[1][:4].isdigit() and lines[1].endswith("line 1")  # timestamps are on
+    v.timestamps_cb.setChecked(False)
+    v.apply_filter([TermRow("special", "")])
+    out2 = tmp_path / "filtered.log"
+    assert v.export_lines(str(out2)) == 1
+    assert out2.read_text(encoding="utf-8") == "ERROR special\n"
+
+
+def test_export_of_the_selection_only(tmp_path):
+    v = _viewer_with_lines(5)
+    v.timestamps_cb.setChecked(False)
+    v._list_view.selectionModel().select(
+        v._model.index(1), v._list_view.selectionModel().SelectionFlag.Select)
+    v._list_view.selectionModel().select(
+        v._model.index(3), v._list_view.selectionModel().SelectionFlag.Select)
+    assert v.export_text(selection_only=True) == "line 1\nline 3\n"
+    assert v.export_text().count("\n") == 5
+
+
+def test_export_with_nothing_to_show_gives_an_empty_file(tmp_path):
+    import ui
+    v = ui.LogViewer(source_type="file")
+    out = tmp_path / "empty.log"
+    assert v.export_lines(str(out)) == 0 and out.read_text() == ""
+
+
+def test_main_window_export_action(tmp_path, monkeypatch):
+    import main_window
+    win = main_window.MainWindow()
+    try:
+        win._action_export()
+        assert "nothing" in win._status.currentMessage().lower()
+        v = _viewer_with_lines(3)
+        v.timestamps_cb.setChecked(False)
+        win._cur_viewer = v
+        target = tmp_path / "out.log"
+        monkeypatch.setattr(main_window.QFileDialog, "getSaveFileName",
+                            staticmethod(lambda *a, **k: (str(target), "")))
+        win._action_export()
+        assert target.read_text() == "line 0\nline 1\nline 2\n"
+        assert "3" in win._status.currentMessage()
+        warned = []
+        monkeypatch.setattr(main_window.QMessageBox, "warning",
+                            staticmethod(lambda *a, **k: warned.append(a)))
+        monkeypatch.setattr(main_window.QFileDialog, "getSaveFileName",
+                            staticmethod(lambda *a, **k: (str(tmp_path / "no" / "dir.log"), "")))
+        win._action_export()
+        assert warned
+    finally:
+        win.close()

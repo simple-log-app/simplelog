@@ -379,5 +379,11 @@
   "action_toggle_bookmark": "切换书签",
   "action_next_bookmark": "下一个书签",
   "action_prev_bookmark": "上一个书签",
-  "status_no_bookmarks": "此日志中没有书签（按 Ctrl+B 添加）"
+  "status_no_bookmarks": "此日志中没有书签（按 Ctrl+B 添加）",
+  "action_export": "导出可见行…",
+  "action_export_selection": "导出所选内容…",
+  "filter_export_files": "日志文件 (*.log *.txt);;所有文件 (*)",
+  "status_nothing_to_export": "请先打开日志：没有可导出的内容",
+  "status_exported": "已将 {n} 行导出到 {path}",
+  "err_export": "无法写入文件：{error}"
 }

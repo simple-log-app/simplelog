@@ -10,6 +10,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Búsqueda y filtro: nuevas opciones «distinguir mayúsculas» y «expresión regular», y se sugieren tus términos recientes al escribir (↓ en un campo vacío para listarlos).
 - Reglas de resaltado (menú Edición): colorea en todos los logs las palabras que te importan, con distinción de mayúsculas y expresiones regulares opcionales.
 - Marcadores: marca líneas con Ctrl+B (o el menú contextual) y salta entre ellas con F2 / Mayús+F2.
+- Exportar: guarda en un archivo las líneas mostradas (tras tus filtros) o solo la selección, desde el menú Archivo (Ctrl+Mayús+E) o el menú contextual.
 
 ## [2.0.0] - 2026-10-14
 
