@@ -515,3 +515,15 @@ def test_remove_all_bookmarks_from_the_menu_and_the_viewer():
         assert win._act_clear_bookmarks.shortcut().toString() == "Ctrl+Shift+B"
     finally:
         win.close()
+
+
+def test_bookmark_entries_of_the_edit_menu_are_in_reading_order():
+    import main_window
+    win = main_window.MainWindow()
+    try:
+        order = [a for a in win._menu_edit.actions()]
+        names = [win._act_bookmark, win._act_next_bookmark, win._act_prev_bookmark,
+                 win._act_clear_bookmarks]
+        assert [order.index(a) for a in names] == sorted(order.index(a) for a in names)
+    finally:
+        win.close()
