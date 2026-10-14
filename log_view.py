@@ -46,8 +46,8 @@ from log_model import (
     _ITEM_ROLE,
     LogItem,
     LogModel,
-    _classify_line,
     _line_matches,
+    level_of,
 )
 from ui_theme import (
     _SVG_CLOSE_X,
@@ -343,9 +343,7 @@ class LogDelegate(QStyledItemDelegate):
 
     @staticmethod
     def _level(item: LogItem) -> str:
-        if item.level is None:
-            item.level = _classify_line(item.message)
-        return item.level
+        return level_of(item)
 
     def _paint_plain(self, painter, option, index, item: LogItem) -> None:
         fm    = painter.fontMetrics()
@@ -851,9 +849,9 @@ class LogViewer(QWidget):
             events, self._pending = self._pending, []
             self._model.append_events(events)
 
-    def apply_filter(self, terms: list) -> None:
+    def apply_filter(self, terms: list, hidden_levels=frozenset()) -> None:
         self.flush_pending()
-        self._model.apply_filter(terms)
+        self._model.apply_filter(terms, hidden_levels)
         self.line_badge.setText(i18n.tr("viewer_lines", n=self._model.visible_count()))
 
     def apply_search(self, terms: list) -> list:

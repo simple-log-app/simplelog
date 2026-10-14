@@ -15,6 +15,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,7 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-from log_model import TermRow
+from log_model import LEVELS, TermRow
 from log_view import LogViewer
 from ui_theme import (
     C_ACCENT,
@@ -38,15 +39,19 @@ from ui_theme import (
     C_DEBUG,
     C_ERR,
     C_HOVER,
+    C_INFO,
     C_MUTED,
+    C_MUTED2,
     C_ON_ACCENT,
     C_PANEL,
     C_TEXT,
     C_TRACE,
     C_TS,
+    C_WARN,
     _svg_icon,
     rgba,
 )
+from ui_widgets import _field_label
 
 _KEY_PREV = "Shift+F3"
 _KEY_NEXT = "F3"
@@ -438,8 +443,28 @@ class FilterSearchSidebar(QWidget):
         kv_row.addStretch()
         vbox.addLayout(kv_row)
 
+        # Level filter: a lit chip shows that level, a dark one hides it
+        self._lbl_levels = _field_label("")
+        vbox.addSpacing(4)
+        vbox.addWidget(self._lbl_levels)
+        lvl_grid = QGridLayout()
+        lvl_grid.setContentsMargins(0, 0, 0, 0)
+        lvl_grid.setSpacing(3)
+        self._level_btns: dict[str, QPushButton] = {}
+        for i, level in enumerate(LEVELS):
+            btn = QPushButton(level.upper())
+            btn.setCheckable(True)
+            btn.setChecked(True)
+            btn.setFixedHeight(20)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(self._level_chip_style(level))
+            btn.toggled.connect(self._on_levels_changed)
+            lvl_grid.addWidget(btn, i // 3, i % 3)
+            self._level_btns[level] = btn
+        vbox.addLayout(lvl_grid)
+
         live_row = QHBoxLayout()
-        live_row.setContentsMargins(0, 2, 0, 0)
+        live_row.setContentsMargins(0, 6, 0, 0)
         self._cb_live = QCheckBox()
         self._cb_live.setChecked(True)
         self._cb_live.setStyleSheet(f"color: {C_MUTED}; font-size: 10px;")
@@ -543,6 +568,25 @@ class FilterSearchSidebar(QWidget):
         if self._cb_live.isChecked():
             self._filter_timer.start()
 
+    def _on_levels_changed(self, _checked: bool = False) -> None:
+        self._apply_filter_now()
+
+    def _hidden_levels(self) -> frozenset:
+        return frozenset(lvl for lvl, btn in self._level_btns.items() if not btn.isChecked())
+
+    @staticmethod
+    def _level_chip_style(level: str) -> str:
+        color = {"error": C_ERR, "warn": C_WARN, "info": C_INFO,
+                 "debug": C_DEBUG, "trace": C_TRACE}[level]
+        return (
+            f"QPushButton {{ background: transparent; color: {C_MUTED2}; padding: 0;"
+            f" border: 1px solid {C_BORDER}; border-radius: 4px; font-size: 9px;"
+            f" font-weight: 700; }}"
+            f"QPushButton:hover {{ border-color: {rgba(color, 120)}; }}"
+            f"QPushButton:checked {{ background: {rgba(color, 31)}; color: {color};"
+            f" border: 1px solid {rgba(color, 90)}; }}"
+        )
+
     def _on_json_keys_updated(self, keys: set) -> None:
         self._rebuild_json_chips(keys)
 
@@ -562,7 +606,7 @@ class FilterSearchSidebar(QWidget):
             viewer.lines_appended.connect(self._on_lines_appended)
             viewer.filter_applied.connect(self._refresh_search)
             self._on_json_keys_updated(viewer.get_json_keys())
-            viewer.apply_filter(self._current_filter_terms())
+            viewer.apply_filter(self._current_filter_terms(), self._hidden_levels())
             # _refresh_search is triggered by filter_applied signal
 
     def _current_filter_terms(self) -> list[TermRow]:
@@ -575,7 +619,7 @@ class FilterSearchSidebar(QWidget):
 
     def _apply_filter_now(self) -> None:
         if self._active_viewer:
-            self._active_viewer.apply_filter(self._current_filter_terms())
+            self._active_viewer.apply_filter(self._current_filter_terms(), self._hidden_levels())
 
     def _apply_search_now(self) -> None:
         self._refresh_search()
@@ -688,6 +732,7 @@ class FilterSearchSidebar(QWidget):
         self._btn_add_filter_or.setText(i18n.tr("sidebar_add_or"))
         self._btn_add_filter_kv.setText(i18n.tr("sidebar_add_kv"))
         self._cb_live.setText(i18n.tr("sidebar_live_filter"))
+        self._lbl_levels.setText(i18n.tr("sidebar_levels"))
         self._lbl_json_ph.setText(i18n.tr("sidebar_json_ph"))
         for w in self._search_term_widgets + self._filter_term_widgets:
             w.set_placeholder(i18n.tr("sidebar_term_ph"))

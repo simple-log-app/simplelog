@@ -99,6 +99,16 @@ def _classify_line(text: str) -> str:
     return "plain"
 
 
+LEVELS = ("error", "warn", "info", "debug", "trace")   # the levels that can be hidden
+
+
+def level_of(item: LogItem) -> str:
+    """Severity of a row (computed once, then cached on the row)."""
+    if item.level is None:
+        item.level = _classify_line(item.message)
+    return item.level
+
+
 _MAIN_KEYS = (
     "message", "msg", "error", "err", "data", "content", "text",
     "body", "log", "description", "details", "payload", "result", "output", "value",
@@ -150,6 +160,15 @@ class LogModel(QAbstractListModel):
         self._visible: list[LogItem] = []   # references into _items
         self._json_keys: set[str] = set()
         self._current_filter_terms: list[TermRow] = []
+        self._hidden_levels: frozenset[str] = frozenset()
+
+    def _passes_filter(self, item: LogItem) -> bool:
+        """Does a row satisfy the filter terms and the level filter (breaks always do)?"""
+        if item.is_break:
+            return True
+        if self._hidden_levels and level_of(item) in self._hidden_levels:
+            return False
+        return _line_matches(item.message, self._current_filter_terms, item.json_data)
 
     # ── QAbstractListModel interface ──────────────────────────────────────────
 
@@ -196,8 +215,8 @@ class LogModel(QAbstractListModel):
                 is_json=json_data is not None,
                 json_data=json_data,
                 main_key=main_key,
-                visible=_line_matches(message, self._current_filter_terms, json_data),
             )
+            item.visible = self._passes_filter(item)
             self._items.append(item)
             appended.append(item)
             if json_data:
@@ -254,17 +273,18 @@ class LogModel(QAbstractListModel):
         self.endInsertRows()
         self.rows_appended.emit()
 
-    def apply_filter(self, terms: list[TermRow]) -> None:
-        if terms == self._current_filter_terms:
+    def apply_filter(self, terms: list[TermRow], hidden_levels=frozenset()) -> None:
+        hidden_levels = frozenset(hidden_levels)
+        if terms == self._current_filter_terms and hidden_levels == self._hidden_levels:
             # Same filter (e.g. switching back to this tab): nothing to rebuild
             self.filter_applied.emit()
             return
         self._current_filter_terms = terms
+        self._hidden_levels = hidden_levels
         self.beginResetModel()
         self._visible = []
         for item in self._items:
-            item.visible = item.is_break or _line_matches(
-                item.message, self._current_filter_terms, item.json_data)
+            item.visible = self._passes_filter(item)
             if item.visible:
                 self._visible.append(item)
         self.endResetModel()

@@ -121,3 +121,42 @@ def test_break_survives_filter():
     assert model.rowCount() == 2
     items = [model.data(model.index(i), _ITEM_ROLE) for i in range(model.rowCount())]
     assert any(it.is_break for it in items)
+
+
+# ── level filter ─────────────────────────────────────────────────────────────
+
+def _lvl_model():
+    from log_model import LogModel
+    m = LogModel()
+    m.append_events([
+        (1, "ERROR db down"), (2, "WARN slow query"), (3, "INFO started"),
+        (4, "DEBUG cache miss"), (5, "no level here"),
+    ])
+    return m
+
+
+def test_hiding_levels_removes_those_rows_only():
+    m = _lvl_model()
+    m.apply_filter([], {"debug", "info"})
+    assert [i.message for i in m.visible_items()] == ["ERROR db down", "WARN slow query", "no level here"]
+    m.apply_filter([], frozenset())
+    assert m.visible_count() == 5
+
+
+def test_level_filter_combines_with_the_terms():
+    from log_model import TermRow
+    m = _lvl_model()
+    m.apply_filter([TermRow("db", "")], {"warn"})
+    assert [i.message for i in m.visible_items()] == ["ERROR db down"]
+
+
+def test_new_lines_respect_the_level_filter_and_breaks_stay():
+    m = _lvl_model()
+    m.apply_filter([], {"error"})
+    m.append_events([(6, "ERROR again"), (7, "INFO ok")])
+    m.insert_break()
+    shown = [i.message for i in m.visible_items()]
+    assert "ERROR again" not in shown and "INFO ok" in shown
+    assert any(i.is_break for i in m.visible_items())
+    m.apply_filter([], {"error", "info"})
+    assert any(i.is_break for i in m.visible_items())

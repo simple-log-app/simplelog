@@ -222,3 +222,23 @@ def test_right_sidebar_fits_its_default_width_in_every_language(locale):
             assert widest <= 190, (locale, i, widest)   # the sidebar is 224 wide, 10px margins
     finally:
         i18n.set_locale("en")
+
+
+def test_level_chips_filter_the_active_viewer():
+    import ui
+    viewer = ui.LogViewer(source_type="file")
+    sidebar = ui.FilterSearchSidebar()
+    sidebar.set_active_viewer(viewer)
+    viewer.append_events([(1, "ERROR boom"), (2, "INFO fine"), (3, "WARN hmm")])
+    viewer.flush_pending()
+    assert viewer._model.visible_count() == 3
+    sidebar._level_btns["info"].click()          # hide INFO
+    assert [i.message for i in viewer._model.visible_items()] == ["ERROR boom", "WARN hmm"]
+    sidebar._level_btns["info"].click()          # show it again
+    assert viewer._model.visible_count() == 3
+    sidebar._level_btns["error"].click()
+    other = ui.LogViewer(source_type="file")
+    other.append_events([(1, "ERROR x"), (2, "INFO y")])
+    other.flush_pending()
+    sidebar.set_active_viewer(other)             # the chips follow the user across tabs
+    assert [i.message for i in other._model.visible_items()] == ["INFO y"]

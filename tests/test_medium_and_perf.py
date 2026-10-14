@@ -235,7 +235,7 @@ def test_severity_is_computed_once_per_row(viewer):
     viewer.append_events([(0, "ERROR boom")])
     item = viewer._model.visible_items()[0]
     assert item.level is None
-    with patch("log_view._classify_line", return_value="error") as classify:
+    with patch("log_model._classify_line", return_value="error") as classify:
         assert viewer._delegate._level(item) == "error"
         assert viewer._delegate._level(item) == "error"
     classify.assert_called_once()
