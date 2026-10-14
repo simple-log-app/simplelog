@@ -371,6 +371,10 @@ class MainWindow(QMainWindow):
         self._act_next_bookmark.setShortcut(QKeySequence("F2"))
         self._act_next_bookmark.triggered.connect(lambda: self._action_goto_bookmark(1))
         self._menu_edit.addAction(self._act_next_bookmark)
+        self._act_clear_bookmarks = QAction(self)
+        self._act_clear_bookmarks.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        self._act_clear_bookmarks.triggered.connect(self._action_clear_bookmarks)
+        self._menu_edit.addAction(self._act_clear_bookmarks)
         self._act_prev_bookmark = QAction(self)
         self._act_prev_bookmark.setShortcut(QKeySequence("Shift+F2"))
         self._act_prev_bookmark.triggered.connect(lambda: self._action_goto_bookmark(-1))
@@ -506,6 +510,7 @@ class MainWindow(QMainWindow):
         self._act_bookmark.setText(i18n.tr("action_toggle_bookmark"))
         self._act_next_bookmark.setText(i18n.tr("action_next_bookmark"))
         self._act_prev_bookmark.setText(i18n.tr("action_prev_bookmark"))
+        self._act_clear_bookmarks.setText(i18n.tr("action_clear_bookmarks"))
         self._menu_lang.setTitle(i18n.tr("menu_language"))
         for code, action in self._lang_actions.items():
             action.setChecked(code == locale)
@@ -521,6 +526,12 @@ class MainWindow(QMainWindow):
         viewer = self._active_viewer()
         if viewer:
             viewer.toggle_bookmark()
+
+    def _action_clear_bookmarks(self) -> None:
+        """Edit → Remove all bookmarks of the active log."""
+        viewer = self._active_viewer()
+        if viewer and not viewer.clear_bookmarks():
+            self._status.showMessage(i18n.tr("status_no_bookmarks"), 3000)
 
     def _action_goto_bookmark(self, step: int) -> None:
         viewer = self._active_viewer()

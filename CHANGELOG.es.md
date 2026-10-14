@@ -9,7 +9,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Filtro por nivel: muestra u oculta las líneas ERROR, WARN, INFO, DEBUG y TRACE con las fichas de la pestaña Filtro.
 - Búsqueda y filtro: nuevas opciones «distinguir mayúsculas» y «expresión regular», y se sugieren tus términos recientes al escribir (↓ en un campo vacío para listarlos).
 - Reglas de resaltado (menú Edición): colorea en todos los logs las palabras que te importan, con distinción de mayúsculas y expresiones regulares opcionales.
-- Marcadores: marca líneas con Ctrl+B (o el menú contextual) y salta entre ellas con F2 / Mayús+F2.
+- Marcadores: marca líneas con Ctrl+B (o el menú contextual) y salta entre ellas con F2 / Mayús+F2, o quítalos todos a la vez (Ctrl+Mayús+B).
 - Exportar: guarda en un archivo las líneas mostradas (tras tus filtros) o solo la selección, desde el menú Archivo (Ctrl+Mayús+E) o el menú contextual.
 - Vista combinada (menú Archivo): muestra varios logs abiertos en una sola pestaña, en orden cronológico, con cada línea indicando su origen.
 - Las pestañas remotas muestran su estado de conexión (punto de color en el logotipo) y se reconectan solas cuando el flujo se corta, sin duplicar líneas; se puede desactivar en el menú Archivo.

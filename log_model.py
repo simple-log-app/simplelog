@@ -364,6 +364,15 @@ class LogModel(QAbstractListModel):
                 index = self.index(row)
                 self.dataChanged.emit(index, index)
 
+    def clear_bookmarks(self) -> int:
+        """Remove every bookmark (also on rows hidden by a filter); returns how many."""
+        marked = [it for it in self._items if it.bookmarked]
+        for item in marked:
+            item.bookmarked = False
+        if marked and self._visible:
+            self.dataChanged.emit(self.index(0), self.index(len(self._visible) - 1))
+        return len(marked)
+
     def bookmark_rows(self) -> list[int]:
         """The visible rows that are bookmarked, top to bottom."""
         return [i for i, item in enumerate(self._visible) if item.bookmarked]

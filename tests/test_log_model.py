@@ -256,3 +256,16 @@ def test_all_events_lists_everything_but_breaks():
     m.append_events([(1, "a"), (2, "b")])
     m.insert_break()
     assert m.all_events() == [(1, "a"), (2, "b")]
+
+
+def test_clear_bookmarks_removes_them_everywhere_even_on_filtered_rows():
+    from log_model import LogModel, TermRow
+    m = LogModel()
+    m.append_events([(1, "keep a"), (2, "hidden"), (3, "keep b")])
+    m.set_bookmarks([0, 1, 2], True)
+    m.apply_filter([TermRow("keep", "")])            # "hidden" is no longer shown
+    assert m.bookmark_rows() == [0, 1]
+    assert m.clear_bookmarks() == 3                  # the hidden one counts too
+    assert m.bookmark_rows() == []
+    m.apply_filter([])
+    assert m.bookmark_rows() == [] and m.clear_bookmarks() == 0

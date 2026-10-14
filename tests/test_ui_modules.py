@@ -497,3 +497,21 @@ def test_merge_action_needs_two_logs_and_the_dialog_lists_them():
         assert dlg._ok.isEnabled() and dlg.chosen() == [0, 2]
     finally:
         win.close()
+
+
+def test_remove_all_bookmarks_from_the_menu_and_the_viewer():
+    import main_window
+    win = main_window.MainWindow()
+    try:
+        v = _viewer_with_lines(5)
+        win._cur_viewer = v
+        v._model.set_bookmarks([0, 2, 4], True)
+        seen = []
+        v.bookmarks_changed.connect(lambda: seen.append(1))
+        win._action_clear_bookmarks()
+        assert v.bookmark_count() == 0 and seen
+        win._action_clear_bookmarks()                      # none left: a hint, no crash
+        assert "bookmark" in win._status.currentMessage().lower()
+        assert win._act_clear_bookmarks.shortcut().toString() == "Ctrl+Shift+B"
+    finally:
+        win.close()

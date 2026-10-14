@@ -9,7 +9,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Filtre par niveau : affichez ou masquez les lignes ERROR, WARN, INFO, DEBUG et TRACE avec les pastilles de l'onglet Filtre.
 - Recherche et filtre : nouvelles options « respecter la casse » et « expression régulière », et vos termes récents sont proposés pendant la saisie (↓ dans un champ vide pour les lister).
 - Règles de coloration (menu Édition) : colorez dans tous vos logs les mots qui comptent pour vous, avec respect de la casse et expressions régulières en option.
-- Marque-pages : repérez des lignes avec Ctrl+B (ou le menu clic droit) et passez de l'une à l'autre avec F2 / Maj+F2.
+- Marque-pages : repérez des lignes avec Ctrl+B (ou le menu clic droit) et passez de l'une à l'autre avec F2 / Maj+F2, ou retirez-les tous d'un coup (Ctrl+Maj+B).
 - Export : enregistrez dans un fichier les lignes affichées (après vos filtres) ou seulement la sélection, depuis le menu Fichier (Ctrl+Maj+E) ou le menu clic droit.
 - Vue fusionnée (menu Fichier) : affichez plusieurs logs ouverts dans un seul onglet, par ordre chronologique, chaque ligne indiquant sa source.
 - Les onglets distants affichent leur état de connexion (pastille de couleur sur le logo) et se reconnectent tout seuls quand le flux se coupe, sans dupliquer de lignes ; désactivable dans le menu Fichier.

@@ -1106,6 +1106,13 @@ class LogViewer(QWidget):
             self._model.set_bookmarks(rows, not all(marked))
             self.bookmarks_changed.emit()
 
+    def clear_bookmarks(self) -> int:
+        """Remove all the bookmarks of this log; returns how many there were."""
+        count = self._model.clear_bookmarks()
+        if count:
+            self.bookmarks_changed.emit()
+        return count
+
     def goto_bookmark(self, step: int) -> bool:
         """Select the next (step=1) or previous (step=-1) bookmark, wrapping around.
 
@@ -1148,6 +1155,9 @@ class LogViewer(QWidget):
         bookmark_action = menu.addAction(i18n.tr("action_toggle_bookmark"))
         bookmark_action.setEnabled(bool(self._target_rows()))
         bookmark_action.triggered.connect(self.toggle_bookmark)
+        clear_action = menu.addAction(i18n.tr("action_clear_bookmarks"))
+        clear_action.setEnabled(self.bookmark_count() > 0)
+        clear_action.triggered.connect(self.clear_bookmarks)
         menu.exec(self._list_view.mapToGlobal(pos))
 
     def copy(self) -> None:
