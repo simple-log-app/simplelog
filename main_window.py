@@ -21,7 +21,9 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QAction,
+    QActionGroup,
     QDesktopServices,
+    QGuiApplication,
     QIcon,
     QKeySequence,
     QShortcut,
@@ -34,6 +36,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressDialog,
     QSplitter,
@@ -372,8 +375,25 @@ class MainWindow(QMainWindow):
             f"QToolButton {{ background: transparent; color: {C_MUTED}; border: none;"
             f" border-radius: 5px; padding: 3px 10px; font-size: 12px; }}"
             f"QToolButton:hover {{ color: {C_TEXT}; background: {C_HOVER}; }}"
+            f"QToolButton::menu-button {{ border: none; width: 14px; background: transparent; }}"
+            f"QToolButton::menu-button:hover {{ background: {C_HOVER}; border-radius: 5px; }}"
         )
         self._theme_btn.clicked.connect(self._toggle_theme)
+        # The arrow next to the button picks the mode: follow the system, or force one
+        self._theme_menu = QMenu(self._theme_btn)
+        self._theme_actions: dict[str, QAction] = {}
+        group = QActionGroup(self)
+        for mode in ui_theme.MODES:
+            action = QAction(self, checkable=True)
+            action.triggered.connect(lambda _=False, m=mode: self._set_theme_mode(m))
+            group.addAction(action)
+            self._theme_menu.addAction(action)
+            self._theme_actions[mode] = action
+        self._theme_btn.setMenu(self._theme_menu)
+        self._theme_btn.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        hints = QGuiApplication.styleHints()
+        if hints is not None:
+            hints.colorSchemeChanged.connect(self._on_system_scheme_changed)
         corner = QWidget()
         corner.setStyleSheet("background: transparent;")
         corner_lay = QHBoxLayout(corner)
@@ -386,15 +406,28 @@ class MainWindow(QMainWindow):
         self._retranslate_menubar()
 
     def _toggle_theme(self) -> None:
-        light = ui_theme.current_theme() == "dark"
-        ui_theme.apply_style(QApplication.instance(), "light" if light else "dark")
+        """Day <-> night (an explicit choice: it leaves the "follow the system" mode)."""
+        self._set_theme_mode("light" if ui_theme.current_theme() == "dark" else "dark")
+
+    def _set_theme_mode(self, mode: str) -> None:
+        ui_theme.apply_mode(QApplication.instance(), mode)
         ui_theme.save_theme()
+        self._refresh_theme_btn()
+
+    def _on_system_scheme_changed(self, *_args) -> None:
+        if ui_theme.theme_mode() == "auto":
+            ui_theme.apply_style(QApplication.instance(), ui_theme.system_theme())
 
     def _refresh_theme_btn(self) -> None:
         # Shows the mode a click switches to: "Day" (sun) while dark, "Night" (moon) while light
         to_light = ui_theme.current_theme() == "dark"
         self._theme_btn.setIcon(_svg_icon(_SVG_SUN if to_light else _SVG_MOON, C_MUTED, 15))
         self._theme_btn.setText(i18n.tr("theme_day" if to_light else "theme_night"))
+        labels = {"auto": i18n.tr("theme_auto"), "light": i18n.tr("theme_day"),
+                  "dark": i18n.tr("theme_night")}
+        for mode, action in self._theme_actions.items():
+            action.setText(labels[mode])
+            action.setChecked(mode == ui_theme.theme_mode())
 
     def _on_theme_changed(self, theme: str) -> None:
         """Re-colour what stylesheets cannot reach: icons, painted widgets, saved styles."""

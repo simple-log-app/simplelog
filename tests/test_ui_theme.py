@@ -34,11 +34,22 @@ def test_c_follows_the_active_theme():
 
 def test_theme_preference_round_trip():
     assert ui_theme.load_theme() == "dark"
-    ui_theme._theme = "light"
+    ui_theme._mode = "light"
     ui_theme.save_theme()
-    ui_theme._theme = "dark"
+    ui_theme._mode = "dark"
     assert ui_theme.load_theme() == "light"
     assert ui_theme.current_theme() == "dark"      # reading does not switch
+    ui_theme._mode = "auto"
+    ui_theme.save_theme()
+    assert ui_theme.load_theme() == "auto"
+    ui_theme._mode = "dark"
+
+
+def test_resolve_theme_follows_the_system_only_in_auto(monkeypatch):
+    monkeypatch.setattr(ui_theme, "system_theme", lambda: "light")
+    assert ui_theme.resolve_theme("auto") == "light"
+    assert ui_theme.resolve_theme("dark") == "dark"
+    assert ui_theme.resolve_theme("nonsense") == "dark"
 
 
 def test_unknown_stored_theme_falls_back_to_dark():
@@ -113,6 +124,18 @@ assert ui_theme.current_theme() == "light" and ui_theme.load_theme() == "light"
 assert win._theme_btn.text() == "Night"
 win._toggle_theme()
 assert ui_theme.load_theme() == "dark" and win._theme_btn.text() == "Day"
+
+# follow the system
+ui_theme.system_theme = lambda: "light"
+win._set_theme_mode("auto")
+assert ui_theme.theme_mode() == "auto" and ui_theme.current_theme() == "light"
+assert ui_theme.load_theme() == "auto"
+assert win._theme_actions["auto"].isChecked()
+ui_theme.system_theme = lambda: "dark"
+win._on_system_scheme_changed()
+assert ui_theme.current_theme() == "dark"
+win._toggle_theme()                       # an explicit choice leaves the auto mode
+assert ui_theme.theme_mode() == "light" and ui_theme.current_theme() == "light"
 print("ok")
 """
 

@@ -365,5 +365,6 @@
   "tip_search_prev": "上一个匹配",
   "tip_search_next": "下一个匹配",
   "sidebar_op_and": "与",
-  "sidebar_op_or": "或"
+  "sidebar_op_or": "或",
+  "theme_auto": "自动（跟随系统）"
 }

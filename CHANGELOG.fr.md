@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Ajouté
+- Le thème peut désormais suivre le réglage clair / sombre de votre système : choisissez « Auto » avec la flèche à côté du bouton Jour / Nuit.
+
 ## [2.0.0] - 2026-10-14
 
 ### Ajouté

@@ -352,5 +352,6 @@
   "tip_search_prev": "Vorheriger Treffer",
   "tip_search_next": "Nächster Treffer",
   "sidebar_op_and": "UND",
-  "sidebar_op_or": "ODER"
+  "sidebar_op_or": "ODER",
+  "theme_auto": "Automatisch (System)"
 }

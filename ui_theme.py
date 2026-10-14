@@ -14,6 +14,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QColor,
     QFont,
+    QGuiApplication,
     QIcon,
     QPainter,
     QPalette,
@@ -345,7 +346,9 @@ LIGHT: dict[str, str] = {
 
 THEMES: dict[str, dict[str, str]] = {"dark": DARK, "light": LIGHT}
 
-_theme = "dark"
+_theme = "dark"          # the theme in use: "dark" | "light"
+_mode = "dark"           # the preference: "dark" | "light" | "auto" (follow the system)
+MODES = ("auto", "light", "dark")
 _PREFS_PATH = CONFIG_DIR / "prefs.json"
 
 
@@ -370,18 +373,34 @@ def c(role: str) -> str:
     return THEMES[_theme][role]
 
 
+def theme_mode() -> str:
+    """The preference: "dark", "light" or "auto" (follow the system)."""
+    return _mode
+
+
+def system_theme() -> str:
+    """"light" or "dark" according to the operating system ("dark" when it cannot tell)."""
+    hints = QGuiApplication.styleHints()
+    scheme = hints.colorScheme() if hints is not None else Qt.ColorScheme.Unknown
+    return "light" if scheme == Qt.ColorScheme.Light else "dark"
+
+
+def resolve_theme(mode: str) -> str:
+    return system_theme() if mode == "auto" else (mode if mode in THEMES else "dark")
+
+
 def load_theme() -> str:
-    """The persisted theme preference ("dark" by default); apply it with apply_style()."""
+    """The persisted preference ("dark" by default); apply it with apply_mode()."""
     prefs = read_json(_PREFS_PATH, {})
     candidate = prefs.get("theme") if isinstance(prefs, dict) else None
-    return candidate if candidate in THEMES else "dark"
+    return candidate if candidate in MODES else "dark"
 
 
 def save_theme() -> None:
     prefs = read_json(_PREFS_PATH, {})
     if not isinstance(prefs, dict):
         prefs = {}
-    prefs["theme"] = _theme
+    prefs["theme"] = _mode
     try:
         write_json(_PREFS_PATH, prefs)
     except OSError:
@@ -512,6 +531,13 @@ def _convert_widgets(new: str) -> None:
 
 
 # ── apply_style ────────────────────────────────────────────────────────────────
+
+def apply_mode(app: QApplication, mode: str) -> None:
+    """Set the preference to *mode* and show the matching theme."""
+    global _mode
+    _mode = mode if mode in MODES else "dark"
+    apply_style(app, resolve_theme(_mode))
+
 
 def apply_style(app: QApplication, theme: str | None = None) -> None:
     """Apply the palette and global stylesheet of *theme* (default: the active one)."""
