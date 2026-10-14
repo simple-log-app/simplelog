@@ -4,6 +4,8 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-14
+
 ### Added
 - The theme can now follow your system's light / dark setting: pick “Auto” from the arrow next to the Day / Night button.
 - Filter by level: show or hide ERROR, WARN, INFO, DEBUG and TRACE lines with the chips in the Filter tab.

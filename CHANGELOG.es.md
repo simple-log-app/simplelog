@@ -4,6 +4,8 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.1.0] - 2026-10-14
+
 ### Añadido
 - El tema ahora puede seguir el ajuste claro / oscuro de tu sistema: elige «Auto» con la flecha junto al botón Día / Noche.
 - Filtro por nivel: muestra u oculta las líneas ERROR, WARN, INFO, DEBUG y TRACE con las fichas de la pestaña Filtro.
