@@ -15,6 +15,9 @@ All notable changes to SimpleLog are documented in this file.
 - Remote tabs show their connection state (a coloured dot on the logo) and reconnect by themselves when the stream drops, without duplicating lines; this can be turned off in the File menu.
 - New log sources: the local systemd journal, Heroku, Render, Splunk, Better Stack and Sentry (error events).
 
+### Changed
+- Add connection: the “Split” choices of “Open as” are greyed out while no log is open, since there is nothing to split yet.
+
 ## [2.0.0] - 2026-10-14
 
 ### Added

@@ -15,6 +15,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Les onglets distants affichent leur état de connexion (pastille de couleur sur le logo) et se reconnectent tout seuls quand le flux se coupe, sans dupliquer de lignes ; désactivable dans le menu Fichier.
 - Nouvelles sources de logs : le journal systemd local, Heroku, Render, Splunk, Better Stack et Sentry (événements d'erreur).
 
+### Modifié
+- Ajout d'une connexion : les choix « Split » de « Ouvrir comme » sont grisés tant qu'aucun log n'est ouvert, puisqu'il n'y a encore rien à scinder.
+
 ## [2.0.0] - 2026-10-14
 
 ### Ajouté

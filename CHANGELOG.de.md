@@ -15,6 +15,9 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Remote-Tabs zeigen ihren Verbindungsstatus (farbiger Punkt am Logo) und verbinden sich bei Abbruch von selbst neu, ohne Zeilen zu duplizieren; im Menü Datei abschaltbar.
 - Neue Log-Quellen: das lokale systemd-Journal, Heroku, Render, Splunk, Better Stack und Sentry (Fehlerereignisse).
 
+### Geändert
+- Verbindung hinzufügen: Die „Split“-Optionen von „Öffnen als“ sind ausgegraut, solange kein Log geöffnet ist, da es noch nichts zu teilen gibt.
+
 ## [2.0.0] - 2026-10-14
 
 ### Hinzugefügt

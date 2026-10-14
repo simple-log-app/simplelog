@@ -212,6 +212,7 @@ class MainWindow(QMainWindow):
 
         self._remote_panel = RemoteHomePanel()
         self._remote_panel.tab_requested.connect(self.open_remote_tab)
+        self._remote_panel.split_available = lambda: self._top_tabs.count() > 0
         self._side_stack.addWidget(self._remote_panel)  # index 0
 
         self._file_panel = FilePanel()

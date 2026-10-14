@@ -589,6 +589,10 @@ class OpenModeWidget(QWidget):
                     background: {C_HOVER};
                     color: {C_TEXT};
                 }}
+                QPushButton:disabled {{
+                    background: transparent;
+                    color: {C_MUTED2};
+                }}
             """)
             self._grp.addButton(btn, idx)
             seg_layout.addWidget(btn, 1)
@@ -601,6 +605,14 @@ class OpenModeWidget(QWidget):
         i18n.register(_key, self.retranslate)
         self.destroyed.connect(lambda _=None, k=_key: i18n.unregister(k))
         self.retranslate()
+
+    def set_split_enabled(self, enabled: bool) -> None:
+        """Splitting needs a log tab to split: without one only "New tab" is offered."""
+        for mode in ("vertical", "horizontal"):
+            self._btns[mode].setEnabled(enabled)
+            self._btns[mode].setToolTip("" if enabled else i18n.tr("open_mode_no_split"))
+        if not enabled:
+            self._btns["tab"].setChecked(True)
 
     def get_mode(self) -> str:
         for mode, btn in self._btns.items():

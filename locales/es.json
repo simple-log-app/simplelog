@@ -444,5 +444,6 @@
   "msg_journald_streaming": "Siguiendo el diario ({name})…",
   "msg_journald_ended": "El flujo del diario terminó",
   "help_journald": "<h3>Diario de systemd</h3><p>Sigue el diario de <b>este equipo</b> con <code>journalctl</code>.</p><p>Indica una <b>unidad</b> (p. ej. <code>nginx.service</code>) para ver solo ese servicio, y una <b>prioridad</b> para ocultar las líneas menos importantes. Leer todo el diario puede requerir pertenecer al grupo <code>systemd-journal</code>.</p>",
-  "action_clear_bookmarks": "Quitar todos los marcadores"
+  "action_clear_bookmarks": "Quitar todos los marcadores",
+  "open_mode_no_split": "Abre primero un log: todavía no hay nada que dividir"
 }

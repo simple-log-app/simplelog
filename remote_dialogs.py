@@ -120,7 +120,10 @@ class AddConnectionDialog(QDialog):
 
     tab_requested = pyqtSignal(dict, str)
 
-    def __init__(self, parent=None, preselect: str | None = None, prefill_profile: dict | None = None) -> None:
+    def __init__(
+        self, parent=None, preselect: str | None = None, prefill_profile: dict | None = None,
+        split_enabled: bool = True,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(i18n.tr("remote_add_title"))
         self.setModal(True)
@@ -145,6 +148,7 @@ class AddConnectionDialog(QDialog):
         self._restore_queue: list = []
         self._restore_ticks_left: int = 0
         self._prefill_profile: dict | None = prefill_profile
+        self._split_enabled = split_enabled      # False when there is no log tab to split
         self._is_existing: bool = prefill_profile is not None
         _key = id(self)
         i18n.register(_key, self._retranslate_dlg)
@@ -494,6 +498,7 @@ class AddConnectionDialog(QDialog):
 
         # "Open as": one choice for every provider, kept next to the buttons that open
         self._open_mode_w = OpenModeWidget()
+        self._open_mode_w.set_split_enabled(self._split_enabled)
         foot_lay.addWidget(self._open_mode_w)
 
         btn_row = QHBoxLayout()
@@ -614,6 +619,9 @@ class RemoteHomePanel(QWidget):
         self.reload()
         _key = id(self)
         i18n.register(_key, self.retranslate)
+
+    #: Does a log tab exist to split? (set by the main window; True when used alone)
+    split_available = staticmethod(lambda: True)
 
     def retranslate(self) -> None:
         self._remote_title_lbl.setText(i18n.tr("remote_title"))
@@ -941,7 +949,8 @@ class RemoteHomePanel(QWidget):
     # ── Actions ───────────────────────────────────────────────────────────────
 
     def _on_add(self, preselect: str | None = None) -> None:
-        dlg = AddConnectionDialog(parent=self, preselect=preselect)
+        dlg = AddConnectionDialog(
+            parent=self, preselect=preselect, split_enabled=self.split_available())
         dlg.tab_requested.connect(self.tab_requested)
         dlg.exec()
         dlg.deleteLater()
@@ -952,6 +961,7 @@ class RemoteHomePanel(QWidget):
             parent=self,
             preselect=svc,
             prefill_profile=profile,
+            split_enabled=self.split_available(),
         )
         dlg.tab_requested.connect(self.tab_requested)
         dlg.exec()

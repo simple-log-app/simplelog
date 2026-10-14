@@ -161,3 +161,43 @@ def test_open_as_lives_in_the_dialog_footer_and_decides_the_mode(store):
     dlg._open_mode_w._btns["vertical"].setChecked(True)
     dlg._on_embedded_panel_tab({"type": "railway"}, "tab")         # panel's own value is ignored
     assert got == ["vertical"]
+
+
+def test_split_choices_are_greyed_out_when_no_log_is_open(store):
+    dlg = remote_dialogs.AddConnectionDialog(preselect="railway", split_enabled=False)
+    w = dlg._open_mode_w
+    assert not w._btns["vertical"].isEnabled() and not w._btns["horizontal"].isEnabled()
+    assert w._btns["tab"].isEnabled() and w.get_mode() == "tab"
+    assert "log first" in w._btns["vertical"].toolTip()
+    dlg.reject()
+
+    dlg = remote_dialogs.AddConnectionDialog(preselect="railway")          # default: all offered
+    assert dlg._open_mode_w._btns["vertical"].isEnabled()
+    assert dlg._open_mode_w._btns["vertical"].toolTip() == ""
+    dlg.reject()
+
+
+def test_disabling_split_falls_back_to_a_new_tab_and_can_be_undone():
+    from ui_widgets import OpenModeWidget
+    w = OpenModeWidget()
+    w._btns["horizontal"].setChecked(True)
+    w.set_split_enabled(False)
+    assert w.get_mode() == "tab"
+    w.set_split_enabled(True)
+    assert w._btns["horizontal"].isEnabled() and w.get_mode() == "tab"
+
+
+def test_main_window_tells_the_dialog_whether_a_tab_exists(store):
+    import main_window
+    import ui
+    win = main_window.MainWindow()
+    try:
+        assert win._remote_panel.split_available() is False
+        v = ui.LogViewer(source_type="file")
+        spl = win._make_tab_splitter()
+        spl.addWidget(v)
+        win._top_tabs.addTab(spl, "t")
+        assert win._remote_panel.split_available() is True
+        assert remote_dialogs.RemoteHomePanel().split_available() is True      # alone: no restriction
+    finally:
+        win.close()

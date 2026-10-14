@@ -15,6 +15,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Las pestañas remotas muestran su estado de conexión (punto de color en el logotipo) y se reconectan solas cuando el flujo se corta, sin duplicar líneas; se puede desactivar en el menú Archivo.
 - Nuevas fuentes de logs: el diario local de systemd, Heroku, Render, Splunk, Better Stack y Sentry (eventos de error).
 
+### Cambiado
+- Añadir conexión: las opciones «Split» de «Abrir como» aparecen atenuadas mientras no haya ningún log abierto, ya que aún no hay nada que dividir.
+
 ## [2.0.0] - 2026-10-14
 
 ### Añadido
