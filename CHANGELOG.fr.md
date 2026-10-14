@@ -13,6 +13,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Export : enregistrez dans un fichier les lignes affichées (après vos filtres) ou seulement la sélection, depuis le menu Fichier (Ctrl+Maj+E) ou le menu clic droit.
 - Vue fusionnée (menu Fichier) : affichez plusieurs logs ouverts dans un seul onglet, par ordre chronologique, chaque ligne indiquant sa source.
 - Les onglets distants affichent leur état de connexion (pastille de couleur sur le logo) et se reconnectent tout seuls quand le flux se coupe, sans dupliquer de lignes ; désactivable dans le menu Fichier.
+- Nouvelles sources de logs : le journal systemd local, Heroku, Render, Splunk, Better Stack et Sentry (événements d'erreur).
 
 ## [2.0.0] - 2026-10-14
 

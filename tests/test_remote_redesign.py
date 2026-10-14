@@ -117,6 +117,8 @@ def test_embedded_panels_hide_their_saved_profile_bar(store):
 
 def test_every_provider_has_a_bundled_logo():
     for p in providers.PROVIDERS:
+        if p.id == "heroku":
+            continue          # no brand logo is published for it: the glyph is used instead
         assert p.logo and ui_theme._logo_svg(p.logo, "#ffffff"), p.id
 
 

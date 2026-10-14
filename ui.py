@@ -62,6 +62,7 @@ from panels.base import (  # noqa: F401
     LIST_STYLE,
     ProviderPanel,
 )
+from panels.betterstack import BetterStackPanel  # noqa: F401
 from panels.cloudflare import (  # noqa: F401
     CloudflarePanel,
     _CloudflareConnectWorker,
@@ -87,11 +88,14 @@ from panels.flyio import (  # noqa: F401
     FlyioPanel,
     _FlyioConnectWorker,
 )
+from panels.form import Field, FormPanel  # noqa: F401
 from panels.gcp import (  # noqa: F401
     GCPPanel,
     _GCPConnectWorker,
     _GCPListProjectsWorker,
 )
+from panels.heroku import HerokuPanel  # noqa: F401
+from panels.journald import JournaldPanel  # noqa: F401
 from panels.kubernetes import (  # noqa: F401
     KubernetesPanel,
     _K8sConnectWorker,
@@ -105,6 +109,9 @@ from panels.railway import (  # noqa: F401
     RailwayPanel,
     _RailwayConnectWorker,
 )
+from panels.render import RenderPanel  # noqa: F401
+from panels.sentry import SentryPanel  # noqa: F401
+from panels.splunk import SplunkPanel  # noqa: F401
 from panels.ssh import (  # noqa: F401
     SSHPanel,
     SSHRecentManager,

@@ -13,6 +13,8 @@ UI_MODULES = [
     "panels.cloudwatch", "panels.file", "panels.ssh", "panels.docker", "panels.vercel",
     "panels.gcp", "panels.azure", "panels.loki", "panels.datadog", "panels.elastic",
     "panels.railway", "panels.flyio", "panels.kubernetes", "panels.cloudflare",
+    "panels.form", "panels.heroku", "panels.render", "panels.splunk", "panels.betterstack",
+    "panels.sentry", "panels.journald",
 ]
 
 PANELS = {
@@ -23,6 +25,9 @@ PANELS = {
     "panels.datadog": "DatadogPanel", "panels.elastic": "ElasticPanel",
     "panels.railway": "RailwayPanel", "panels.flyio": "FlyioPanel",
     "panels.kubernetes": "KubernetesPanel", "panels.cloudflare": "CloudflarePanel",
+    "panels.heroku": "HerokuPanel", "panels.render": "RenderPanel",
+    "panels.splunk": "SplunkPanel", "panels.betterstack": "BetterStackPanel",
+    "panels.sentry": "SentryPanel", "panels.journald": "JournaldPanel",
 }
 
 

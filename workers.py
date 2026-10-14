@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from PyQt6.QtCore import QThread, pyqtSignal
 
 import azure_utils
+import betterstack_utils
 import changelog
 import cloudflare_utils
 import cloudwatch
@@ -23,10 +24,15 @@ import datadog_utils
 import elastic_utils
 import flyio_utils
 import gcp_utils
+import heroku_utils
 import i18n
+import journald_utils
 import kubernetes_utils
 import loki_utils
 import railway_utils
+import render_utils
+import sentry_utils
+import splunk_utils
 import vercel_utils
 from worker_base import (
     HISTORY_CAP,
@@ -956,3 +962,194 @@ class CloudflareWorker(LogWorker):
             cloudflare_utils.delete_tail(
                 self._api_token, self._account_id, self._script_name, tail_id
             )
+
+
+# ── Heroku (logplex stream) ───────────────────────────────────────────────────
+
+class HerokuWorker(StreamWorker):
+    """Opens a Heroku log session and follows its stream."""
+
+    _INITIAL_LINES = 300
+
+    def __init__(self, token: str, app_name: str) -> None:
+        super().__init__()
+        self._token = token
+        self._app_name = app_name
+        self._resp = None
+
+    def stop(self) -> None:
+        super().stop()
+        resp = self._resp
+        if resp is not None:
+            with contextlib.suppress(Exception):
+                resp.close()          # unblocks the reader thread
+
+    @staticmethod
+    def _parse(batch: list) -> list[tuple[int, str]]:
+        events = []
+        for raw in batch:
+            line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
+            parsed = heroku_utils.parse_line(line)
+            if parsed:
+                events.append(parsed)
+        return events
+
+    def run(self) -> None:
+        self.status.emit(i18n.tr("msg_heroku_connecting", name=self._app_name))
+        try:
+            url = heroku_utils.create_log_session(
+                self._token, self._app_name, lines=self._INITIAL_LINES, tail=True)
+            self._resp = heroku_utils.open_log_stream(url)
+            if self._stop:
+                return
+            self.status.emit(i18n.tr("msg_heroku_streaming", name=self._app_name))
+            self._pump(self._resp, self._parse)
+            if not self._stop:
+                self.error.emit(i18n.tr("msg_heroku_closed"))
+        except Exception as e:
+            if not self._stop:
+                self.error.emit(str(e))
+        finally:
+            if self._resp is not None:
+                with contextlib.suppress(Exception):
+                    self._resp.close()
+
+
+# ── Render ────────────────────────────────────────────────────────────────────
+
+class RenderWorker(PollingWorker):
+    """Polls the logs of a Render service."""
+
+    _SRC = "Render"
+
+    def __init__(self, api_key: str, owner_id: str, resource_id: str, name: str,
+                 interval_s: float = 5.0, lookback_s: float = 3600.0) -> None:
+        super().__init__(interval_s)
+        self._api_key, self._owner_id, self._resource_id = api_key, owner_id, resource_id
+        self._lookback_s = lookback_s
+        self._dedup = Dedup(window_ms=2_000)
+        self._ctx = {"label": name}
+
+    def _fetch(self, start_ms: int):
+        return self._dedup.new(render_utils.fetch_logs(
+            self._api_key, self._owner_id, self._resource_id, start_ms))
+
+    def _fetch_history(self):
+        return self._fetch(int(time.time() * 1000) - int(self._lookback_s * 1000))
+
+    def _fetch_new(self):
+        newest = self._dedup.newest or int(time.time() * 1000)
+        return self._fetch(newest - 2_000)
+
+
+# ── Splunk ────────────────────────────────────────────────────────────────────
+
+class SplunkWorker(PollingWorker):
+    """Re-runs a Splunk search every few seconds and shows the new events."""
+
+    _SRC = "Splunk"
+
+    def __init__(self, url: str, query: str, token: str = "", username: str = "",
+                 password: str = "", verify_tls: bool = True, interval_s: float = 10.0,
+                 lookback_s: float = 3600.0, label: str = "") -> None:
+        super().__init__(interval_s)
+        self._url, self._query = url, query
+        self._auth = {"token": token, "username": username, "password": password}
+        self._verify_tls = verify_tls
+        self._lookback_s = lookback_s
+        self._dedup = Dedup(window_ms=2_000)
+        self._ctx = {"label": label or url}
+
+    def _fetch(self, earliest_s: float):
+        return self._dedup.new(splunk_utils.export_search(
+            self._url, self._query, earliest_s, verify_tls=self._verify_tls, **self._auth))
+
+    def _fetch_history(self):
+        return self._fetch(time.time() - self._lookback_s)
+
+    def _fetch_new(self):
+        newest = self._dedup.newest
+        return self._fetch((newest / 1000 - 2) if newest else time.time() - 60)
+
+
+# ── Better Stack ──────────────────────────────────────────────────────────────
+
+class BetterStackWorker(PollingWorker):
+    """Polls a Better Stack source through its ClickHouse HTTP API."""
+
+    _SRC = "Better Stack"
+
+    def __init__(self, host: str, username: str, password: str, table: str,
+                 interval_s: float = 5.0, lookback_s: float = 3600.0) -> None:
+        super().__init__(interval_s)
+        self._host, self._username, self._password, self._table = host, username, password, table
+        self._lookback_s = lookback_s
+        self._dedup = Dedup(window_ms=2_000)
+        self._ctx = {"label": table}
+
+    def _fetch(self, since_ms: int):
+        return self._dedup.new(betterstack_utils.fetch_logs(
+            self._host, self._username, self._password, self._table, since_ms))
+
+    def _fetch_history(self):
+        return self._fetch(int(time.time() * 1000) - int(self._lookback_s * 1000))
+
+    def _fetch_new(self):
+        newest = self._dedup.newest or int(time.time() * 1000)
+        return self._fetch(newest - 2_000)
+
+
+# ── Sentry ────────────────────────────────────────────────────────────────────
+
+class SentryWorker(PollingWorker):
+    """Polls the error events of a Sentry project."""
+
+    _SRC = "Sentry"
+
+    def __init__(self, token: str, org: str, project: str, url: str = sentry_utils.DEFAULT_URL,
+                 interval_s: float = 15.0, lookback_s: float = 3600.0) -> None:
+        super().__init__(interval_s)
+        self._token, self._org, self._project, self._url = token, org, project, url
+        self._lookback_s = lookback_s
+        self._dedup = Dedup(window_ms=2_000)
+        self._ctx = {"label": f"{org}/{project}"}
+
+    def _fetch(self, start_ms: int):
+        return self._dedup.new(sentry_utils.fetch_events(
+            self._token, self._org, self._project, start_ms, self._url))
+
+    def _fetch_history(self):
+        return self._fetch(int(time.time() * 1000) - int(self._lookback_s * 1000))
+
+    def _fetch_new(self):
+        newest = self._dedup.newest or int(time.time() * 1000)
+        return self._fetch(newest - 2_000)
+
+
+# ── journald (local) ──────────────────────────────────────────────────────────
+
+class JournaldWorker(DockerStreamWorker):
+    """Follows the local systemd journal with ``journalctl``."""
+
+    _ENDED_STATUS = "msg_journald_ended"
+
+    def __init__(self, unit: str = "", priority: str = "", lookback_s: float = 3600.0) -> None:
+        super().__init__()
+        self._unit, self._priority, self._lookback_s = unit, priority, lookback_s
+
+    def _command(self) -> list[str]:
+        return journald_utils.command(self._unit, self._priority, int(self._lookback_s))
+
+    def _start_status(self) -> str:
+        return i18n.tr("msg_journald_streaming", name=self._unit or i18n.tr("journald_all_units"))
+
+    def _parse(self, batch: list[str]) -> list[tuple[int, str]]:
+        events = []
+        for raw in batch:
+            parsed = journald_utils.parse_line(raw)
+            if parsed:
+                events.append(parsed)
+        return events
+
+    def _exit_error(self, code: int) -> str:
+        return i18n.tr("err_cmd_exit", cmd="journalctl", code=code)

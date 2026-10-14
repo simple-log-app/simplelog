@@ -252,8 +252,15 @@ class AddConnectionDialog(QDialog):
             card = self._make_provider_card(provider)
             self._cards.append((provider, card))
         self._layout_cards(providers.PROVIDERS)
-        body_lay.addWidget(grid_host)
-        body_lay.addStretch()
+        # Many sources: the grid scrolls instead of making the dialog taller than a screen
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        grid_host.setStyleSheet("background: transparent;")
+        scroll.setWidget(grid_host)
+        scroll.setMinimumHeight(420)
+        body_lay.addWidget(scroll, 1)
 
         lay.addWidget(body)
         return page

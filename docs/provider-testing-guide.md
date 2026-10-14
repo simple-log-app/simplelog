@@ -434,6 +434,35 @@ kubectl logs -f log-generator
 
 ---
 
+## 11. Journal systemd (local)
+
+**Pas de compte nécessaire**, mais `journalctl` doit exister (systemd).
+
+```bash
+logger -t simplelog-test "hello from the journal"        # génère une ligne
+journalctl -f -u ssh.service                              # ce que SimpleLog exécute (à peu près)
+```
+
+Dans SimpleLog : **Ajouter → systemd journal**, unité vide (tout) ou `ssh.service`, priorité au choix. Vérifier : les lignes arrivent, la priorité masque bien les lignes moins graves, une unité invalide (`--x`) désactive *Ouvrir*.
+
+---
+
+## 12. Heroku · Render · Splunk · Better Stack · Sentry — **non validés sur un vrai compte**
+
+Ces cinq sources ont été écrites d'après la documentation officielle des API et testées avec des réponses HTTP simulées, **mais jamais contre un vrai service**. À valider un par un avant de les annoncer :
+
+| Source | Identifiants | À vérifier en priorité |
+|---|---|---|
+| Heroku | jeton (`heroku authorizations:create`) | la liste des apps, le flux `tail` (la `logplex_url` expire vite), la reconnexion quand le flux se ferme |
+| Render | clé d'API (Account Settings → API Keys) | la forme de `GET /v1/services` (`service` imbriqué ou non), le paramètre `ownerId`, la pagination `hasMore` / `nextStartTime` |
+| Splunk | URL du port de gestion `:8089` + jeton ou utilisateur / mot de passe | l'endpoint `search/jobs/export`, la décoche *Vérifier le certificat TLS* avec un certificat auto-signé, un jeton sans droit de recherche |
+| Better Stack | connexion *Integrations → Connect remotely* (hôte, utilisateur, mot de passe) + table `tNNN_source_logs` | la requête `remote(<table>)` et le format de la colonne `dt`, un hôte du mauvais cluster |
+| Sentry | jeton avec la portée `project:read` | `GET /api/0/projects/`, `…/events/?start=&end=` (les champs `title`, `culprit`, `tags`), une instance auto-hébergée |
+
+Netlify n'est volontairement pas pris en charge : aucune API publique documentée ne permet de lire les logs de déploiement ou de fonctions.
+
+---
+
 ## Récapitulatif
 
 | Provider | Compte requis | Coût | Difficulté setup |
@@ -448,5 +477,7 @@ kubectl logs -f log-generator
 | GCP | Oui (CB requise) | $300 crédit | ⭐⭐⭐ Moyen |
 | Datadog | Oui | Trial 14j | ⭐⭐ Facile |
 | Azure | Oui (CB requise) | $200 crédit | ⭐⭐⭐⭐ Complexe |
+| systemd journal | Non | Gratuit | ⭐ Très facile |
+| Heroku / Render / Splunk / Better Stack / Sentry | Oui | selon l'offre | ⭐⭐ Facile (à valider) |
 
 **Ordre recommandé** : Docker → SSH → Loki → Elasticsearch → Railway → Fly.io → Kubernetes → Datadog → GCP → Azure

@@ -56,9 +56,7 @@ class ProviderPanel(QWidget):
     @staticmethod
     def _lbl(style: str, text: str) -> QLabel:
         if style == LBL_STYLE:
-            lbl = _field_label(text)   # field captions: small uppercase, spaced
-            lbl.setStyleSheet(style)
-            return lbl
+            return _field_label(text)   # field captions: small uppercase, spaced
         lbl = QLabel(text)
         lbl.setStyleSheet(style)
         return lbl

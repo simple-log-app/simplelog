@@ -315,8 +315,10 @@ class NavRail(QWidget):
 def make_card(title: str | None = None, help_key: str | None = None) -> tuple[QFrame, QVBoxLayout, QLabel | None]:
     """Return (frame, layout, title_label | None) for a sidebar card."""
     frame = QFrame()
+    frame.setObjectName("sl_card")
+    # Scoped by name: a bare "QFrame {…}" would also box every label inside the card
     frame.setStyleSheet(
-        f"QFrame {{ background: {C_CARD}; border: 1px solid {C_BORDER};"
+        f"QFrame#sl_card {{ background: {C_CARD}; border: 1px solid {C_BORDER};"
         f" border-radius: 6px; }}"
     )
     layout = QVBoxLayout(frame)

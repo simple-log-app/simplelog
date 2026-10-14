@@ -13,6 +13,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Export: Speichern Sie die aktuell angezeigten Zeilen (nach Ihren Filtern) oder nur die Auswahl in einer Datei – über das Menü Datei (Strg+Umschalt+E) oder das Rechtsklickmenü.
 - Zusammengeführte Ansicht (Menü Datei): Zeigen Sie mehrere geöffnete Logs in einem Tab in zeitlicher Reihenfolge an, jede Zeile mit ihrer Quelle.
 - Remote-Tabs zeigen ihren Verbindungsstatus (farbiger Punkt am Logo) und verbinden sich bei Abbruch von selbst neu, ohne Zeilen zu duplizieren; im Menü Datei abschaltbar.
+- Neue Log-Quellen: das lokale systemd-Journal, Heroku, Render, Splunk, Better Stack und Sentry (Fehlerereignisse).
 
 ## [2.0.0] - 2026-10-14
 

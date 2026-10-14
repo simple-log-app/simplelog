@@ -38,7 +38,8 @@ IDS = [p.id for p in providers.PROVIDERS]
 
 def test_ids_are_unique_and_in_the_documented_order():
     assert IDS == ["cloudwatch", "gcp", "azure", "ssh", "docker", "vercel", "loki", "datadog",
-                   "elastic", "railway", "flyio", "kubernetes", "cloudflare"]
+                   "elastic", "railway", "flyio", "kubernetes", "cloudflare", "journald", "heroku",
+                   "render", "splunk", "betterstack", "sentry"]
     assert len(set(IDS)) == len(IDS)
 
 
@@ -146,6 +147,20 @@ SESSIONS = [
      workers.KubernetesWorker, "kubernetes", "k8s  ›  prod/web-1", "prod/web-1"),
     ("cloudflare", {"type": "cloudflare", "api_token": "t", "account_id": "a", "script_name": "edge"},
      workers.CloudflareWorker, "cloudflare", "cloudflare  ›  edge", "edge"),
+    ("journald", {"type": "journald", "unit": "nginx.service", "priority": "err"},
+     workers.JournaldWorker, "journald", "journald  ›  nginx.service", "nginx.service"),
+    ("heroku", {"type": "heroku", "token": "t", "app_name": "shop"},
+     workers.HerokuWorker, "heroku", "heroku  ›  shop", "shop"),
+    ("render", {"type": "render", "api_key": "k", "owner_id": "o", "resource_id": "srv-1",
+                "name": "api"},
+     workers.RenderWorker, "render", "render  ›  api", "api"),
+    ("splunk", {"type": "splunk", "url": "https://s:8089", "query": "index=main", "token": "t"},
+     workers.SplunkWorker, "splunk", "splunk  ›  https://s:8089", "https://s:8089"),
+    ("betterstack", {"type": "betterstack", "host": "h", "username": "u", "password": "p",
+                     "table": "t1_x_logs"},
+     workers.BetterStackWorker, "betterstack", "better stack  ›  t1_x_logs", "t1_x_logs"),
+    ("sentry", {"type": "sentry", "token": "t", "org": "acme", "project": "web"},
+     workers.SentryWorker, "sentry", "sentry  ›  acme/web", "acme/web"),
 ]
 
 
@@ -364,10 +379,11 @@ def test_panels_implement_the_whole_contract(make_panel, pid):
 
 @pytest.mark.parametrize("pid", IDS)
 def test_only_docker_has_nothing_to_save(make_panel, pid):
-    assert make_panel(pid).saveable is (pid != "docker")
+    # docker and journald talk to this machine: no credentials, nothing to save
+    assert make_panel(pid).saveable is (pid not in ("docker", "journald"))
 
 
-@pytest.mark.parametrize("pid", [i for i in IDS if i != "docker"])
+@pytest.mark.parametrize("pid", [i for i in IDS if i not in ("docker", "journald")])
 def test_nothing_is_openable_before_connecting(make_panel, pid):
     p = make_panel(pid)
     assert p.can_open() is False
@@ -411,6 +427,12 @@ PROFILES = {
     "railway": {"token": "tok"},
     "flyio": {"token": "tok"},
     "cloudflare": {"api_token": "tok", "account_id": "acc"},
+    "heroku": {"token": "tok"},
+    "render": {"api_key": "key"},
+    "splunk": {"url": "https://s:8089", "token": "t", "username": "", "password": "",
+               "verify_tls": False},
+    "betterstack": {"host": "h.example.com", "username": "u", "password": "p", "table": "t1_x_logs"},
+    "sentry": {"url": "https://sentry.example.com", "token": "tok"},
     "kubernetes": {"context": "prod"},
 }
 

@@ -38,6 +38,7 @@ from ui_theme import (
 )
 from workers import (
     AzureWorker,
+    BetterStackWorker,
     CloudflareWorker,
     DatadogWorker,
     DockerComposeWorker,
@@ -46,9 +47,14 @@ from workers import (
     ElasticWorker,
     FlyioWorker,
     GCPWorker,
+    HerokuWorker,
+    JournaldWorker,
     KubernetesWorker,
     LokiWorker,
     RailwayWorker,
+    RenderWorker,
+    SentryWorker,
+    SplunkWorker,
     SSHWorker,
     TailWorker,
     VercelWorker,
@@ -257,6 +263,56 @@ def _cloudflare(cfg: dict, _client) -> Session:
     return Session(worker, "cloudflare", f"cloudflare  ›  {label}", label)
 
 
+def _heroku(cfg: dict, _client) -> Session:
+    worker = HerokuWorker(cfg["token"], cfg["app_name"])
+    label = cfg.get("label", cfg["app_name"])
+    return Session(worker, "heroku", f"heroku  ›  {label}", label)
+
+
+def _render(cfg: dict, _client) -> Session:
+    label = cfg.get("label", cfg.get("name", "render"))
+    worker = RenderWorker(
+        cfg["api_key"], cfg["owner_id"], cfg["resource_id"], label,
+        interval_s=cfg.get("interval_s", 5), lookback_s=cfg.get("lookback_s", 3600),
+    )
+    return Session(worker, "render", f"render  ›  {label}", label)
+
+
+def _splunk(cfg: dict, _client) -> Session:
+    label = cfg.get("label", cfg["url"])
+    worker = SplunkWorker(
+        cfg["url"], cfg.get("query", "*"), token=cfg.get("token", ""),
+        username=cfg.get("username", ""), password=cfg.get("password", ""),
+        verify_tls=cfg.get("verify_tls", True), interval_s=cfg.get("interval_s", 10),
+        lookback_s=cfg.get("lookback_s", 3600), label=label,
+    )
+    return Session(worker, "splunk", f"splunk  ›  {label}", label)
+
+
+def _betterstack(cfg: dict, _client) -> Session:
+    label = cfg.get("label", cfg["table"])
+    worker = BetterStackWorker(
+        cfg["host"], cfg["username"], cfg["password"], cfg["table"],
+        interval_s=cfg.get("interval_s", 5), lookback_s=cfg.get("lookback_s", 3600),
+    )
+    return Session(worker, "betterstack", f"better stack  ›  {label}", label)
+
+
+def _sentry(cfg: dict, _client) -> Session:
+    label = cfg.get("label", f"{cfg['org']}/{cfg['project']}")
+    worker = SentryWorker(
+        cfg["token"], cfg["org"], cfg["project"], cfg.get("url", "https://sentry.io"),
+        interval_s=cfg.get("interval_s", 15), lookback_s=cfg.get("lookback_s", 3600),
+    )
+    return Session(worker, "sentry", f"sentry  ›  {label}", label)
+
+
+def _journald(cfg: dict, _client) -> Session:
+    unit = cfg.get("unit", "")
+    worker = JournaldWorker(unit, cfg.get("priority", ""), cfg.get("lookback_s", 3600))
+    return Session(worker, "journald", f"journald  ›  {unit or 'all units'}", unit or "journald")
+
+
 # ── The registry (order = order on the provider picker and in the saved list) ──
 
 PROVIDERS: tuple[Provider, ...] = (
@@ -317,6 +373,24 @@ PROVIDERS: tuple[Provider, ...] = (
              "Cloudflare Workers real-time logs", "panels.cloudflare:CloudflarePanel", _cloudflare,
              source_color="#f6821f", subtitle_key="account_id",
              logo="assets/providers/cloudflare.svg"),
+    Provider("journald", "systemd journal", "▤", "#f0c060", _SVG_SSH,
+             "Local systemd journal (journalctl)", "panels.journald:JournaldPanel", _journald,
+             source_color="#f0c060", logo="assets/providers/linux.svg"),
+    Provider("heroku", "Heroku", "H", "#9e7cc1", _SVG_CLOUD,
+             "Heroku app logs", "panels.heroku:HerokuPanel", _heroku,
+             source_color="#9e7cc1", subtitle_key="app_name"),
+    Provider("render", "Render", "R", "#46e3b7", _SVG_CLOUD,
+             "Render service logs", "panels.render:RenderPanel", _render,
+             source_color="#46e3b7", subtitle_key="name", logo="assets/providers/render.svg"),
+    Provider("splunk", "Splunk", "S", "#65a637", _SVG_CLOUD,
+             "Splunk searches", "panels.splunk:SplunkPanel", _splunk,
+             source_color="#65a637", subtitle_key="label", logo="assets/providers/splunk.svg"),
+    Provider("betterstack", "Better Stack", "B", "#8b5cf6", _SVG_CLOUD,
+             "Better Stack (Logtail) logs", "panels.betterstack:BetterStackPanel", _betterstack,
+             source_color="#8b5cf6", subtitle_key="table", logo="assets/providers/betterstack.svg"),
+    Provider("sentry", "Sentry", "S", "#a68cf4", _SVG_CLOUD,
+             "Sentry error events", "panels.sentry:SentryPanel", _sentry,
+             source_color="#a68cf4", subtitle_key="label", logo="assets/providers/sentry.svg"),
 )
 
 _BY_ID = {p.id: p for p in PROVIDERS}
