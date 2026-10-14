@@ -682,6 +682,7 @@ class LogViewer(QWidget):
     pane_close_requested = pyqtSignal()
     bookmarks_changed    = pyqtSignal()
     export_requested     = pyqtSignal(bool)   # True: the selection only
+    merge_requested      = pyqtSignal()       # "Merge logs…" chosen in the context menu
     events_added         = pyqtSignal(list)   # every batch of (ts_ms, message) this log receives
 
     _MAX_LINES = 10_000
@@ -1158,6 +1159,9 @@ class LogViewer(QWidget):
         clear_action = menu.addAction(i18n.tr("action_clear_bookmarks"))
         clear_action.setEnabled(self.bookmark_count() > 0)
         clear_action.triggered.connect(self.clear_bookmarks)
+        menu.addSeparator()
+        merge_action = menu.addAction(i18n.tr("action_merge"))
+        merge_action.triggered.connect(self.merge_requested)
         menu.exec(self._list_view.mapToGlobal(pos))
 
     def copy(self) -> None:

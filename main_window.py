@@ -605,6 +605,7 @@ class MainWindow(QMainWindow):
         merged.export_requested.connect(
             lambda selection, v=merged: (self._set_active_viewer(v), self._action_export(selection))
         )
+        merged.merge_requested.connect(self._action_merge_tabs)
         spl = self._make_tab_splitter()
         spl.addWidget(merged)
         idx = self._top_tabs.addTab(spl, i18n.tr("merge_tab", n=len(sources)))
@@ -1164,6 +1165,7 @@ class MainWindow(QMainWindow):
         viewer.export_requested.connect(
             lambda selection, v=viewer: (self._set_active_viewer(v), self._action_export(selection))
         )
+        viewer.merge_requested.connect(self._action_merge_tabs)
 
     def _discard(self, viewer: LogViewer, worker) -> None:
         """Throw away a viewer/worker pair that was never wired or started."""

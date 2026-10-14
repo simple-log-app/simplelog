@@ -537,3 +537,51 @@ def test_merge_logs_lives_in_the_edit_menu_not_the_file_menu():
         assert win._act_merge not in win._menu_file.actions()
     finally:
         win.close()
+
+
+class _Worker:
+    """Just enough of a worker for the window: signals, and what closing it asks."""
+
+    def __init__(self):
+        from PyQt6.QtCore import QObject, pyqtSignal
+
+        class _Sig(QObject):
+            new_lines = pyqtSignal(list)
+            status = pyqtSignal(str)
+            error = pyqtSignal(str)
+
+        self._sig = _Sig()
+        self.new_lines, self.status, self.error = (
+            self._sig.new_lines, self._sig.status, self._sig.error)
+
+    def isRunning(self):  # noqa: N802
+        return False
+
+    def stop(self):
+        pass
+
+
+def test_merge_logs_is_in_the_context_menu_of_a_log_and_a_merged_view(monkeypatch):
+    from PyQt6.QtWidgets import QMenu
+
+    import main_window
+    import ui
+    win = main_window.MainWindow()
+    try:
+        asked = []
+        monkeypatch.setattr(win, "_action_merge_tabs", lambda: asked.append(1))
+        a, b = ui.LogViewer(source_type="file"), ui.LogViewer(source_type="file")
+        a.append_events([(1, "a")])
+        win._wire_viewer(a, _Worker())                             # as a real log tab is
+        merged = win.merge_viewers([("a", a), ("b", b)])
+        for viewer in (a, merged):
+            captured = []
+            monkeypatch.setattr(QMenu, "exec", lambda self, *args, c=captured: c.append(
+                [act.text() for act in self.actions()]) or None)
+            viewer._show_context_menu(viewer._list_view.rect().center())
+            assert "Merge logs…" in captured[0]
+        viewer.merge_requested.emit()
+        a.merge_requested.emit()
+        assert len(asked) == 2                          # both viewers reach the window's action
+    finally:
+        win.close()

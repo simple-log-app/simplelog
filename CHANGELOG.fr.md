@@ -11,7 +11,7 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 - Règles de coloration (menu Édition) : colorez dans tous vos logs les mots qui comptent pour vous, avec respect de la casse et expressions régulières en option.
 - Marque-pages : repérez des lignes avec Ctrl+B (ou le menu clic droit) et passez de l'une à l'autre avec F2 / Maj+F2, ou retirez-les tous d'un coup (Ctrl+Maj+B).
 - Export : enregistrez dans un fichier les lignes affichées (après vos filtres) ou seulement la sélection, depuis le menu Fichier (Ctrl+Maj+E) ou le menu clic droit.
-- Vue fusionnée (menu Édition) : affichez plusieurs logs ouverts dans un seul onglet, par ordre chronologique, chaque ligne indiquant sa source.
+- Vue fusionnée (menu Édition ou clic droit) : affichez plusieurs logs ouverts dans un seul onglet, par ordre chronologique, chaque ligne indiquant sa source.
 - Les onglets distants affichent leur état de connexion (pastille de couleur sur le logo) et se reconnectent tout seuls quand le flux se coupe, sans dupliquer de lignes ; désactivable dans le menu Fichier.
 - Nouvelles sources de logs : le journal systemd local, Heroku, Render, Splunk, Better Stack et Sentry (événements d'erreur).
 
