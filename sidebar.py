@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from PyQt6.QtCore import (
     QSize,
+    QStringListModel,
     Qt,
     QTimer,
     pyqtSignal,
@@ -14,6 +17,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QCompleter,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -28,7 +32,8 @@ from PyQt6.QtWidgets import (
 )
 
 import i18n
-from log_model import LEVELS, TermRow
+from config_store import CONFIG_DIR, read_json, write_json
+from log_model import LEVELS, TermRow, term_is_invalid
 from log_view import LogViewer
 from ui_theme import (
     C_ACCENT,
@@ -56,6 +61,22 @@ from ui_widgets import _field_label
 _KEY_PREV = "Shift+F3"
 _KEY_NEXT = "F3"
 
+_HISTORY_PATH = CONFIG_DIR / "search_history.json"
+_HISTORY_MAX = 30
+
+
+class _HistoryLineEdit(QLineEdit):
+    """Line edit that lists the recent terms on ↓ while it is empty."""
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        completer = self.completer()
+        if event.key() == Qt.Key.Key_Down and completer is not None and not self.text():
+            completer.setCompletionPrefix("")
+            completer.complete()
+            return
+        super().keyPressEvent(event)
+
+
 # ── Sidebar helper: one term input row ────────────────────────────────────────
 
 class _TermRowWidget(QWidget):
@@ -63,6 +84,7 @@ class _TermRowWidget(QWidget):
 
     changed          = pyqtSignal()
     remove_requested = pyqtSignal()
+    committed        = pyqtSignal(str)   # Enter pressed / focus left: the term to remember
 
     def __init__(self, operator: str = "", mode: str = "text", parent=None):
         super().__init__(parent)
@@ -106,7 +128,7 @@ class _TermRowWidget(QWidget):
             eq_lbl.setFixedWidth(10)
             row.addWidget(eq_lbl)
 
-            self._val_input = QLineEdit()
+            self._val_input = _HistoryLineEdit()
             self._val_input.setStyleSheet(_input_style)
             self._val_input.textChanged.connect(self.changed)
             row.addWidget(self._val_input, stretch=1)
@@ -114,10 +136,12 @@ class _TermRowWidget(QWidget):
             # Alias for common API (set_placeholder, focus_input target val)
             self._input = self._val_input
         else:
-            self._input = QLineEdit()
+            self._input = _HistoryLineEdit()
             self._input.setStyleSheet(_input_style)
             self._input.textChanged.connect(self.changed)
             row.addWidget(self._input, stretch=1)
+        self._input_style = _input_style
+        self._input.editingFinished.connect(lambda: self.committed.emit(self._input.text()))
 
         # Remove button
         self._rm_btn = QPushButton("×")
@@ -160,6 +184,15 @@ class _TermRowWidget(QWidget):
 
     def focus_input(self) -> None:
         self._input.setFocus()
+
+    def set_completer(self, completer: QCompleter) -> None:
+        """Suggest the remembered terms while typing."""
+        self._input.setCompleter(completer)
+
+    def set_invalid(self, invalid: bool) -> None:
+        """Mark the term as an invalid regular expression (red text)."""
+        style = self._input_style + (f" color: {C_ERR};" if invalid else "")
+        self._input.setStyleSheet(style)
 
     def set_text(self, text: str) -> None:
         """In kv mode, sets the key field. In text mode, sets the single input."""
@@ -207,6 +240,14 @@ class FilterSearchSidebar(QWidget):
         self._search_match_index: int = -1
         self._search_term_widgets: list[_TermRowWidget] = []
         self._filter_term_widgets: list[_TermRowWidget] = []
+
+        # Recently used terms, offered as suggestions in every term field
+        history = read_json(_HISTORY_PATH, [])
+        self._history: list[str] = [h for h in history if isinstance(h, str)][:_HISTORY_MAX]
+        self._history_model = QStringListModel(self._history, self)
+        self._completer = QCompleter(self._history_model, self)
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
 
         # Debounce timers
         self._filter_timer = QTimer(self)
@@ -356,6 +397,10 @@ class FilterSearchSidebar(QWidget):
         vbox.setContentsMargins(10, 8, 10, 8)
         vbox.setSpacing(4)
 
+        opts, self._search_case_btn, self._search_regex_btn = self._make_option_row(
+            self._on_search_changed)
+        vbox.addLayout(opts)
+
         # Term rows block
         self._search_block = QWidget()
         self._search_block.setStyleSheet(self._term_block_style())
@@ -407,6 +452,10 @@ class FilterSearchSidebar(QWidget):
         vbox = QVBoxLayout(parent)
         vbox.setContentsMargins(10, 8, 10, 8)
         vbox.setSpacing(4)
+
+        opts, self._filter_case_btn, self._filter_regex_btn = self._make_option_row(
+            self._on_filter_options_changed)
+        vbox.addLayout(opts)
 
         self._filter_block = QWidget()
         self._filter_block.setStyleSheet(self._term_block_style())
@@ -500,6 +549,8 @@ class FilterSearchSidebar(QWidget):
         row.setContentsMargins(8, 4, 4, 4)
         row.changed.connect(self._on_search_changed)
         row.remove_requested.connect(lambda r=row: self._remove_search_row(r))
+        row.set_completer(self._completer)
+        row.committed.connect(self._remember)
         self._search_term_widgets.append(row)
         self._search_rows_layout.addWidget(row)
         row.set_placeholder(i18n.tr("sidebar_term_ph"))
@@ -543,6 +594,8 @@ class FilterSearchSidebar(QWidget):
         row.setContentsMargins(8, 4, 4, 4)
         row.changed.connect(self._on_filter_changed)
         row.remove_requested.connect(lambda r=row: self._remove_filter_row(r))
+        row.set_completer(self._completer)
+        row.committed.connect(self._remember)
         self._filter_term_widgets.append(row)
         self._filter_rows_layout.addWidget(row)
         row.set_placeholder(i18n.tr("sidebar_term_ph"))
@@ -567,6 +620,54 @@ class FilterSearchSidebar(QWidget):
     def _on_filter_changed(self) -> None:
         if self._cb_live.isChecked():
             self._filter_timer.start()
+
+    def _make_option_row(self, on_change):
+        """The "match case" and "regular expression" toggles of a term block."""
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(3)
+        buttons = []
+        for text in ("Aa", ".*"):
+            btn = QPushButton(text)
+            btn.setCheckable(True)
+            btn.setFixedSize(28, 20)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(
+                f"QPushButton {{ background: transparent; color: {C_MUTED}; padding: 0;"
+                f" border: 1px solid {C_BORDER}; border-radius: 4px; font-size: 10px;"
+                f" font-weight: 700; font-family: 'JetBrains Mono', monospace; }}"
+                f"QPushButton:hover {{ color: {C_TEXT}; border-color: {C_BORDER2}; }}"
+                f"QPushButton:checked {{ background: {rgba(C_ACCENT, 31)}; color: {C_ACCENT};"
+                f" border: 1px solid {rgba(C_ACCENT, 90)}; }}"
+            )
+            btn.toggled.connect(lambda _checked: on_change())
+            row.addWidget(btn)
+            buttons.append(btn)
+        row.addStretch()
+        return row, buttons[0], buttons[1]
+
+    def _on_filter_options_changed(self) -> None:
+        self._filter_timer.start()
+
+    def _remember(self, text: str) -> None:
+        """Keep *text* at the top of the history of terms (persisted)."""
+        text = text.strip()
+        if not text:
+            return
+        if text in self._history:
+            self._history.remove(text)
+        self._history.insert(0, text)
+        del self._history[_HISTORY_MAX:]
+        self._history_model.setStringList(self._history)
+        try:
+            write_json(_HISTORY_PATH, self._history)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _flag_invalid(widgets: list, terms: list) -> None:
+        for widget, term in zip(widgets, terms, strict=False):
+            widget.set_invalid(term_is_invalid(term))
 
     def _on_levels_changed(self, _checked: bool = False) -> None:
         self._apply_filter_now()
@@ -610,10 +711,18 @@ class FilterSearchSidebar(QWidget):
             # _refresh_search is triggered by filter_applied signal
 
     def _current_filter_terms(self) -> list[TermRow]:
-        return [w.to_term_row() for w in self._filter_term_widgets]
+        case, regex = self._filter_case_btn.isChecked(), self._filter_regex_btn.isChecked()
+        terms = [replace(w.to_term_row(), case=case, regex=regex)
+                 for w in self._filter_term_widgets]
+        self._flag_invalid(self._filter_term_widgets, terms)
+        return terms
 
     def _current_search_terms(self) -> list[TermRow]:
-        return [w.to_term_row() for w in self._search_term_widgets]
+        case, regex = self._search_case_btn.isChecked(), self._search_regex_btn.isChecked()
+        terms = [replace(w.to_term_row(), case=case, regex=regex)
+                 for w in self._search_term_widgets]
+        self._flag_invalid(self._search_term_widgets, terms)
+        return terms
 
     # ── Apply filter / search ─────────────────────────────────────────────────
 
@@ -733,6 +842,10 @@ class FilterSearchSidebar(QWidget):
         self._btn_add_filter_kv.setText(i18n.tr("sidebar_add_kv"))
         self._cb_live.setText(i18n.tr("sidebar_live_filter"))
         self._lbl_levels.setText(i18n.tr("sidebar_levels"))
+        for case_btn, regex_btn in ((self._search_case_btn, self._search_regex_btn),
+                                    (self._filter_case_btn, self._filter_regex_btn)):
+            case_btn.setToolTip(i18n.tr("tip_match_case"))
+            regex_btn.setToolTip(i18n.tr("tip_regex"))
         self._lbl_json_ph.setText(i18n.tr("sidebar_json_ph"))
         for w in self._search_term_widgets + self._filter_term_widgets:
             w.set_placeholder(i18n.tr("sidebar_term_ph"))

@@ -124,6 +124,7 @@ from remote_dialogs import (  # noqa: F401
 )
 from sidebar import (  # noqa: F401
     FilterSearchSidebar,
+    _HistoryLineEdit,
     _TermRowWidget,
 )
 from ui_theme import (  # noqa: F401

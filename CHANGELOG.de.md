@@ -7,6 +7,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 ### Hinzugefügt
 - Das Design kann jetzt der Hell-/Dunkel-Einstellung Ihres Systems folgen: Wählen Sie „Automatisch“ über den Pfeil neben der Tag-/Nacht-Schaltfläche.
 - Filter nach Stufe: Zeilen der Stufen ERROR, WARN, INFO, DEBUG und TRACE lassen sich mit den Chips im Tab „Filter“ ein- oder ausblenden.
+- Suche und Filter: neue Optionen „Groß-/Kleinschreibung beachten“ und „Regulärer Ausdruck“; zuletzt verwendete Begriffe werden beim Tippen vorgeschlagen (↓ in einem leeren Feld zeigt sie an).
 
 ## [2.0.0] - 2026-10-14
 

@@ -160,3 +160,40 @@ def test_new_lines_respect_the_level_filter_and_breaks_stay():
     assert any(i.is_break for i in m.visible_items())
     m.apply_filter([], {"error", "info"})
     assert any(i.is_break for i in m.visible_items())
+
+
+# ── case / regex options ─────────────────────────────────────────────────────
+
+def test_case_option_changes_matching():
+    from log_model import TermRow, _line_matches
+    assert _line_matches("Error: Boom", [TermRow("error", "")])
+    assert not _line_matches("Error: Boom", [TermRow("error", "", case=True)])
+    assert _line_matches("Error: Boom", [TermRow("Error", "", case=True)])
+
+
+def test_regex_option_matches_patterns_and_json_values():
+    from log_model import TermRow, _line_matches
+    assert _line_matches("took 245 ms", [TermRow(r"\d{3} ms", "", regex=True)])
+    assert not _line_matches("took 245 ms", [TermRow(r"\d{3} ms", "")])      # literal text
+    assert _line_matches('{"code": "E42"}', [TermRow(r"^E\d+$", "", key="code", regex=True)])
+    assert _line_matches("Fatal", [TermRow(r"^FATAL$", "", regex=True)])     # still case-insensitive
+    assert not _line_matches("Fatal", [TermRow(r"^FATAL$", "", case=True, regex=True)])
+
+
+def test_invalid_regex_matches_nothing_and_is_reported():
+    from log_model import TermRow, _line_matches, term_is_invalid
+    bad = TermRow("(unclosed", "", regex=True)
+    assert term_is_invalid(bad)
+    assert not _line_matches("(unclosed", [bad])
+    assert not term_is_invalid(TermRow("(unclosed", ""))      # fine as plain text
+    assert not term_is_invalid(TermRow("", "", regex=True))
+
+
+def test_terms_with_different_options_are_different_filters():
+    from log_model import LogModel, TermRow
+    m = LogModel()
+    m.append_events([(1, "Error A"), (2, "error b")])
+    m.apply_filter([TermRow("error", "")])
+    assert m.visible_count() == 2
+    m.apply_filter([TermRow("error", "", case=True)])
+    assert m.visible_count() == 1

@@ -367,5 +367,7 @@
   "sidebar_op_and": "AND",
   "sidebar_op_or": "OR",
   "theme_auto": "Auto (system)",
-  "sidebar_levels": "Levels"
+  "sidebar_levels": "Levels",
+  "tip_match_case": "Match case",
+  "tip_regex": "Regular expression"
 }

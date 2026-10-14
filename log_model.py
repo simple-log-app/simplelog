@@ -6,6 +6,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 
 from PyQt6.QtCore import (
     QAbstractListModel,
@@ -21,10 +22,39 @@ class TermRow:
     text: str
     operator: str  # "AND" | "OR" | "" — empty string for the first term (ignored)
     key: str = ""  # non-empty → JSON key=value match mode
+    case: bool = False   # match case
+    regex: bool = False  # *text* is a regular expression
+
+
+@lru_cache(maxsize=256)
+def _compile(text: str, case: bool, regex: bool) -> re.Pattern[str] | None:
+    """The pattern of a term, or None when it is an invalid regular expression."""
+    try:
+        return re.compile(text if regex else re.escape(text), 0 if case else re.IGNORECASE)
+    except re.error:
+        return None
+
+
+def term_pattern(term: TermRow) -> re.Pattern[str] | None:
+    return _compile(term.text, term.case, term.regex)
+
+
+def term_is_invalid(term: TermRow) -> bool:
+    """True for a regular expression that does not compile (it matches nothing)."""
+    return bool(term.regex and term.text and term_pattern(term) is None)
+
+
+def _text_in(term: TermRow, haystack: str) -> bool:
+    """Does *haystack* contain the term's text, honouring its case / regex options?"""
+    if not term.regex and not term.case:
+        return term.text.lower() in haystack.lower()      # the common, fast case
+    pattern = term_pattern(term)
+    return pattern is not None and pattern.search(haystack) is not None
 
 
 def _line_matches(line: str, terms: list[TermRow], json_data: dict | None = None) -> bool:
-    """Return True if *line* satisfies the AND/OR chain of *terms* (case-insensitive).
+    """Return True if *line* satisfies the AND/OR chain of *terms* (case-insensitive unless
+    a term asks for case, and plain text unless a term is a regular expression).
 
     *json_data* is the already parsed line, when the caller has it (saves a parse per term).
     """
@@ -34,7 +64,7 @@ def _line_matches(line: str, terms: list[TermRow], json_data: dict | None = None
     def _term_hit(term: TermRow) -> bool:
         if not term.key:
             # Plain text match
-            return term.text.lower() in line.lower()
+            return _text_in(term, line)
         # Key=value match: parse line as JSON, check data[key] contains text
         # Try the full line first, then search for an embedded JSON object
         data = json_data
@@ -59,7 +89,7 @@ def _line_matches(line: str, terms: list[TermRow], json_data: dict | None = None
             return False
         if term.text == "":
             return True  # key presence check
-        return term.text.lower() in str(data[term.key]).lower()
+        return _text_in(term, str(data[term.key]))
 
     result = _term_hit(terms[0])
     for term in terms[1:]:

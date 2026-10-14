@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import datetime
 
 from PyQt6.QtCore import (
@@ -48,6 +47,7 @@ from log_model import (
     LogModel,
     _line_matches,
     level_of,
+    term_pattern,
 )
 from ui_theme import (
     _SVG_CLOSE_X,
@@ -868,10 +868,10 @@ class LogViewer(QWidget):
             self._list_view.viewport().update()
             return []
 
-        patterns = [re.compile(re.escape(t.text), re.IGNORECASE) for t in active]
+        patterns = [p for p in (term_pattern(t) for t in active) if p is not None]
         # Rows remember their last result for these terms: while following a log only
         # the rows that arrived since the previous scan are actually searched.
-        terms_key = tuple((t.text, t.operator) for t in active)
+        terms_key = tuple((t.text, t.operator, t.case, t.regex) for t in active)
         results: list[tuple[int, int, int]] = []
         highlights: dict[int, list[tuple[int, int]]] = {}
 
@@ -888,6 +888,7 @@ class LogViewer(QWidget):
                         spans.extend(
                             (m.start(), m.end() - m.start())
                             for m in pattern.finditer(item.message)
+                            if m.end() > m.start()      # a zero-width match shows nothing
                         )
                 item.search = (terms_key, spans)
             if spans:

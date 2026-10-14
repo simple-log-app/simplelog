@@ -367,5 +367,7 @@
   "sidebar_op_and": "ET",
   "sidebar_op_or": "OU",
   "theme_auto": "Auto (système)",
-  "sidebar_levels": "Niveaux"
+  "sidebar_levels": "Niveaux",
+  "tip_match_case": "Respecter la casse",
+  "tip_regex": "Expression régulière"
 }

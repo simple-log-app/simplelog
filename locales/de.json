@@ -354,5 +354,7 @@
   "sidebar_op_and": "UND",
   "sidebar_op_or": "ODER",
   "theme_auto": "Automatisch (System)",
-  "sidebar_levels": "Stufen"
+  "sidebar_levels": "Stufen",
+  "tip_match_case": "Groß-/Kleinschreibung beachten",
+  "tip_regex": "Regulärer Ausdruck"
 }

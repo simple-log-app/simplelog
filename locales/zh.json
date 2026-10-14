@@ -367,5 +367,7 @@
   "sidebar_op_and": "与",
   "sidebar_op_or": "或",
   "theme_auto": "自动（跟随系统）",
-  "sidebar_levels": "级别"
+  "sidebar_levels": "级别",
+  "tip_match_case": "区分大小写",
+  "tip_regex": "正则表达式"
 }

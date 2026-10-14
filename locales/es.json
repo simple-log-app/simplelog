@@ -354,5 +354,7 @@
   "sidebar_op_and": "Y",
   "sidebar_op_or": "O",
   "theme_auto": "Auto (sistema)",
-  "sidebar_levels": "Niveles"
+  "sidebar_levels": "Niveles",
+  "tip_match_case": "Distinguir mayúsculas",
+  "tip_regex": "Expresión regular"
 }

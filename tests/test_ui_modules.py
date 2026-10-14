@@ -242,3 +242,75 @@ def test_level_chips_filter_the_active_viewer():
     other.flush_pending()
     sidebar.set_active_viewer(other)             # the chips follow the user across tabs
     assert [i.message for i in other._model.visible_items()] == ["INFO y"]
+
+
+@pytest.fixture
+def history_file(tmp_path, monkeypatch):
+    import sidebar
+    monkeypatch.setattr(sidebar, "_HISTORY_PATH", tmp_path / "history.json")
+    return tmp_path / "history.json"
+
+
+def test_search_options_reach_the_viewer(history_file):
+    import ui
+    viewer = ui.LogViewer(source_type="file")
+    sidebar = ui.FilterSearchSidebar()
+    sidebar.set_active_viewer(viewer)
+    viewer.append_events([(1, "Error 404 here"), (2, "error 500 there")])
+    viewer.flush_pending()
+    row = sidebar._search_term_widgets[0]
+    row._input.setText(r"error \d+")
+    assert sidebar._refresh_search() is None and sidebar._search_matches == []   # plain text
+    sidebar._search_regex_btn.setChecked(True)
+    sidebar._refresh_search()
+    assert len(sidebar._search_matches) == 2
+    sidebar._search_case_btn.setChecked(True)
+    sidebar._refresh_search()
+    assert len(sidebar._search_matches) == 1                                     # only "error 500"
+
+
+def test_invalid_regex_turns_the_term_red(history_file):
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    sidebar.set_active_viewer(ui.LogViewer(source_type="file"))
+    row = sidebar._search_term_widgets[0]
+    row._input.setText("(oops")
+    sidebar._search_regex_btn.setChecked(True)
+    sidebar._current_search_terms()
+    assert "color:" in row._input.styleSheet() and row._input.styleSheet().endswith(";")
+    assert row._input.styleSheet() != row._input_style
+    sidebar._search_regex_btn.setChecked(False)
+    sidebar._current_search_terms()
+    assert row._input.styleSheet() == row._input_style
+
+
+def test_term_history_is_kept_deduplicated_and_persisted(history_file):
+    import json
+
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    for term in ("alpha", "beta", "alpha", "  ", "gamma"):
+        sidebar._remember(term)
+    assert sidebar._history == ["gamma", "alpha", "beta"]
+    assert json.loads(history_file.read_text()) == ["gamma", "alpha", "beta"]
+    again = ui.FilterSearchSidebar()                         # a new session sees it
+    assert again._history == ["gamma", "alpha", "beta"]
+    row = again._search_term_widgets[0]
+    assert row._input.completer() is again._completer
+
+
+def test_history_is_capped(history_file):
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    for i in range(50):
+        sidebar._remember(f"term{i}")
+    assert len(sidebar._history) == 30 and sidebar._history[0] == "term49"
+
+
+def test_editing_finished_remembers_the_term(history_file):
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    row = sidebar._search_term_widgets[0]
+    row._input.setText("needle")
+    row._input.editingFinished.emit()
+    assert sidebar._history[0] == "needle"
