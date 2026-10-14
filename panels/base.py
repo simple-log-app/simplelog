@@ -6,17 +6,20 @@ from PyQt6.QtWidgets import QFrame, QInputDialog, QLabel, QScrollArea, QVBoxLayo
 
 import i18n
 import profiles_store
-from ui_theme import C_BG, C_BORDER, C_MUTED, C_PANEL, C_SEL_BG, C_TEXT
+from ui_theme import C_ACCENT, C_BG, C_BORDER, C_BORDER2, C_MUTED, C_SEL_BG, C_SIDE, C_TEXT
+from ui_widgets import OpenModeWidget, _field_label, _ProfileBar
 
 FIELD_STYLE = (
-    f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-    f"border-radius: 4px; padding: 6px 8px; font-size: 12px;"
+    f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER2};"
+    f"border-radius: 5px; padding: 0 9px; min-height: 28px; font-size: 12px;"
 )
-LBL_STYLE = f"color: {C_MUTED}; font-size: 11px;"
+LBL_STYLE = f"color: {C_MUTED}; font-size: 10px; font-weight: 500;"
 LIST_STYLE = (
     f"QListWidget {{ background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER};"
-    f" border-radius: 4px; font-size: 12px; }}"
-    f"QListWidget::item:selected {{ background: {C_SEL_BG}; }}"
+    f" border-radius: 5px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }}"
+    f"QListWidget::item {{ padding: 0 10px; min-height: 24px; border-radius: 0; }}"
+    f"QListWidget::item:selected {{ background: {C_SEL_BG}; color: {C_ACCENT};"
+    f" border-left: 2px solid {C_ACCENT}; }}"
 )
 
 
@@ -52,6 +55,10 @@ class ProviderPanel(QWidget):
 
     @staticmethod
     def _lbl(style: str, text: str) -> QLabel:
+        if style == LBL_STYLE:
+            lbl = _field_label(text)   # field captions: small uppercase, spaced
+            lbl.setStyleSheet(style)
+            return lbl
         lbl = QLabel(text)
         lbl.setStyleSheet(style)
         return lbl
@@ -69,7 +76,7 @@ class ProviderPanel(QWidget):
         root.addWidget(scroll)
 
         inner = QWidget()
-        inner.setStyleSheet(f"background: {C_PANEL};")
+        inner.setStyleSheet(f"background: {C_SIDE};")
         scroll.setWidget(inner)
 
         vlay = QVBoxLayout(inner)
@@ -126,3 +133,8 @@ class ProviderPanel(QWidget):
         """Prepare the panel to live inside the dialog."""
         for widget in self._embedded_hidden():
             widget.setVisible(False)
+        for bar in self.findChildren(_ProfileBar):
+            bar.suppress()
+        # "Open as" moves to the dialog's footer, next to the connection name
+        for mode_widget in self.findChildren(OpenModeWidget):
+            mode_widget.setVisible(False)

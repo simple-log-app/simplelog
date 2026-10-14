@@ -12,6 +12,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QBrush,
     QColor,
+    QFont,
     QPainter,
     QPainterPath,
 )
@@ -41,17 +42,25 @@ from ui_theme import (
     _SVG_REMOTE,
     C_ACCENT,
     C_ACCENT_DIM,
+    C_ACCENT_HOVER,
+    C_ACCENT_PRESS,
     C_BG,
     C_BORDER,
+    C_BORDER2,
     C_CARD,
+    C_EL,
     C_ERR,
+    C_HOVER,
     C_MUTED,
+    C_MUTED2,
+    C_ON_ACCENT,
     C_PANEL,
     C_RAIL,
     C_TEXT,
     QByteArray,
     QSvgRenderer,
     _svg_icon,
+    rgba,
 )
 
 # ── Combo box that ignores mouse wheel scrolling ──────────────────────────────
@@ -75,11 +84,13 @@ class _TabCloseBtn(QPushButton):
         self.setStyleSheet(
             "QPushButton { background: transparent; border: none;"
             " border-radius: 3px; padding: 0; }"
-            "QPushButton:hover { background: rgba(240,120,120,25); }"
+            f"QPushButton:hover {{ background: {rgba(C_ERR, 25)}; }}"
         )
+        self.retheme()
+
+    def retheme(self) -> None:
         self.setIcon(_svg_icon(_SVG_CLOSE_X, C_MUTED, 10))
         self.setIconSize(QSize(10, 10))
-
 
 
 class _SLTabBar(QTabBar):
@@ -175,19 +186,23 @@ class _SidebarEdgeBtn(QPushButton):
 # ── NavButton ──────────────────────────────────────────────────────────────────
 
 class NavButton(QAbstractButton):
-    """40×40 nav rail icon button with rounded-rect highlight when checked."""
+    """Nav rail icon button: 34×34 tile centred in the 48px rail, accent bar when checked."""
 
     def __init__(self, svg_template: str, tooltip: str, parent=None):
         super().__init__(parent)
         self.setCheckable(True)
-        self.setFixedSize(40, 40)
+        self.setFixedSize(48, 34)
         self.setToolTip(tooltip)
         self._svg_template = svg_template
         self._renderer_checked: QSvgRenderer | None = None
         self._renderer_unchecked: QSvgRenderer | None = None
+        self.retheme()
+
+    def retheme(self) -> None:
         if _HAS_SVG:
-            self._renderer_checked   = self._make_renderer(C_ACCENT)
+            self._renderer_checked   = self._make_renderer(C_TEXT)
             self._renderer_unchecked = self._make_renderer(C_MUTED)
+        self.update()
 
     def _make_renderer(self, color: str) -> QSvgRenderer:
         svg = self._svg_template.replace("{color}", color)
@@ -200,23 +215,21 @@ class NavButton(QAbstractButton):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w, h = self.width(), self.height()
+        tile_x = (w - 34) // 2
 
-        # Rounded-rect background when checked
+        # Tile when checked / hovered, accent bar on the rail's left edge when checked
+        if self.isChecked() or self.underMouse():
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(QColor(C_EL)))
+            path = QPainterPath()
+            path.addRoundedRect(tile_x, 0, 34, h, 6, 6)
+            p.drawPath(path)
         if self.isChecked():
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(QColor(91, 143, 255, 38)))  # C_ACCENT_DIM
-            path = QPainterPath()
-            path.addRoundedRect(0, 0, w, h, 8, 8)
-            p.drawPath(path)
-        elif self.underMouse():
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QBrush(QColor(255, 255, 255, 12)))
-            path = QPainterPath()
-            path.addRoundedRect(0, 0, w, h, 8, 8)
-            p.drawPath(path)
+            p.setBrush(QBrush(QColor(C_ACCENT)))
+            p.drawRect(0, 8, 2, h - 16)
 
         # Icon
-        icon_size = 18
+        icon_size = 17
         ix = (w - icon_size) // 2
         iy = (h - icon_size) // 2
         try:
@@ -227,7 +240,7 @@ class NavButton(QAbstractButton):
                     return
 
             # Fallback: draw coloured square placeholder
-            color = C_ACCENT if self.isChecked() else C_MUTED
+            color = C_TEXT if self.isChecked() else C_MUTED
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QBrush(QColor(color)))
             p.drawRoundedRect(ix, iy, icon_size, icon_size, 4, 4)
@@ -243,21 +256,19 @@ class NavButton(QAbstractButton):
         super().leaveEvent(event)
 
     def sizeHint(self) -> QSize:  # noqa: N802
-        return QSize(40, 40)
+        return QSize(48, 34)
 
-
-# ── NavRail ────────────────────────────────────────────────────────────────────
 
 # ── NavRail ────────────────────────────────────────────────────────────────────
 
 class NavRail(QWidget):
-    """52px left navigation rail."""
+    """48px left navigation rail."""
 
     index_changed = pyqtSignal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(52)
+        self.setFixedWidth(48)
         self.setStyleSheet(
             f"background: {C_RAIL};"
             f"border-right: 1px solid {C_BORDER};"
@@ -265,35 +276,7 @@ class NavRail(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 12, 0, 12)
-        layout.setSpacing(2)
-
-        # Logo
-        logo = QLabel("SL")
-        logo.setFixedSize(32, 32)
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo.setStyleSheet(
-            f"background: {C_ACCENT}; color: #000; font-weight: 800;"
-            "font-size: 12px; border-radius: 8px;"
-        )
-        logo_row = QHBoxLayout()
-        logo_row.setContentsMargins(0, 0, 0, 0)
-        logo_row.addStretch()
-        logo_row.addWidget(logo)
-        logo_row.addStretch()
-        layout.addLayout(logo_row)
-        layout.addSpacing(10)
-
-        # Divider
-        div = QFrame()
-        div.setFixedSize(28, 1)
-        div.setStyleSheet(f"background: {C_BORDER}; border: none;")
-        div_row = QHBoxLayout()
-        div_row.setContentsMargins(0, 0, 0, 0)
-        div_row.addStretch()
-        div_row.addWidget(div)
-        div_row.addStretch()
-        layout.addLayout(div_row)
-        layout.addSpacing(6)
+        layout.setSpacing(4)
 
         # Buttons
         self._buttons: list[NavButton] = []
@@ -330,8 +313,8 @@ def make_card(title: str | None = None, help_key: str | None = None) -> tuple[QF
     """Return (frame, layout, title_label | None) for a sidebar card."""
     frame = QFrame()
     frame.setStyleSheet(
-        f"QFrame {{ background: {C_CARD}; border: 1px solid rgba(255,255,255,18);"
-        f" border-radius: 10px; }}"
+        f"QFrame {{ background: {C_CARD}; border: 1px solid {C_BORDER};"
+        f" border-radius: 6px; }}"
     )
     layout = QVBoxLayout(frame)
     layout.setContentsMargins(14, 12, 14, 12)
@@ -340,9 +323,10 @@ def make_card(title: str | None = None, help_key: str | None = None) -> tuple[QF
     if title:
         title_label = QLabel(title.upper())
         title_label.setStyleSheet(
-            f"color: {C_ACCENT}; font-size: 10px; font-weight: 700;"
+            f"color: {C_MUTED}; font-size: 10px; font-weight: 600;"
             " border: none; background: transparent; margin-bottom: 2px;"
         )
+        _letter_spaced(title_label, 0.8)
         if help_key:
             hrow = QHBoxLayout()
             hrow.setContentsMargins(0, 0, 0, 0)
@@ -353,11 +337,11 @@ def make_card(title: str | None = None, help_key: str | None = None) -> tuple[QF
             help_btn.setFixedSize(22, 22)
             help_btn.setToolTip(i18n.tr("help_dialog_title"))
             help_btn.setStyleSheet(
-                "QPushButton { background: #5b8fff; color: #ffffff;"
+                f"QPushButton {{ background: {C_ACCENT}; color: {C_ON_ACCENT};"
                 " border: none; border-radius: 11px;"
                 " font-size: 13px; font-weight: bold; padding: 0; }"
-                "QPushButton:hover { background: #7aa3ff; }"
-                "QPushButton:pressed { background: #4a7aee; }"
+                f"QPushButton:hover {{ background: {C_ACCENT_HOVER}; }}"
+                f"QPushButton:pressed {{ background: {C_ACCENT_PRESS}; }}"
             )
             _key = help_key
             _frame = frame
@@ -371,28 +355,30 @@ def make_card(title: str | None = None, help_key: str | None = None) -> tuple[QF
 
 # ── Primary button helper ─────────────────────────────────────────────────────
 
-def _primary_btn(text: str = "") -> QPushButton:
+def _primary_btn(text: str = "", height: int = 28) -> QPushButton:
     """Create a styled primary (accent-coloured) button."""
     btn = QPushButton(text)
     btn.setObjectName("primary")
     btn.setStyleSheet(f"""
         QPushButton {{
             background-color: {C_ACCENT};
-            color: #000000;
+            color: {C_ON_ACCENT};
             border: none;
-            border-radius: 6px;
-            padding: 7px 14px;
+            border-radius: 5px;
+            min-height: {height}px;
+            max-height: {height}px;
+            padding: 0 12px;
             font-size: 12px;
             font-weight: bold;
         }}
         QPushButton:hover {{
-            background-color: #7aa3ff;
+            background-color: {C_ACCENT_HOVER};
         }}
         QPushButton:pressed {{
-            background-color: #4a7aee;
+            background-color: {C_ACCENT_PRESS};
         }}
         QPushButton:disabled {{
-            background-color: rgba(91,143,255,38);
+            background-color: {C_ACCENT_DIM};
             color: {C_MUTED};
         }}
     """)
@@ -406,18 +392,20 @@ def _ghost_btn(text: str = "") -> QPushButton:
         QPushButton {{
             background: transparent;
             color: {C_TEXT};
-            border: 1px solid rgba(255,255,255,35);
-            border-radius: 6px;
-            padding: 7px 14px;
+            border: 1px solid {C_BORDER2};
+            border-radius: 5px;
+            min-height: 28px;
+            max-height: 28px;
+            padding: 0 12px;
             font-size: 12px;
         }}
         QPushButton:hover {{
-            background: rgba(255,255,255,10);
-            border-color: rgba(255,255,255,60);
+            background: {C_EL};
+            border-color: {C_MUTED2};
         }}
         QPushButton:disabled {{
-            color: {C_MUTED};
-            border-color: rgba(255,255,255,15);
+            color: {C_MUTED2};
+            border-color: {C_BORDER};
         }}
     """)
     return btn
@@ -463,6 +451,7 @@ class _ProfileBar(QWidget):
         super().__init__(parent)
         self._service = service
         self._wrapper = wrapper
+        self._suppressed = False
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -481,7 +470,7 @@ class _ProfileBar(QWidget):
         self._load_btn.setStyleSheet(
             f"QPushButton {{ background: transparent; color: {C_ACCENT}; border: 1px solid {C_ACCENT};"
             f"border-radius: 4px; padding: 3px 6px; font-size: 11px; }}"
-            f"QPushButton:hover {{ background: rgba(91,143,255,20); }}"
+            f"QPushButton:hover {{ background: {rgba(C_ACCENT, 20)}; }}"
         )
         self._load_btn.clicked.connect(self._on_load)
 
@@ -490,7 +479,7 @@ class _ProfileBar(QWidget):
         self._del_btn.setStyleSheet(
             f"QPushButton {{ background: transparent; color: {C_ERR}; border: 1px solid {C_ERR};"
             f"border-radius: 4px; padding: 3px 4px; font-size: 11px; }}"
-            f"QPushButton:hover {{ background: rgba(240,120,120,20); }}"
+            f"QPushButton:hover {{ background: {rgba(C_ERR, 20)}; }}"
         )
         self._del_btn.clicked.connect(self._on_delete)
 
@@ -504,10 +493,15 @@ class _ProfileBar(QWidget):
         self._combo.clear()
         for p in profiles_store.load_all(self._service):
             self._combo.addItem(p["name"], userData=p)
-        vis = self._combo.count() > 0
+        vis = self._combo.count() > 0 and not self._suppressed
         self.setVisible(vis)
         if self._wrapper is not None:
             self._wrapper.setVisible(vis)
+
+    def suppress(self) -> None:
+        """Hide the bar for good (the dialog hosting the panel lists saved connections)."""
+        self._suppressed = True
+        self.reload()
 
     def _on_load(self) -> None:
         p = self._combo.currentData()
@@ -525,7 +519,7 @@ class _ProfileBar(QWidget):
 # ── Open-mode segmented button widget ─────────────────────────────────────────
 
 class OpenModeWidget(QWidget):
-    """Segmented button group: new tab / vertical split / horizontal split."""
+    """Horizontal segmented control: new tab / vertical split / horizontal split."""
 
     _MODES = ("tab", "vertical", "horizontal")
 
@@ -538,18 +532,20 @@ class OpenModeWidget(QWidget):
 
         self._lbl = QLabel()
         self._lbl.setStyleSheet(
-            f"color: {C_MUTED}; font-size: 11px; font-weight: 600;"
+            f"color: {C_MUTED}; font-size: 10px; font-weight: 500;"
             " background: transparent; border: none;"
         )
+        _letter_spaced(self._lbl, 0.6)
         vbox.addWidget(self._lbl)
 
-        # Segmented button container
+        # Segmented button container: 3 equal cells split by 1px separators
         seg = QFrame()
+        seg.setFixedHeight(26)
         seg.setStyleSheet(
-            f"QFrame {{ background: {C_BG}; border: 1px solid rgba(255,255,255,18);"
-            f" border-radius: 6px; }}"
+            f"QFrame {{ background: {C_BG}; border: 1px solid {C_BORDER2};"
+            f" border-radius: 5px; }}"
         )
-        seg_layout = QVBoxLayout(seg)
+        seg_layout = QHBoxLayout(seg)
         seg_layout.setContentsMargins(0, 0, 0, 0)
         seg_layout.setSpacing(0)
 
@@ -560,35 +556,37 @@ class OpenModeWidget(QWidget):
             btn = QPushButton()
             btn.setCheckable(True)
             if idx == 0:
-                r = ("border-top-left-radius: 5px; border-top-right-radius: 5px;"
-                     " border-bottom-left-radius: 3px; border-bottom-right-radius: 3px;")
+                r = "border-top-left-radius: 4px; border-bottom-left-radius: 4px;"
             elif idx == n - 1:
-                r = ("border-top-left-radius: 3px; border-top-right-radius: 3px;"
-                     " border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;")
+                r = "border-top-right-radius: 4px; border-bottom-right-radius: 4px;"
             else:
-                r = "border-radius: 3px;"
+                r = ""
+            sep = f"border-left: 1px solid {C_BORDER2};" if idx else ""
             btn.setStyleSheet(f"""
                 QPushButton {{
                     background: transparent;
                     border: none;
+                    {sep}
                     color: {C_MUTED};
-                    font-size: 12px;
-                    padding: 6px 10px;
-                    text-align: left;
+                    font-size: 11px;
+                    padding: 0 6px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 0;
                     {r}
                 }}
                 QPushButton:checked {{
-                    background: rgba(91,143,255,38);
+                    background: {C_ACCENT_DIM};
                     color: {C_ACCENT};
                     font-weight: 600;
                 }}
                 QPushButton:hover:!checked {{
-                    background: rgba(255,255,255,10);
+                    background: {C_HOVER};
                     color: {C_TEXT};
                 }}
             """)
             self._grp.addButton(btn, idx)
-            seg_layout.addWidget(btn)
+            seg_layout.addWidget(btn, 1)
             self._btns[mode] = btn
 
         self._btns["tab"].setChecked(True)
@@ -614,12 +612,31 @@ class OpenModeWidget(QWidget):
 
 # ── Tiny helpers ──────────────────────────────────────────────────────────────
 
+def _letter_spaced(label: QLabel, px: float) -> None:
+    """Add *px* of letter-spacing to *label* (not expressible in Qt stylesheets)."""
+    font = label.font()
+    font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, px)
+    label.setFont(font)
+
+
+class _FieldLabel(QLabel):
+    """Caption shown in capitals whatever text it is given (retranslation included)."""
+
+    def __init__(self, text: str = "") -> None:
+        super().__init__(text.upper())
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        super().setText(text.upper())
+
+
 def _field_label(text: str) -> QLabel:
     """Small field caption label."""
-    lbl = QLabel(text)
+    lbl = _FieldLabel(text)
     lbl.setStyleSheet(
-        f"color: {C_MUTED}; font-size: 11px; background: transparent; border: none;"
+        f"color: {C_MUTED}; font-size: 10px; font-weight: 500;"
+        " background: transparent; border: none;"
     )
+    _letter_spaced(lbl, 0.6)
     return lbl
 
 

@@ -161,3 +161,64 @@ def test_provider_panel_scaffold_returns_content_layout():
     assert isinstance(lay, QVBoxLayout)
     assert panel.findChild(QScrollArea) is not None
     assert lay.contentsMargins().left() == 12
+
+
+def test_cross_on_the_only_term_row_empties_it():
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    row = sidebar._search_term_widgets[0]
+    row._input.setText("error")
+    row._rm_btn.click()
+    assert row._input.text() == "" and len(sidebar._search_term_widgets) == 1
+    frow = sidebar._filter_term_widgets[0]
+    frow._input.setText("warn")
+    frow._rm_btn.click()
+    assert frow._input.text() == "" and len(sidebar._filter_term_widgets) == 1
+
+
+def test_search_prev_next_have_f3_shortcuts_and_tooltips():
+    from PyQt6.QtGui import QShortcut
+
+    import ui
+    sidebar = ui.FilterSearchSidebar()
+    keys = {sc.key().toString() for sc in sidebar.findChildren(QShortcut)}
+    assert {"F3", "Shift+F3"} <= keys
+    assert "Shift+F3" in sidebar._btn_prev.toolTip()
+    assert "F3" in sidebar._btn_next.toolTip() and "Shift" not in sidebar._btn_next.toolTip()
+
+
+def test_and_or_toggle_follows_the_language_and_keeps_its_value():
+    import i18n
+    from sidebar import _TermRowWidget
+    w = _TermRowWidget("AND")
+    try:
+        i18n.set_locale("fr")
+        w.retranslate_op()
+        assert w._op_btn.text() == "ET"
+        w._op_btn.click()
+        assert w._op_btn.text() == "OU" and w.to_term_row().operator == "OR"
+        i18n.set_locale("en")
+        w.retranslate_op()
+        assert w._op_btn.text() == "OR"
+    finally:
+        i18n.set_locale("en")
+
+
+@pytest.mark.parametrize("locale", ["en", "fr", "de", "es", "zh"])
+def test_right_sidebar_fits_its_default_width_in_every_language(locale):
+    from PyQt6.QtWidgets import QWidget
+
+    import i18n
+    import ui
+    i18n.set_locale(locale)
+    try:
+        sidebar = ui.FilterSearchSidebar()
+        sidebar.retranslate()
+        sidebar.show()
+        QApplication.processEvents()
+        for i in range(3):
+            page = sidebar._content_stack.widget(i)
+            widest = max(w.minimumSizeHint().width() for w in page.findChildren(QWidget))
+            assert widest <= 190, (locale, i, widest)   # the sidebar is 224 wide, 10px margins
+    finally:
+        i18n.set_locale("en")

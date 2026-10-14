@@ -21,7 +21,15 @@ from PyQt6.QtWidgets import (
 import docker_utils
 import i18n
 from panels.base import ProviderPanel
-from ui_theme import C_ACCENT, C_MUTED, C_SIDE, C_TEXT
+from ui_theme import (
+    C_ACCENT,
+    C_ACCENT_HOVER,
+    C_ACCENT_PRESS,
+    C_MUTED,
+    C_ON_ACCENT,
+    C_SIDE,
+    C_TEXT,
+)
 from ui_widgets import (
     OpenModeWidget,
     _ghost_btn,
@@ -75,11 +83,11 @@ class DockerPanel(ProviderPanel):
         _docker_help_btn.setFixedSize(22, 22)
         _docker_help_btn.setToolTip(i18n.tr("help_dialog_title"))
         _docker_help_btn.setStyleSheet(
-            "QPushButton { background: #5b8fff; color: #ffffff;"
+            f"QPushButton {{ background: {C_ACCENT}; color: {C_ON_ACCENT};"
             " border: none; border-radius: 11px;"
             " font-size: 13px; font-weight: bold; padding: 0; }"
-            "QPushButton:hover { background: #7aa3ff; }"
-            "QPushButton:pressed { background: #4a7aee; }"
+            f"QPushButton:hover {{ background: {C_ACCENT_HOVER}; }}"
+            f"QPushButton:pressed {{ background: {C_ACCENT_PRESS}; }}"
         )
         _docker_help_btn.clicked.connect(lambda: _HelpDialog(i18n.tr("help_docker"), self).exec())
         tb_layout.addWidget(_docker_help_btn)

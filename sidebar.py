@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -30,17 +31,25 @@ from log_model import TermRow
 from log_view import LogViewer
 from ui_theme import (
     C_ACCENT,
+    C_ACCENT_HOVER,
     C_BG,
     C_BORDER,
+    C_BORDER2,
     C_DEBUG,
     C_ERR,
+    C_HOVER,
     C_MUTED,
+    C_ON_ACCENT,
     C_PANEL,
     C_TEXT,
     C_TRACE,
     C_TS,
     _svg_icon,
+    rgba,
 )
+
+_KEY_PREV = "Shift+F3"
+_KEY_NEXT = "F3"
 
 # ── Sidebar helper: one term input row ────────────────────────────────────────
 
@@ -60,22 +69,17 @@ class _TermRowWidget(QWidget):
         row.setSpacing(4)
 
         # Operator toggle (AND ↔ OR), hidden for first row
-        self._op_btn = QPushButton(operator or "AND")
+        self._op_btn = QPushButton()
         self._op_btn.setFixedSize(36, 20)
         self._op_btn.setVisible(bool(operator))
         self._op_btn.setStyleSheet(
-            f"QPushButton {{ background: rgba(120,217,236,26); color: {C_TS}; "
-            f"border-radius: 3px; font-size: 9px; font-weight: bold; border: none; }}"
-            f"QPushButton:hover {{ background: rgba(120,217,236,51); }}"
+            f"QPushButton {{ background: {rgba(C_TS, 33)}; color: {C_TS}; "
+            f"border-radius: 3px; font-size: 9px; font-weight: bold; border: none; padding: 0; }}"
+            f"QPushButton:hover {{ background: {rgba(C_TS, 66)}; }}"
         )
         self._op_btn.clicked.connect(self._toggle_operator)
         row.addWidget(self._op_btn)
-
-        # Spacer when no op button (aligns inputs across rows)
-        self._op_spacer = QWidget()
-        self._op_spacer.setFixedSize(36, 20)
-        self._op_spacer.setVisible(not bool(operator))
-        row.addWidget(self._op_spacer)
+        self.retranslate_op()
 
         _input_style = (
             f"background: transparent; color: {C_TEXT}; border: none; "
@@ -123,8 +127,13 @@ class _TermRowWidget(QWidget):
 
     def _toggle_operator(self) -> None:
         self._operator = "OR" if self._operator == "AND" else "AND"
-        self._op_btn.setText(self._operator)
+        self.retranslate_op()
         self.changed.emit()
+
+    def retranslate_op(self) -> None:
+        """Show the AND / OR toggle in the current language (the stored value stays AND / OR)."""
+        key = "sidebar_op_or" if self._operator == "OR" else "sidebar_op_and"
+        self._op_btn.setText(i18n.tr(key))
 
     def to_term_row(self) -> TermRow:
         if self._mode == "kv":
@@ -137,6 +146,12 @@ class _TermRowWidget(QWidget):
 
     def set_placeholder(self, text: str) -> None:
         self._input.setPlaceholderText(text)
+
+    def clear(self) -> None:
+        """Empty the row's inputs (what × does on the only remaining row)."""
+        if self._mode == "kv":
+            self._key_input.clear()
+        self._input.clear()
 
     def focus_input(self) -> None:
         self._input.setFocus()
@@ -228,22 +243,26 @@ class FilterSearchSidebar(QWidget):
                 btn.setStyleSheet(
                     "QPushButton { background: transparent; border: none; "
                     "border-radius: 0; padding: 0; }"
-                    "QPushButton:hover { background: rgba(255,255,255,8); }"
+                    f"QPushButton:hover {{ background: {C_HOVER}; }}"
                 )
+
+    def retheme(self) -> None:
+        """Re-colour the tab icons after a theme switch."""
+        self._set_tab(self._content_stack.currentIndex())
 
     def _and_btn_style(self) -> str:
         return (
-            f"QPushButton {{ background: {C_ACCENT}; color: #000; border: none; "
+            f"QPushButton {{ background: {C_ACCENT}; color: {C_ON_ACCENT}; border: none; "
             f"border-radius: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; }}"
-            f"QPushButton:hover {{ background: #7aa3ff; }}"
+            f"QPushButton:hover {{ background: {C_ACCENT_HOVER}; }}"
         )
 
     def _or_btn_style(self) -> str:
         return (
-            f"QPushButton {{ background: rgba(176,124,240,51); color: {C_TRACE}; "
-            f"border: 1px solid rgba(176,124,240,77); border-radius: 5px; "
+            f"QPushButton {{ background: {rgba(C_TRACE, 38)}; color: {C_TRACE}; "
+            f"border: 1px solid {rgba(C_TRACE, 77)}; border-radius: 5px; "
             f"font-size: 11px; font-weight: 700; padding: 4px 10px; }}"
-            f"QPushButton:hover {{ background: rgba(176,124,240,77); }}"
+            f"QPushButton:hover {{ background: {rgba(C_TRACE, 77)}; }}"
         )
 
     def _nav_btn_style(self) -> str:
@@ -251,7 +270,7 @@ class FilterSearchSidebar(QWidget):
             f"QPushButton {{ background: transparent; color: {C_MUTED}; "
             f"border: 1px solid {C_BORDER}; border-radius: 5px;"
             f"font-size: 11px; padding: 3px 10px; }}"
-            f"QPushButton:hover {{ color: {C_TEXT}; border-color: rgba(255,255,255,51); }}"
+            f"QPushButton:hover {{ color: {C_TEXT}; border-color: {C_BORDER2}; }}"
         )
 
     def _term_block_style(self) -> str:
@@ -318,6 +337,12 @@ class FilterSearchSidebar(QWidget):
         sc.setContext(Qt.ShortcutContext.WindowShortcut)
         sc.activated.connect(self._focus_first_search)
 
+        # Previous / next match, the usual F3 pair
+        for key, handler in ((_KEY_PREV, self._search_prev), (_KEY_NEXT, self._search_next_match)):
+            nav_sc = QShortcut(QKeySequence(key), self)
+            nav_sc.setContext(Qt.ShortcutContext.WindowShortcut)
+            nav_sc.activated.connect(handler)
+
         self._set_tab(0)
         self.retranslate()
 
@@ -367,9 +392,11 @@ class FilterSearchSidebar(QWidget):
         self._btn_next.clicked.connect(self._search_next_match)
         nav_row.addWidget(self._btn_prev)
         nav_row.addWidget(self._btn_next)
-        nav_row.addWidget(self._lbl_hits)
         nav_row.addStretch()
         vbox.addLayout(nav_row)
+        # On its own line: next to the buttons, a longer translation made the panel overflow
+        self._lbl_hits.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        vbox.addWidget(self._lbl_hits)
 
     def _build_filter_content(self, parent: QWidget) -> None:
         vbox = QVBoxLayout(parent)
@@ -401,9 +428,15 @@ class FilterSearchSidebar(QWidget):
         self._btn_add_filter_kv.setStyleSheet(self._nav_btn_style())
         add_row.addWidget(self._btn_add_filter_and)
         add_row.addWidget(self._btn_add_filter_or)
-        add_row.addWidget(self._btn_add_filter_kv)
         add_row.addStretch()
         vbox.addLayout(add_row)
+
+        # Own row: with the two buttons above it did not fit once translated (e.g. German)
+        kv_row = QHBoxLayout()
+        kv_row.setContentsMargins(0, 0, 0, 0)
+        kv_row.addWidget(self._btn_add_filter_kv)
+        kv_row.addStretch()
+        vbox.addLayout(kv_row)
 
         live_row = QHBoxLayout()
         live_row.setContentsMargins(0, 2, 0, 0)
@@ -436,7 +469,7 @@ class FilterSearchSidebar(QWidget):
         if self._search_term_widgets:
             sep = QFrame()
             sep.setFrameShape(QFrame.Shape.HLine)
-            sep.setStyleSheet("color: #2c2c2c; max-height: 1px;")
+            sep.setStyleSheet(f"color: {C_BORDER}; max-height: 1px;")
             self._search_rows_layout.addWidget(sep)
         row = _TermRowWidget(operator, parent=self)
         row.setContentsMargins(8, 4, 4, 4)
@@ -461,13 +494,14 @@ class FilterSearchSidebar(QWidget):
             if i > 0:
                 sep = QFrame()
                 sep.setFrameShape(QFrame.Shape.HLine)
-                sep.setStyleSheet("color: #2c2c2c; max-height: 1px;")
+                sep.setStyleSheet(f"color: {C_BORDER}; max-height: 1px;")
                 layout.addWidget(sep)
             layout.addWidget(w)
 
     def _remove_search_row(self, row: _TermRowWidget) -> None:
         if len(self._search_term_widgets) == 1:
-            return  # always keep at least one row
+            row.clear()   # always keep at least one row: × just empties it
+            return
         self._search_term_widgets.remove(row)
         self._search_rows_layout.removeWidget(row)
         row.deleteLater()
@@ -478,7 +512,7 @@ class FilterSearchSidebar(QWidget):
         if self._filter_term_widgets:
             sep = QFrame()
             sep.setFrameShape(QFrame.Shape.HLine)
-            sep.setStyleSheet("color: #2c2c2c; max-height: 1px;")
+            sep.setStyleSheet(f"color: {C_BORDER}; max-height: 1px;")
             self._filter_rows_layout.addWidget(sep)
         row = _TermRowWidget(operator, mode=mode, parent=self)
         row.setContentsMargins(8, 4, 4, 4)
@@ -492,6 +526,7 @@ class FilterSearchSidebar(QWidget):
 
     def _remove_filter_row(self, row: _TermRowWidget) -> None:
         if len(self._filter_term_widgets) == 1:
+            row.clear()
             return
         self._filter_term_widgets.remove(row)
         self._filter_rows_layout.removeWidget(row)
@@ -647,6 +682,8 @@ class FilterSearchSidebar(QWidget):
         self._btn_add_search_or.setText(i18n.tr("sidebar_add_or"))
         self._btn_prev.setText(i18n.tr("sidebar_prev"))
         self._btn_next.setText(i18n.tr("sidebar_next"))
+        self._btn_prev.setToolTip(f"{i18n.tr('tip_search_prev')}  ({_KEY_PREV})")
+        self._btn_next.setToolTip(f"{i18n.tr('tip_search_next')}  ({_KEY_NEXT})")
         self._btn_add_filter_and.setText(i18n.tr("sidebar_add_and"))
         self._btn_add_filter_or.setText(i18n.tr("sidebar_add_or"))
         self._btn_add_filter_kv.setText(i18n.tr("sidebar_add_kv"))
@@ -654,4 +691,5 @@ class FilterSearchSidebar(QWidget):
         self._lbl_json_ph.setText(i18n.tr("sidebar_json_ph"))
         for w in self._search_term_widgets + self._filter_term_widgets:
             w.set_placeholder(i18n.tr("sidebar_term_ph"))
+            w.retranslate_op()
         self._update_hits_label()

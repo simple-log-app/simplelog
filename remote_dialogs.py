@@ -8,6 +8,7 @@ from PyQt6.QtCore import (
     QTimer,
     pyqtSignal,
 )
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -33,21 +34,32 @@ import providers
 from ui_theme import (
     _SVG_CHEVRON_LEFT,
     _SVG_REMOTE,
+    _SVG_SEARCH,
+    _SVG_TRASH,
     C_ACCENT,
-    C_BG,
     C_BORDER,
+    C_BORDER2,
     C_CARD,
+    C_EL,
     C_ERR,
     C_INFO,
     C_MUTED,
+    C_MUTED2,
+    C_OVERLAY_SURFACE,
     C_PANEL,
     C_SIDE,
     C_TEXT,
     _svg_icon,
+    provider_logo,
+    rgba,
 )
-from ui_widgets import _ghost_btn, _primary_btn
+from ui_widgets import OpenModeWidget, _field_label, _ghost_btn, _primary_btn
 
 # ── Remote redesign: providers + AddConnectionDialog + RemoteHomePanel ────────
+
+_STEP1_WIDTH = 600
+_STEP2_WIDTH = 520
+_GRID_COLUMNS = 4
 
 _RUNNING_WORKERS: set = set()   # workers of closed dialogs, kept alive until they finish
 
@@ -112,17 +124,22 @@ class AddConnectionDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(i18n.tr("remote_add_title"))
         self.setModal(True)
-        self.setFixedWidth(500)
+        self.setFixedWidth(_STEP1_WIDTH)
         self.setStyleSheet(
-            f"QDialog {{ background: #13131a; color: {C_TEXT}; }}"
+            f"QDialog {{ background: {C_OVERLAY_SURFACE}; color: {C_TEXT};"
+            f" border: 1px solid {C_BORDER2}; border-radius: 8px; }}"
         )
 
         self._provider_id: str = ""
+        self._cards: list[tuple[providers.Provider, QPushButton]] = []
+        self._filter_edit: QLineEdit | None = None
+        self._can_go_back: bool = False
         self._fields: dict[str, QLineEdit] = {}
         self._open_btn: QPushButton | None = None
         self._save_open_btn: QPushButton | None = None
         self._add_header_lbl: QLabel | None = None
         self._embedded_panel: QWidget | None = None
+        self._open_mode_w: OpenModeWidget | None = None
         self._save_pending: bool = False
         self._ready_timer: QTimer | None = None
         self._restore_queue: list = []
@@ -151,7 +168,7 @@ class AddConnectionDialog(QDialog):
         self._stack.addWidget(self._step2_widget)
 
         if preselect:
-            self._go_step2(preselect)
+            self._go_step2(preselect, from_picker=False)
 
     def _release(self, i18n_key: int) -> None:
         """Free what the dialog keeps alive once it is closed (timer, callbacks, SSH)."""
@@ -176,6 +193,8 @@ class AddConnectionDialog(QDialog):
         self.setWindowTitle(i18n.tr("remote_add_title"))
         if self._add_header_lbl is not None:
             self._add_header_lbl.setText(i18n.tr("remote_add_header"))
+        if self._filter_edit is not None:
+            self._filter_edit.setPlaceholderText(i18n.tr("remote_filter_providers"))
 
     def _build_step1(self) -> QWidget:
         page = QWidget()
@@ -185,105 +204,147 @@ class AddConnectionDialog(QDialog):
         lay.setSpacing(0)
 
         hdr = QWidget()
-        hdr.setStyleSheet(
-            "background: #1a1a24; border-bottom: 1px solid rgba(255,255,255,26);"
-        )
+        hdr.setStyleSheet(f"background: transparent; border-bottom: 1px solid {C_BORDER};")
         hdr_lay = QHBoxLayout(hdr)
-        hdr_lay.setContentsMargins(20, 16, 20, 16)
+        hdr_lay.setContentsMargins(14, 12, 14, 12)
         hdr_lay.setSpacing(8)
 
         titles = QVBoxLayout()
-        titles.setSpacing(3)
+        titles.setSpacing(2)
         self._add_header_lbl = QLabel(i18n.tr("remote_add_header"))
         t1 = self._add_header_lbl
         t1.setStyleSheet(
-            f"color: {C_TEXT}; font-size: 14px; font-weight: 700;"
+            f"color: {C_TEXT}; font-size: 13px; font-weight: 600;"
             " border: none; background: transparent;"
         )
         t2 = QLabel(i18n.tr("remote_select_provider"))
         t2.setStyleSheet(
-            f"color: {C_MUTED}; font-size: 11.5px; border: none; background: transparent;"
+            f"color: {C_MUTED}; font-size: 11px; border: none; background: transparent;"
         )
         titles.addWidget(t1)
         titles.addWidget(t2)
         hdr_lay.addLayout(titles, 1)
-
-        close = QPushButton("✕")
-        close.setFixedSize(28, 28)
-        close.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {C_MUTED};"
-            f" border: none; font-size: 14px; }}"
-            f"QPushButton:hover {{ color: {C_TEXT}; }}"
-        )
-        close.clicked.connect(self.reject)
-        hdr_lay.addWidget(close)
+        hdr_lay.addWidget(self._close_button())
         lay.addWidget(hdr)
 
         body = QWidget()
         body.setStyleSheet("background: transparent;")
-        grid_lay = QGridLayout(body)
-        grid_lay.setContentsMargins(20, 20, 20, 24)
-        grid_lay.setSpacing(8)
+        body_lay = QVBoxLayout(body)
+        body_lay.setContentsMargins(14, 12, 14, 14)
+        body_lay.setSpacing(10)
 
-        for i, provider in enumerate(providers.PROVIDERS):
-            grid_lay.addWidget(self._make_provider_card(provider), i // 3, i % 3)
+        self._filter_edit = QLineEdit()
+        self._filter_edit.setPlaceholderText(i18n.tr("remote_filter_providers"))
+        self._filter_edit.addAction(
+            _svg_icon(_SVG_SEARCH, C_MUTED, 14), QLineEdit.ActionPosition.LeadingPosition
+        )
+        self._filter_edit.setClearButtonEnabled(True)
+        self._filter_edit.textChanged.connect(self._apply_provider_filter)
+        body_lay.addWidget(self._filter_edit)
+
+        grid_host = QWidget()
+        self._grid = QGridLayout(grid_host)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setSpacing(8)
+        for col in range(_GRID_COLUMNS):
+            self._grid.setColumnStretch(col, 1)
+        for provider in providers.PROVIDERS:
+            card = self._make_provider_card(provider)
+            self._cards.append((provider, card))
+        self._layout_cards(providers.PROVIDERS)
+        body_lay.addWidget(grid_host)
+        body_lay.addStretch()
 
         lay.addWidget(body)
         return page
 
+    def _close_button(self) -> QPushButton:
+        close = QPushButton("✕")
+        close.setFixedSize(24, 24)
+        close.setStyleSheet(
+            f"QPushButton {{ background: transparent; color: {C_MUTED};"
+            f" border: none; font-size: 13px; padding: 0; min-height: 24px; }}"
+            f"QPushButton:hover {{ color: {C_TEXT}; }}"
+        )
+        close.clicked.connect(self.reject)
+        return close
+
+    def _layout_cards(self, shown) -> None:
+        """Place the cards of *shown* on the grid (others are hidden)."""
+        shown_ids = {p.id for p in shown}
+        for i in reversed(range(self._grid.count())):
+            self._grid.takeAt(i)
+        n = 0
+        for provider, card in self._cards:
+            visible = provider.id in shown_ids
+            card.setVisible(visible)
+            if visible:
+                self._grid.addWidget(card, n // _GRID_COLUMNS, n % _GRID_COLUMNS)
+                n += 1
+
+    def _apply_provider_filter(self, text: str) -> None:
+        needle = text.strip().lower()
+        self._layout_cards([
+            p for p in providers.PROVIDERS
+            if needle in p.name.lower() or needle in p.describe().lower()
+        ])
+
     def _make_provider_card(self, provider: providers.Provider) -> QPushButton:
-        pid, name, icon_char, color = provider.id, provider.name, provider.icon, provider.color
+        pid = provider.id
         btn = QPushButton()
         btn.setToolTip(provider.describe())
-        btn.setFixedSize(140, 105)
+        btn.setFixedHeight(120)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"""
             QPushButton {{
-                background: #17171f;
-                border: 1px solid rgba(255,255,255,15);
-                border-radius: 9px;
+                background: {C_CARD};
+                border: 1px solid {C_BORDER};
+                border-radius: 6px;
+                padding: 0;
             }}
             QPushButton:hover {{
-                background: #1e1e2c;
-                border-color: {color};
+                background: {C_EL};
+                border-color: {rgba(C_ACCENT, 135)};
             }}
         """)
 
         inner = QVBoxLayout(btn)
-        inner.setContentsMargins(10, 12, 10, 12)
+        inner.setContentsMargins(10, 10, 10, 10)
         inner.setSpacing(0)
-        inner.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        icon_lbl = QLabel(icon_char)
-        icon_lbl.setFixedSize(30, 30)
-        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(provider_logo(provider.logo, provider.icon, provider.color, 26))
+        icon_lbl.setFixedSize(26, 26)
         icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        icon_lbl.setStyleSheet(
-            f"background: {color}20; border: 1px solid {color}35;"
-            f" border-radius: 6px; color: {color}; font-size: 15px;"
-        )
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
 
-        name_lbl = QLabel(name)
-        name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_lbl.setWordWrap(True)
+        name_lbl = QLabel(provider.name)
         name_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         name_lbl.setStyleSheet(
-            f"color: {C_TEXT}; font-size: 11.5px; font-weight: 600;"
+            f"color: {C_TEXT}; font-size: 12px; font-weight: 600;"
             " background: transparent; border: none;"
         )
 
-        inner.addStretch()
-        inner.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignHCenter)
+        desc_lbl = QLabel(provider.describe())
+        desc_lbl.setWordWrap(True)
+        desc_lbl.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        desc_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        desc_lbl.setStyleSheet(
+            f"color: {C_MUTED}; font-size: 10.5px; background: transparent; border: none;"
+        )
+
+        inner.addWidget(icon_lbl)
         inner.addSpacing(8)
-        inner.addWidget(name_lbl, 0, Qt.AlignmentFlag.AlignHCenter)
-        inner.addStretch()
+        inner.addWidget(name_lbl)
+        inner.addSpacing(2)
+        inner.addWidget(desc_lbl, 1)
 
         btn.clicked.connect(lambda _c, p=pid: self._go_step2(p))
         return btn
 
     # ── Step 2 ────────────────────────────────────────────────────────────────
 
-    def _go_step2(self, provider_id: str) -> None:
+    def _go_step2(self, provider_id: str, from_picker: bool = True) -> None:
         self._provider_id = provider_id
         # Clear previous step2 content
         while self._step2_layout.count():
@@ -294,60 +355,51 @@ class AddConnectionDialog(QDialog):
         provider = providers.get(provider_id)
         if provider is None:
             return
-        name, icon_char, color = provider.name, provider.icon, provider.color
+        # Going back to the picker only makes sense for a new connection chosen from it
+        self._can_go_back = from_picker and not self._is_existing
+        self.setFixedWidth(_STEP2_WIDTH)
 
         # Header
         hdr = QWidget()
-        hdr.setStyleSheet(
-            "background: #1a1a24; border-bottom: 1px solid rgba(255,255,255,26);"
-        )
+        hdr.setStyleSheet(f"background: transparent; border-bottom: 1px solid {C_BORDER};")
         hdr_lay = QHBoxLayout(hdr)
         hdr_lay.setContentsMargins(14, 12, 14, 12)
         hdr_lay.setSpacing(8)
 
-        back_btn = QPushButton()
-        back_btn.setFixedSize(28, 28)
-        back_btn.setIcon(_svg_icon(_SVG_CHEVRON_LEFT, C_MUTED, 14))
-        back_btn.setStyleSheet(
-            "QPushButton { background: transparent; border: none; }"
-            "QPushButton:hover { background: rgba(255,255,255,8); border-radius: 4px; }"
-        )
-        back_btn.clicked.connect(self._go_step1)
-        hdr_lay.addWidget(back_btn)
+        if self._can_go_back:
+            back_btn = QPushButton()
+            back_btn.setFixedSize(24, 24)
+            back_btn.setIcon(_svg_icon(_SVG_CHEVRON_LEFT, C_MUTED, 14))
+            back_btn.setStyleSheet(
+                "QPushButton { background: transparent; border: none; padding: 0; min-height: 24px; }"
+                f"QPushButton:hover {{ background: {C_EL}; border-radius: 5px; }}"
+            )
+            back_btn.clicked.connect(self._go_step1)
+            hdr_lay.addWidget(back_btn)
 
-        icon_lbl = QLabel(icon_char)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(provider_logo(provider.logo, provider.icon, provider.color, 24))
         icon_lbl.setFixedSize(24, 24)
-        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet(
-            f"background: {color}20; border: 1px solid {color}35;"
-            f" border-radius: 5px; color: {color}; font-size: 13px;"
-        )
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
         hdr_lay.addWidget(icon_lbl)
 
         title_col = QVBoxLayout()
         title_col.setSpacing(1)
-        name_lbl = QLabel(name)
+        name_lbl = QLabel(provider.name)
         name_lbl.setStyleSheet(
-            f"color: {C_TEXT}; font-size: 13.5px; font-weight: 700;"
+            f"color: {C_TEXT}; font-size: 13px; font-weight: 600;"
             " background: transparent; border: none;"
         )
-        sub_lbl = QLabel(i18n.tr("remote_new_connection"))
+        sub_lbl = QLabel(
+            i18n.tr("remote_saved_connection" if self._is_existing else "remote_new_connection")
+        )
         sub_lbl.setStyleSheet(
             f"color: {C_MUTED}; font-size: 11px; background: transparent; border: none;"
         )
         title_col.addWidget(name_lbl)
         title_col.addWidget(sub_lbl)
         hdr_lay.addLayout(title_col, 1)
-
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(28, 28)
-        close_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {C_MUTED};"
-            f" border: none; font-size: 14px; }}"
-            f"QPushButton:hover {{ color: {C_TEXT}; }}"
-        )
-        close_btn.clicked.connect(self.reject)
-        hdr_lay.addWidget(close_btn)
+        hdr_lay.addWidget(self._close_button())
         self._step2_layout.addWidget(hdr)
 
         self._build_embedded_step2(provider)
@@ -363,7 +415,9 @@ class AddConnectionDialog(QDialog):
         self._embedded_panel = None
         self._save_pending = False
         self._restore_queue = []
+        self.setMinimumHeight(0)
         self.setMaximumHeight(16777215)
+        self.setFixedWidth(_STEP1_WIDTH)
         self.adjustSize()
         self._stack.setCurrentIndex(0)
 
@@ -404,28 +458,22 @@ class AddConnectionDialog(QDialog):
 
         # ── Footer ────────────────────────────────────────────────────────────
         footer = QWidget()
+        footer.setObjectName("footer")
+        # Scoped to the footer itself: an unscoped border-top would cascade to its fields
         footer.setStyleSheet(
-            "background: #17171f; border-top: 1px solid rgba(255,255,255,26);"
+            f"QWidget#footer {{ background: {C_PANEL}; border-top: 1px solid {C_BORDER}; }}"
         )
         foot_lay = QVBoxLayout(footer)
-        foot_lay.setContentsMargins(20, 14, 20, 14)
+        foot_lay.setContentsMargins(14, 12, 14, 12)
         foot_lay.setSpacing(8)
 
         if saveable:
-            name_lbl = QLabel(i18n.tr("remote_connection_name").upper())
-            name_lbl.setStyleSheet(
-                f"color: {C_ACCENT}; font-size: 10px; font-weight: 700;"
-                " letter-spacing: 0.8px; background: transparent; border: none;"
-            )
-            foot_lay.addWidget(name_lbl)
+            foot_lay.addWidget(_field_label(i18n.tr("remote_connection_name")))
 
             name_edit = QLineEdit()
             name_edit.setPlaceholderText(i18n.tr("remote_connection_name"))
             name_edit.setStyleSheet(
-                f"QLineEdit {{ background: {C_BG}; border: 1px solid rgba(255,255,255,26);"
-                f" border-radius: 5px; padding: 5px 10px;"
-                f" font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: {C_TEXT}; }}"
-                f"QLineEdit:focus {{ border-color: {C_ACCENT}88; }}"
+                "QLineEdit { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }"
             )
             name_edit.textChanged.connect(self._sync_embedded_footer)
             self._fields["name"] = name_edit
@@ -436,6 +484,10 @@ class AddConnectionDialog(QDialog):
                 pname = self._prefill_profile.get("name", "")
                 if pname:
                     name_edit.setText(pname)
+
+        # "Open as": one choice for every provider, kept next to the buttons that open
+        self._open_mode_w = OpenModeWidget()
+        foot_lay.addWidget(self._open_mode_w)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
@@ -513,12 +565,13 @@ class AddConnectionDialog(QDialog):
                     }
                 profiles_store.upsert(self._provider_id, name, data)
         self._save_pending = False
-        self.tab_requested.emit(cfg, mode)
+        # The panel's own (hidden) selector is ignored: the footer's one decides
+        self.tab_requested.emit(cfg, self._open_mode_w.get_mode())
         self.done(QDialog.DialogCode.Accepted)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
-            if self._stack.currentIndex() == 1:
+            if self._stack.currentIndex() == 1 and self._can_go_back:
                 self._go_step1()
             else:
                 self.reject()
@@ -528,8 +581,22 @@ class AddConnectionDialog(QDialog):
 
 # ── RemoteHomePanel ────────────────────────────────────────────────────────────
 
+class _ConnRow(QFrame):
+    """A saved-connection row: tells its owner when the mouse enters / leaves."""
+
+    hovered = pyqtSignal(bool)
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self.hovered.emit(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self.hovered.emit(False)
+        super().leaveEvent(event)
+
+
 class RemoteHomePanel(QWidget):
-    """Sidebar panel: collapsible provider groups + new AddConnectionDialog."""
+    """Sidebar panel: collapsible groups of saved connections + AddConnectionDialog."""
 
     tab_requested = pyqtSignal(dict, str)
 
@@ -554,21 +621,21 @@ class RemoteHomePanel(QWidget):
 
         # Header
         header = QWidget()
-        header.setFixedHeight(48)
+        header.setFixedHeight(40)
         header.setStyleSheet(
             f"background: {C_SIDE}; border-bottom: 1px solid {C_BORDER};"
         )
         h_lay = QHBoxLayout(header)
-        h_lay.setContentsMargins(14, 0, 14, 0)
+        h_lay.setContentsMargins(12, 0, 10, 0)
         h_lay.setSpacing(10)
 
         self._remote_title_lbl = QLabel(i18n.tr("remote_title"))
         self._remote_title_lbl.setStyleSheet(
-            f"color: {C_TEXT}; font-size: 15px; font-weight: 700;"
+            f"color: {C_TEXT}; font-size: 12.5px; font-weight: 600; border: none;"
         )
         h_lay.addWidget(self._remote_title_lbl, 1)
 
-        self._remote_add_btn = _primary_btn(i18n.tr("remote_add_btn"))
+        self._remote_add_btn = _primary_btn(i18n.tr("remote_add_btn"), height=24)
         self._remote_add_btn.clicked.connect(self._on_add)
         h_lay.addWidget(self._remote_add_btn)
         root.addWidget(header)
@@ -580,10 +647,10 @@ class RemoteHomePanel(QWidget):
         scroll.setStyleSheet("background: transparent; border: none;")
 
         self._groups_widget = QWidget()
-        self._groups_widget.setStyleSheet(f"background: {C_PANEL};")
+        self._groups_widget.setStyleSheet(f"background: {C_SIDE};")
         self._groups_lay = QVBoxLayout(self._groups_widget)
-        self._groups_lay.setContentsMargins(0, 0, 0, 0)
-        self._groups_lay.setSpacing(0)
+        self._groups_lay.setContentsMargins(8, 8, 8, 8)
+        self._groups_lay.setSpacing(6)
         self._groups_lay.addStretch()
 
         scroll.setWidget(self._groups_widget)
@@ -598,11 +665,14 @@ class RemoteHomePanel(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
+        # Only providers with a saved connection get a group; the others are added
+        # through the Add button
         any_conn = False
         for svc in (p.id for p in providers.PROVIDERS):
             profiles = profiles_store.load_all(svc)
-            if profiles:
-                any_conn = True
+            if not profiles:
+                continue
+            any_conn = True
             lay.insertWidget(lay.count() - 1, self._make_provider_group(svc, profiles))
 
         if not any_conn:
@@ -634,7 +704,7 @@ class RemoteHomePanel(QWidget):
         lbl2 = QLabel(i18n.tr("remote_no_connections_sub"))
         lbl2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl2.setStyleSheet(
-            "color: #3a3a4a; font-size: 11px; background: transparent; border: none;"
+            f"color: {C_MUTED2}; font-size: 11px; background: transparent; border: none;"
         )
         lay.addWidget(lbl2)
         return w
@@ -645,42 +715,43 @@ class RemoteHomePanel(QWidget):
         prov = providers.get(svc)
         if prov is None:
             return QWidget()
-        name, icon_char, color = prov.name, prov.icon, prov.color
 
-        wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
-        w_lay = QVBoxLayout(wrapper)
+        frame = QFrame()
+        frame.setStyleSheet(
+            f"QFrame#group {{ background: {C_CARD}; border: 1px solid {C_BORDER};"
+            f" border-radius: 6px; }}"
+        )
+        frame.setObjectName("group")
+        w_lay = QVBoxLayout(frame)
         w_lay.setContentsMargins(0, 0, 0, 0)
         w_lay.setSpacing(0)
 
         # Header button
         hdr_btn = QPushButton()
-        hdr_btn.setFixedHeight(36)
+        hdr_btn.setFixedHeight(32)
         hdr_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         hdr_btn.setStyleSheet(f"""
             QPushButton {{
-                background: {C_CARD};
+                background: transparent;
                 border: none;
-                border-bottom: 1px solid {C_BORDER};
+                border-radius: 5px;
+                padding: 0;
                 text-align: left;
             }}
-            QPushButton:hover {{ background: rgba(255,255,255,8); }}
+            QPushButton:hover {{ background: {C_EL}; }}
         """)
         hdr_inner = QHBoxLayout(hdr_btn)
-        hdr_inner.setContentsMargins(10, 0, 10, 0)
+        hdr_inner.setContentsMargins(8, 0, 10, 0)
         hdr_inner.setSpacing(8)
 
-        icon_box = QLabel(icon_char)
-        icon_box.setFixedSize(20, 20)
-        icon_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_box = QLabel()
+        icon_box.setPixmap(provider_logo(prov.logo, prov.icon, prov.color, 18))
+        icon_box.setFixedSize(18, 18)
         icon_box.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        icon_box.setStyleSheet(
-            f"background: {color}18; border: 1px solid {color}30;"
-            f" border-radius: 4px; color: {color}; font-size: 11px;"
-        )
+        icon_box.setStyleSheet("background: transparent; border: none;")
         hdr_inner.addWidget(icon_box)
 
-        name_lbl = QLabel(name)
+        name_lbl = QLabel(prov.name)
         name_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         name_lbl.setStyleSheet(
             f"color: {C_TEXT}; font-size: 12px; font-weight: 600;"
@@ -688,15 +759,15 @@ class RemoteHomePanel(QWidget):
         )
         hdr_inner.addWidget(name_lbl, 1)
 
-        if profiles:
-            count_lbl = QLabel(str(len(profiles)))
-            count_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-            count_lbl.setStyleSheet(
-                f"color: {C_MUTED}; font-size: 10px; background: transparent; border: none;"
-            )
-            hdr_inner.addWidget(count_lbl)
+        count_lbl = QLabel(str(len(profiles)))
+        count_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        count_lbl.setStyleSheet(
+            f"color: {C_MUTED}; font-size: 10.5px; font-family: 'JetBrains Mono', monospace;"
+            " background: transparent; border: none;"
+        )
+        hdr_inner.addWidget(count_lbl)
 
-        is_expanded = self._expanded.get(svc, bool(profiles))
+        is_expanded = self._expanded.get(svc, True)
         chev = QLabel("▼" if is_expanded else "▶")
         chev.setFixedWidth(14)
         chev.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -711,7 +782,7 @@ class RemoteHomePanel(QWidget):
         content.setStyleSheet("background: transparent;")
         content.setVisible(is_expanded)
         c_lay = QVBoxLayout(content)
-        c_lay.setContentsMargins(0, 0, 0, 0)
+        c_lay.setContentsMargins(0, 0, 0, 4)
         c_lay.setSpacing(0)
 
         for profile in profiles:
@@ -727,25 +798,24 @@ class RemoteHomePanel(QWidget):
             chev.setText("▼" if exp else "▶")
 
         hdr_btn.clicked.connect(_toggle)
-        return wrapper
+        return frame
 
     # ── Connection row ────────────────────────────────────────────────────────
 
     def _make_conn_row(self, svc: str, profile: dict) -> QWidget:
-        row = QFrame()
-        row.setFixedHeight(32)
+        row = _ConnRow()
+        row.setFixedHeight(26)
         row.setCursor(Qt.CursorShape.PointingHandCursor)
         row.setStyleSheet(
-            "QFrame { background: rgba(17,17,22,150);"
-            " border-top: 1px solid rgba(255,255,255,13); }"
-            "QFrame:hover { background: rgba(255,255,255,8); }"
+            "QFrame { background: transparent; border: none; border-radius: 5px; }"
+            f"QFrame:hover {{ background: {C_EL}; }}"
         )
         row_lay = QHBoxLayout(row)
-        row_lay.setContentsMargins(38, 0, 8, 0)
+        row_lay.setContentsMargins(14, 0, 6, 0)
         row_lay.setSpacing(6)
 
         dot = QLabel()
-        dot.setFixedSize(5, 5)
+        dot.setFixedSize(6, 6)
         dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         dot.setStyleSheet(
             f"background: {C_INFO}; border-radius: 3px; border: none;"
@@ -756,7 +826,7 @@ class RemoteHomePanel(QWidget):
         name_lbl = QLabel(conn_name)
         name_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         name_lbl.setStyleSheet(
-            "color: #b0b0c0; font-size: 11.5px;"
+            f"color: {C_TEXT}; font-size: 11.5px;"
             " font-family: 'JetBrains Mono', monospace;"
             " background: transparent; border: none;"
         )
@@ -767,45 +837,57 @@ class RemoteHomePanel(QWidget):
             sub_lbl = QLabel(subtitle)
             sub_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             sub_lbl.setStyleSheet(
-                f"color: {C_MUTED}; font-size: 10px; background: transparent; border: none;"
+                f"color: {C_MUTED}; font-size: 10.5px; background: transparent; border: none;"
             )
             row_lay.addWidget(sub_lbl)
 
         row_lay.addStretch()
 
-        # Delete button with two-click confirm
-        del_btn = QPushButton("✕")
-        del_btn.setFixedSize(22, 22)
-        del_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; color: {C_MUTED};"
-            f" border: none; font-size: 11px; }}"
-            f"QPushButton:hover {{ color: {C_ERR}; }}"
-        )
+        # Delete button: a trash icon on hover, then a two-click confirmation
+        del_btn = QPushButton()
+        del_btn.setFixedHeight(20)
+        del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        del_btn.setVisible(False)
         row_lay.addWidget(del_btn)
 
         _confirmed = [False]
         _timer: list[QTimer | None] = [None]
 
+        def _style_idle() -> None:
+            del_btn.setText("")
+            del_btn.setFixedWidth(22)
+            del_btn.setIcon(_svg_icon(_SVG_TRASH, C_MUTED, 13))
+            del_btn.setStyleSheet(
+                "QPushButton { background: transparent; border: none; padding: 0; min-height: 20px; }"
+                f"QPushButton:hover {{ background: {rgba(C_ERR, 20)}; border-radius: 4px; }}"
+            )
+
         def _reset_del() -> None:
             _confirmed[0] = False
-            del_btn.setText("✕")
-            del_btn.setStyleSheet(
-                f"QPushButton {{ background: transparent; color: {C_MUTED};"
-                f" border: none; font-size: 11px; }}"
-                f"QPushButton:hover {{ color: {C_ERR}; }}"
-            )
+            if _timer[0]:
+                _timer[0].stop()
+            _style_idle()
+
+        def _on_hover(inside: bool) -> None:
+            if inside:
+                del_btn.setVisible(True)
+            else:
+                _reset_del()
+                del_btn.setVisible(False)
 
         def _on_del_clicked() -> None:
             if not _confirmed[0]:
                 _confirmed[0] = True
-                del_btn.setText("!")
+                del_btn.setIcon(QIcon())
+                del_btn.setText(i18n.tr("remote_confirm_delete"))
+                del_btn.setMinimumWidth(0)
+                del_btn.setMaximumWidth(16777215)
                 del_btn.setStyleSheet(
-                    f"QPushButton {{ background: {C_ERR}20; color: {C_ERR};"
-                    f" border: 1px solid {C_ERR}40; border-radius: 3px;"
-                    f" font-size: 9px; font-weight: 700; }}"
-                    f"QPushButton:hover {{ background: {C_ERR}30; }}"
+                    f"QPushButton {{ background: {rgba(C_ERR, 31)}; color: {C_ERR};"
+                    f" border: 1px solid {rgba(C_ERR, 102)}; border-radius: 4px;"
+                    f" font-size: 10.5px; padding: 0 8px; min-height: 18px; }}"
                 )
-                t = QTimer()
+                t = QTimer(row)
                 t.setSingleShot(True)
                 t.timeout.connect(_reset_del)
                 t.start(3000)
@@ -816,7 +898,9 @@ class RemoteHomePanel(QWidget):
                 profiles_store.delete(svc, conn_name)
                 self.reload()
 
+        _style_idle()
         del_btn.clicked.connect(_on_del_clicked)
+        row.hovered.connect(_on_hover)
 
         row.mousePressEvent = lambda e, s=svc, p=profile: (
             self._on_open_profile(s, p)
@@ -829,15 +913,13 @@ class RemoteHomePanel(QWidget):
 
     def _make_add_inline_row(self, svc: str) -> QLabel:
         row = QLabel(i18n.tr("remote_add_connection"))
-        row.setFixedHeight(28)
-        row.setContentsMargins(38, 0, 10, 0)
+        row.setFixedHeight(24)
+        row.setContentsMargins(14, 0, 10, 0)
         row.setCursor(Qt.CursorShape.PointingHandCursor)
         row.setStyleSheet(
-            f"QLabel {{ color: {C_MUTED}; font-size: 11px;"
-            f" background: transparent;"
-            f" border-top: 1px solid rgba(255,255,255,8); }}"
-            f"QLabel:hover {{ color: {C_ACCENT};"
-            f" background: rgba(91,143,255,13); }}"
+            f"QLabel {{ color: {C_MUTED}; font-size: 11px; background: transparent;"
+            f" border: none; }}"
+            f"QLabel:hover {{ color: {C_ACCENT}; }}"
         )
         row.mousePressEvent = lambda _e, s=svc: self._on_add(preselect=s)
         return row

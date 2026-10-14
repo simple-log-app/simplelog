@@ -4,6 +4,19 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+### Añadido
+- Búsqueda: F3 pasa al siguiente resultado y Mayús+F3 al anterior; los atajos aparecen en la información sobre herramientas de los botones.
+- Modo Día / Noche: cambia el tema con el botón situado a la derecha de la barra de menús (o con Ctrl+Mayús+L); tu elección se recuerda.
+
+### Cambiado
+- Nuevo aspecto: paleta oscura renovada con un acento lima, para una mejor legibilidad.
+- Fuentes remotas: la lista solo muestra los servicios con conexiones guardadas, con un enlace «+ Nueva conexión» y eliminación en dos pasos.
+- Añadir una conexión: un selector filtrable en 4 columnas con el logotipo oficial de cada servicio y un formulario de conexión más claro.
+- Los logotipos de los servicios aparecen en las pestañas y la opción «Abrir como» ocupa una sola fila.
+
+### Corregido
+- El botón Y / O entre los términos de búsqueda y de filtro ahora se muestra en tu idioma.
+
 ## [1.0.9] - 2026-10-13
 
 ### Añadido

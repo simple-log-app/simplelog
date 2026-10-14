@@ -14,6 +14,7 @@ import time
 
 from PyQt6.QtCore import (
     QPoint,
+    QSize,
     Qt,
     QTimer,
     QUrl,
@@ -21,6 +22,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QAction,
     QDesktopServices,
+    QIcon,
     QKeySequence,
     QShortcut,
 )
@@ -39,6 +41,7 @@ from PyQt6.QtWidgets import (
     QStatusBar,
     QTextBrowser,
     QTextEdit,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -46,6 +49,7 @@ from PyQt6.QtWidgets import (
 import changelog
 import i18n
 import providers
+import ui_theme
 from log_view import LogViewer
 from panels.file import FilePanel
 from remote_dialogs import RemoteHomePanel
@@ -53,18 +57,23 @@ from sidebar import FilterSearchSidebar
 from ui_theme import (
     _SVG_CHEVRON_LEFT,
     _SVG_CHEVRON_RIGHT,
+    _SVG_MOON,
+    _SVG_SUN,
     C_ACCENT,
     C_BG,
     C_BORDER,
     C_CARD,
     C_DIVIDER,
+    C_HOVER,
     C_MUTED,
     C_PANEL,
     C_SIDE,
     C_STATUS,
     C_TEXT,
+    _svg_icon,
+    provider_logo,
 )
-from ui_widgets import NavRail, _SidebarEdgeBtn, _SLTabWidget
+from ui_widgets import NavRail, _SidebarEdgeBtn, _SLTabWidget, _TabCloseBtn
 from ui_workers import CallWorker
 from workers import DebInstallWorker, FileWorker, StdinWorker
 
@@ -164,10 +173,12 @@ class MainWindow(QMainWindow):
         self._cur_viewer: LogViewer | None = None
         self._splitter_style: str = ""
         self._update_worker = None  # UpdateWorker instance (kept alive)
-        self._left_sidebar_width: int = 326
-        self._right_sidebar_width: int = 240
+        self._left_sidebar_width: int = 300
+        self._right_sidebar_width: int = 224
         self._build_ui()
         self._build_menubar()
+        ui_theme.on_theme_changed(id(self), self._on_theme_changed)
+        self.destroyed.connect(lambda _=None, k=id(self): ui_theme.off_theme_changed(k))
 
     def _build_ui(self):
         # Central container
@@ -206,15 +217,17 @@ class MainWindow(QMainWindow):
         self._top_tabs = _SLTabWidget()
         self._top_tabs.setTabsClosable(True)
         self._top_tabs.setDocumentMode(True)
+        self._top_tabs.setIconSize(QSize(14, 14))
+        self._top_tabs.tabBar().setDrawBase(False)
         self._top_tabs.setStyleSheet(
             f"QTabWidget::pane {{ border: none; background: {C_BG}; border-top: 1px solid {C_BORDER}; }}"
             f"QTabBar::tab {{ background: {C_PANEL}; color: {C_MUTED};"
-            f" padding: 0 16px 0 14px; min-height: 38px; border: none;"
+            f" padding: 0 16px 0 14px; min-height: 34px; border: none;"
             f" border-right: 1px solid {C_BORDER}; }}"
             f"QTabBar::tab:selected {{ background: {C_BG}; color: {C_TEXT};"
-            f" border-top: 2px solid {C_ACCENT}; }}"
+            f" border-bottom: 2px solid {C_ACCENT}; }}"
             f"QTabBar::tab:hover:!selected {{ color: {C_TEXT};"
-            f" background: rgba(255,255,255,5); }}"
+            f" background: {C_HOVER}; }}"
         )
         self._top_tabs.tabCloseRequested.connect(self._close_tab_at)
         self._top_tabs.currentChanged.connect(self._on_top_tab_changed)
@@ -227,7 +240,7 @@ class MainWindow(QMainWindow):
         self._outer_splitter.setStyleSheet(self._splitter_style)
         self._outer_splitter.addWidget(self._top_tabs)
         self._outer_splitter.addWidget(self._sidebar)
-        self._outer_splitter.setSizes([10000, 240])
+        self._outer_splitter.setSizes([10000, 224])
         self._outer_splitter.setStretchFactor(0, 1)
         self._outer_splitter.setStretchFactor(1, 0)
         self._outer_splitter.splitterMoved.connect(lambda *_: self._reposition_toggles())
@@ -238,7 +251,7 @@ class MainWindow(QMainWindow):
         self._main_splitter.setStyleSheet(self._splitter_style)
         self._main_splitter.addWidget(self._side_stack)
         self._main_splitter.addWidget(self._outer_splitter)
-        self._main_splitter.setSizes([326, 10000])
+        self._main_splitter.setSizes([300, 10000])
         self._main_splitter.setStretchFactor(0, 0)
         self._main_splitter.setStretchFactor(1, 1)
         self._main_splitter.splitterMoved.connect(lambda *_: self._reposition_toggles())
@@ -350,10 +363,58 @@ class MainWindow(QMainWindow):
         self._act_about.triggered.connect(self._action_about)
         self._menu_help.addAction(self._act_about)
 
+        # ── Day / night switch, at the right end of the menu bar ──
+        self._theme_btn = QToolButton()
+        self._theme_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._theme_btn.setMinimumWidth(84)
+        self._theme_btn.setStyleSheet(
+            f"QToolButton {{ background: transparent; color: {C_MUTED}; border: none;"
+            f" border-radius: 5px; padding: 3px 10px; font-size: 12px; }}"
+            f"QToolButton:hover {{ color: {C_TEXT}; background: {C_HOVER}; }}"
+        )
+        self._theme_btn.clicked.connect(self._toggle_theme)
+        corner = QWidget()
+        corner.setStyleSheet("background: transparent;")
+        corner_lay = QHBoxLayout(corner)
+        corner_lay.setContentsMargins(0, 0, 12, 0)   # keep the button off the window edge
+        corner_lay.addWidget(self._theme_btn)
+        mb.setCornerWidget(corner, Qt.Corner.TopRightCorner)
+        self._act_theme = QShortcut(QKeySequence("Ctrl+Shift+L"), self)
+        self._act_theme.activated.connect(self._toggle_theme)
+
         self._retranslate_menubar()
+
+    def _toggle_theme(self) -> None:
+        light = ui_theme.current_theme() == "dark"
+        ui_theme.apply_style(QApplication.instance(), "light" if light else "dark")
+        ui_theme.save_theme()
+
+    def _refresh_theme_btn(self) -> None:
+        # Shows the mode a click switches to: "Day" (sun) while dark, "Night" (moon) while light
+        to_light = ui_theme.current_theme() == "dark"
+        self._theme_btn.setIcon(_svg_icon(_SVG_SUN if to_light else _SVG_MOON, C_MUTED, 15))
+        self._theme_btn.setText(i18n.tr("theme_day" if to_light else "theme_night"))
+
+    def _on_theme_changed(self, theme: str) -> None:
+        """Re-colour what stylesheets cannot reach: icons, painted widgets, saved styles."""
+        self._splitter_style = ui_theme.convert_qss(self._splitter_style, theme)
+        for btn in self._nav._buttons:
+            btn.retheme()
+        self._btn_left_toggle._apply_style()
+        self._btn_right_toggle._apply_style()
+        for btn in self._top_tabs.tabBar().findChildren(_TabCloseBtn):
+            btn.retheme()
+        self._sidebar.retheme()
+        for viewer in self.findChildren(LogViewer):
+            viewer.retheme()
+        self._remote_panel.reload()
+        self._refresh_theme_btn()
+        self.update()
 
     def _retranslate_menubar(self) -> None:
         locale = i18n.get_locale()
+        self._refresh_theme_btn()
         self._menu_file.setTitle(i18n.tr("menu_file"))
         self._act_open.setText(i18n.tr("action_open"))
         self._act_close_tab.setText(i18n.tr("action_close_tab"))
@@ -874,7 +935,7 @@ class MainWindow(QMainWindow):
         session = provider.session(cfg, client)
         viewer = LogViewer(source_type=session.source)
         viewer.set_title(session.title)
-        self._add_tab(session.tab, viewer, session.worker, split)
+        self._add_tab(session.tab, viewer, session.worker, split, provider)
 
     # ── Internal tab management ───────────────────────────────────────────────
 
@@ -902,7 +963,8 @@ class MainWindow(QMainWindow):
                 pass
         viewer.deleteLater()
 
-    def _add_tab(self, title: str, viewer: LogViewer, worker, split: str = "tab"):
+    def _add_tab(self, title: str, viewer: LogViewer, worker, split: str = "tab",
+                 provider: providers.Provider | None = None):
         if split in ("vertical", "horizontal"):
             spl = self._current_tab_splitter()
             if spl is not None and self._count_viewers_in(spl) >= self._MAX_PANES:
@@ -911,6 +973,7 @@ class MainWindow(QMainWindow):
                 return
         self._wire_viewer(viewer, worker)
 
+        tabs_before = self._top_tabs.count()
         if split == "vertical":
             self._add_viewer_to_current_tab(viewer, Qt.Orientation.Horizontal, title)
         elif split == "horizontal":
@@ -920,6 +983,12 @@ class MainWindow(QMainWindow):
             spl.addWidget(viewer)
             idx = self._top_tabs.addTab(spl, title)
             self._top_tabs.setCurrentIndex(idx)
+
+        if provider is not None and self._top_tabs.count() > tabs_before:
+            self._top_tabs.setTabIcon(
+                self._top_tabs.count() - 1,
+                QIcon(provider_logo(provider.logo, provider.icon, provider.color, 14, tile=False)),
+            )
 
         self._set_active_viewer(viewer)
         worker.start()

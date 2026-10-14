@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 import i18n
 from ui import MainWindow
 from ui import apply_style as apply_dark_palette
+from ui_theme import load_theme
 from version import __version__  # noqa: F401  (imported for UpdateWorker)
 
 # Unique socket name for this app's IPC channel
@@ -154,7 +155,7 @@ def main():
     app.setApplicationName("SimpleLog")
     app.setApplicationVersion(__version__)
     app.setStyle("Fusion")
-    apply_dark_palette(app)
+    apply_dark_palette(app, load_theme())
 
     # ── Single-instance check ──────────────────────────────────────────────────
     if _try_forward_to_existing(args):

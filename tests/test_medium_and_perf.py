@@ -307,7 +307,8 @@ def test_highlight_colours_are_translucent_yellow_not_opaque_pink():
         assert (c.red(), c.green(), c.blue()) == (255, 213, 79)
         assert 0 < c.alpha() < 255
     assert log_view._SELECTION_BG.alpha() < 255
-    assert log_view._SELECTION_BG.blue() > log_view._SELECTION_BG.red()
+    sel = log_view._SELECTION_BG    # tinted with the accent colour
+    assert (sel.red(), sel.green(), sel.blue()) == (181, 232, 83)
 
 
 def test_match_rect_follows_the_wrapped_line(viewer):

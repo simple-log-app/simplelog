@@ -4,6 +4,19 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Search: F3 jumps to the next match and Shift+F3 to the previous one; the shortcuts are shown in the buttons' tooltips.
+- Day / Night mode: switch the theme from the button at the right of the menu bar (or with Ctrl+Shift+L); your choice is remembered.
+
+### Changed
+- New look: refreshed dark colour palette with a lime accent, for better readability.
+- Remote sources: the list now only shows providers you have saved connections for, with a quick “+ New connection” link and a two-step delete.
+- Adding a connection: a filterable 4-column picker showing each service's official logo, and a cleaner connection form.
+- Provider logos now appear on tabs, and the “Open as” choice is a compact single row.
+
+### Fixed
+- The AND / OR toggle between search and filter terms is now shown in your language.
+
 ## [1.0.9] - 2026-10-13
 
 ### Added

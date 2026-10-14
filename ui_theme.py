@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import re
+import sys
+from collections.abc import Callable
+from pathlib import Path
+
 from PyQt6.QtCore import (
+    QRectF,
     Qt,
 )
 from PyQt6.QtGui import (
     QColor,
+    QFont,
     QIcon,
     QPainter,
     QPalette,
@@ -15,6 +22,8 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QApplication,
 )
+
+from config_store import CONFIG_DIR, read_json, write_json
 
 try:
     from PyQt6.QtCore import QByteArray
@@ -142,6 +151,28 @@ _SVG_REMOTE = (
     "</svg>"
 )
 
+_SVG_SUN = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}"'
+    ' stroke-width="1.8" stroke-linecap="round">'
+    '<circle cx="12" cy="12" r="4"/>'
+    '<path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>'
+    "</svg>"
+)
+
+_SVG_MOON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}"'
+    ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'
+    "</svg>"
+)
+
+_SVG_SEARCH = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">'
+    '<circle cx="11" cy="11" r="6.5" stroke="{color}" stroke-width="2"/>'
+    '<path d="M16 16l4.5 4.5" stroke="{color}" stroke-width="2" stroke-linecap="round"/>'
+    "</svg>"
+)
+
 _SVG_TRASH = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
     '<path fill="{color}" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12z'
@@ -189,34 +220,314 @@ def _svg_icon(svg_tmpl: str, color: str, size: int = 16) -> QIcon:
     return QIcon(pm)
 
 
-# ── Colour constants ───────────────────────────────────────────────────────────
+_BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+_logo_cache: dict[tuple, QPixmap] = {}
 
-C_BG         = "#0d0d10"
-C_RAIL       = "#080810"
-C_SIDE       = "#111116"
-C_PANEL      = "#14141a"
-C_CARD       = "#1a1a24"
-C_STATUS     = "#090910"
-C_BORDER     = "rgba(255,255,255,18)"
-C_ACCENT     = "#5b8fff"
-C_ACCENT_DIM = "rgba(91,143,255,38)"
-C_TEXT       = "#d4d4e0"
-C_MUTED      = "#52526a"
-C_SEL_BG     = "rgba(91,143,255,31)"
-C_ERR        = "#f07878"
-C_WARN       = "#f0c060"
-C_INFO       = "#56cf80"
-C_DEBUG      = "#5b8fff"
-C_TRACE      = "#b07cf0"
-C_TS         = "#50c8dc"
+
+def _logo_svg(logo: str, color: str) -> bytes | None:
+    """The bundled SVG *logo* painted in *color*, or None when it is missing."""
+    try:
+        svg = (_BASE / logo).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if "{color}" in svg:
+        return svg.replace("{color}", color).encode()
+    return svg.replace("<svg ", f'<svg fill="{color}" ', 1).encode()
+
+
+def provider_logo(logo: str, glyph: str, color: str, size: int, tile: bool = True) -> QPixmap:
+    """Brand logo of a provider: monochrome glyph tinted with *color*.
+
+    With *tile* the logo sits on a rounded square (colour at 10 %, border at 20 %);
+    without it only the glyph is drawn. Falls back to the text *glyph* when the asset
+    or SVG support is missing.
+    """
+    if _theme == "light" and QColor(color).lightness() > 200:
+        color = LIGHT["text"]   # a near-white brand colour would vanish on a light surface
+    key = (logo, glyph, color, size, tile)
+    cached = _logo_cache.get(key)
+    if cached is not None:
+        return cached
+    scale = 2
+    pm = QPixmap(size * scale, size * scale)
+    pm.setDevicePixelRatio(scale)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    base = QColor(color)
+    if tile:
+        radius = size / 4.5
+        fill, border = QColor(base), QColor(base)
+        fill.setAlphaF(0.10)
+        border.setAlphaF(0.20)
+        p.setBrush(fill)
+        p.setPen(border)
+        p.drawRoundedRect(QRectF(0.5, 0.5, size - 1, size - 1), radius, radius)
+    glyph_size = size * 0.62 if tile else size
+    off = (size - glyph_size) / 2
+    rect = QRectF(off, off, glyph_size, glyph_size)
+    data = _logo_svg(logo, color) if logo and _HAS_SVG else None
+    renderer = QSvgRenderer(QByteArray(data)) if data else None
+    if renderer is not None and renderer.isValid():
+        renderer.render(p, rect)
+    else:
+        font = QFont("Inter")
+        font.setPixelSize(max(8, int(glyph_size)))
+        p.setFont(font)
+        p.setPen(base)
+        p.drawText(QRectF(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, glyph)
+    p.end()
+    _logo_cache[key] = pm
+    return pm
+
+
+# ── Colour tokens ──────────────────────────────────────────────────────────────
+
+DARK: dict[str, str] = {
+    "bg": "#0c0c0e",
+    "rail": "#09090b",
+    "side": "#0f0f11",
+    "panel": "#121214",
+    "card": "#161619",
+    "el": "#1b1b1f",
+    "status": "#09090c",
+    "border": "#232327",
+    "border2": "#2e2e33",
+    "text": "#e4e4e7",
+    "muted": "#71717a",
+    "muted2": "#4a4a52",
+    "accent": "#b5e853",
+    "accent_hover": "#c6f06a",
+    "accent_press": "#a3d445",
+    "accent_dim": "rgba(181,232,83,31)",
+    "sel_bg": "rgba(181,232,83,31)",
+    "on_accent": "#0c0f06",
+    "err": "#ef6b6b",
+    "warn": "#e8b04a",
+    "info": "#5fc48a",
+    "debug": "#6e9bff",
+    "trace": "#b08cf0",
+    "ts": "#5cc0d0",
+    "hover": "rgba(255,255,255,10)",
+    "handle": "rgba(255,255,255,31)",
+    "overlay_surface": "#111114",
+}
+
+LIGHT: dict[str, str] = {
+    "bg": "#fafafa",
+    "rail": "#f0f0f2",
+    "side": "#f6f6f7",
+    "panel": "#f1f1f3",
+    "card": "#ffffff",
+    "el": "#ececef",
+    "status": "#f2f2f4",
+    "border": "#e2e2e6",
+    "border2": "#d1d1d6",
+    "text": "#18181b",
+    "muted": "#6b6b76",
+    "muted2": "#a1a1aa",
+    "accent": "#5a8a00",
+    "accent_hover": "#4a7400",
+    "accent_press": "#3d6200",
+    "accent_dim": "rgba(90,138,0,31)",
+    "sel_bg": "rgba(90,138,0,31)",
+    "on_accent": "#fdfdfd",
+    "err": "#d64545",
+    "warn": "#b7791f",
+    "info": "#2e8f57",
+    "debug": "#2f5fd0",
+    "trace": "#7c4dd1",
+    "ts": "#0e8a9c",
+    "hover": "rgba(0,0,0,10)",
+    "handle": "rgba(0,0,0,38)",
+    "overlay_surface": "#fefefe",
+}
+
+THEMES: dict[str, dict[str, str]] = {"dark": DARK, "light": LIGHT}
+
+_theme = "dark"
+_PREFS_PATH = CONFIG_DIR / "prefs.json"
+
+
+_theme_callbacks: dict[int, Callable[[str], None]] = {}
+
+
+def on_theme_changed(key: int, fn: Callable[[str], None]) -> None:
+    """Register *fn(theme)*, called after every theme switch (replaces any *key* entry)."""
+    _theme_callbacks[key] = fn
+
+
+def off_theme_changed(key: int) -> None:
+    _theme_callbacks.pop(key, None)
+
+
+def current_theme() -> str:
+    return _theme
+
+
+def c(role: str) -> str:
+    """Colour of *role* (``"bg"``, ``"accent"``...) in the active theme."""
+    return THEMES[_theme][role]
+
+
+def load_theme() -> str:
+    """The persisted theme preference ("dark" by default); apply it with apply_style()."""
+    prefs = read_json(_PREFS_PATH, {})
+    candidate = prefs.get("theme") if isinstance(prefs, dict) else None
+    return candidate if candidate in THEMES else "dark"
+
+
+def save_theme() -> None:
+    prefs = read_json(_PREFS_PATH, {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+    prefs["theme"] = _theme
+    try:
+        write_json(_PREFS_PATH, prefs)
+    except OSError:
+        pass
+
+
+# Module-level constants hold the dark palette; widgets that must follow a theme switch
+# read their colours through c() instead.
+C_BG         = DARK["bg"]
+C_RAIL       = DARK["rail"]
+C_SIDE       = DARK["side"]
+C_PANEL      = DARK["panel"]
+C_CARD       = DARK["card"]
+C_EL         = DARK["el"]
+C_STATUS     = DARK["status"]
+C_BORDER     = DARK["border"]
+C_BORDER2    = DARK["border2"]
+C_ACCENT     = DARK["accent"]
+C_ACCENT_DIM = DARK["accent_dim"]
+C_ACCENT_HOVER = DARK["accent_hover"]
+C_ACCENT_PRESS = DARK["accent_press"]
+C_ON_ACCENT  = DARK["on_accent"]
+C_TEXT       = DARK["text"]
+C_MUTED      = DARK["muted"]
+C_MUTED2     = DARK["muted2"]
+C_SEL_BG     = DARK["sel_bg"]
+C_ERR        = DARK["err"]
+C_WARN       = DARK["warn"]
+C_INFO       = DARK["info"]
+C_DEBUG      = DARK["debug"]
+C_TRACE      = DARK["trace"]
+C_TS         = DARK["ts"]
+C_HOVER      = DARK["hover"]
+C_OVERLAY_SURFACE = DARK["overlay_surface"]
 
 C_DIVIDER  = C_BORDER  # alias used in painter pens
 
 
+def rgba(hex_color: str, alpha: int) -> str:
+    """Stylesheet ``rgba()`` string for *hex_color* at *alpha* (0-255)."""
+    q = QColor(hex_color)
+    return f"rgba({q.red()},{q.green()},{q.blue()},{alpha})"
+
+
+def rgba_tuple(hex_color: str, alpha: int) -> tuple[int, int, int, int]:
+    """``(r, g, b, a)`` of *hex_color* at *alpha*, for ``QColor(*...)``."""
+    q = QColor(hex_color)
+    return q.red(), q.green(), q.blue(), alpha
+
+
+# ── Switching theme at runtime ─────────────────────────────────────────────────
+
+_CONST_ROLES = {
+    "C_BG": "bg", "C_RAIL": "rail", "C_SIDE": "side", "C_PANEL": "panel", "C_CARD": "card",
+    "C_EL": "el", "C_STATUS": "status", "C_BORDER": "border", "C_BORDER2": "border2",
+    "C_ACCENT": "accent", "C_ACCENT_DIM": "accent_dim", "C_ACCENT_HOVER": "accent_hover",
+    "C_ACCENT_PRESS": "accent_press", "C_ON_ACCENT": "on_accent", "C_TEXT": "text",
+    "C_MUTED": "muted", "C_MUTED2": "muted2", "C_SEL_BG": "sel_bg", "C_ERR": "err",
+    "C_WARN": "warn", "C_INFO": "info", "C_DEBUG": "debug", "C_TRACE": "trace", "C_TS": "ts",
+    "C_HOVER": "hover", "C_OVERLAY_SURFACE": "overlay_surface", "C_DIVIDER": "border",
+}
+
+_HEX_RE = re.compile(r"#[0-9a-fA-F]{6}(?![0-9a-fA-F])")
+_RGBA_RE = re.compile(r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,")
+
+
+def _triple(color: str) -> tuple[int, int, int]:
+    q = QColor(color) if color.startswith("#") else None
+    if q is not None:
+        return q.red(), q.green(), q.blue()
+    nums = [int(n) for n in re.findall(r"\d+", color)[:3]]
+    return nums[0], nums[1], nums[2]
+
+
+def _colour_maps(src: str, dst: str) -> tuple[dict[str, str], dict[tuple, tuple]]:
+    hexes: dict[str, str] = {}
+    triples: dict[tuple, tuple] = {}
+    for role, sv in THEMES[src].items():
+        dv = THEMES[dst][role]
+        if sv.startswith("#"):
+            hexes[sv.lower()] = dv
+        triples[_triple(sv)] = _triple(dv)
+    return hexes, triples
+
+
+def convert_qss(qss: str, to: str) -> str:
+    """Rewrite the palette colours of *qss* from the other theme to theme *to*."""
+    src = "light" if to == "dark" else "dark"
+    hexes, triples = _colour_maps(src, to)
+
+    def hex_sub(m: re.Match) -> str:
+        return hexes.get(m.group(0).lower(), m.group(0))
+
+    def rgba_sub(m: re.Match) -> str:
+        r, g, b = triples.get((int(m.group(1)), int(m.group(2)), int(m.group(3))),
+                              (m.group(1), m.group(2), m.group(3)))
+        return f"rgba({r},{g},{b},"
+
+    return _RGBA_RE.sub(rgba_sub, _HEX_RE.sub(hex_sub, qss))
+
+
+def themed(color: str) -> str:
+    """*color* if it is not a palette colour, else its equivalent in the active theme."""
+    for role, dark_value in DARK.items():
+        if color == dark_value:
+            return THEMES[_theme][role]
+    return color
+
+
+def _rewrite_constants(old: str, new: str) -> None:
+    """Point every module's imported ``C_*`` constants at the *new* theme's colours."""
+    for mod in list(sys.modules.values()):
+        d = getattr(mod, "__dict__", None)
+        if not d or "C_BG" not in d and "C_TEXT" not in d and "C_ACCENT" not in d:
+            continue
+        for name, role in _CONST_ROLES.items():
+            if name in d and d[name] == THEMES[old][role]:
+                d[name] = THEMES[new][role]
+
+
+def _convert_widgets(new: str) -> None:
+    for w in QApplication.allWidgets():
+        qss = w.styleSheet()
+        if qss:
+            converted = convert_qss(qss, new)
+            if converted != qss:
+                w.setStyleSheet(converted)
+
+
 # ── apply_style ────────────────────────────────────────────────────────────────
 
-def apply_style(app: QApplication) -> None:
-    """Apply Material Design dark palette and global stylesheet."""
+def apply_style(app: QApplication, theme: str | None = None) -> None:
+    """Apply the palette and global stylesheet of *theme* (default: the active one)."""
+    global _theme
+    old = _theme
+    changed = theme is not None and theme in THEMES and theme != old
+    if changed:
+        _theme = theme
+        _rewrite_constants(old, theme)
+    t = THEMES[_theme]
+    C_BG, C_RAIL, C_PANEL, C_CARD = t["bg"], t["rail"], t["panel"], t["card"]
+    C_STATUS, C_BORDER, C_BORDER2 = t["status"], t["border"], t["border2"]
+    C_TEXT, C_MUTED, C_ERR = t["text"], t["muted"], t["err"]
+    C_ACCENT, C_ACCENT_DIM, C_SEL_BG = t["accent"], t["accent_dim"], t["sel_bg"]
+    C_HOVER, C_HANDLE = t["hover"], t["handle"]
+
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window,          QColor(C_BG))
     palette.setColor(QPalette.ColorRole.WindowText,      QColor(C_TEXT))
@@ -226,7 +537,7 @@ def apply_style(app: QApplication) -> None:
     palette.setColor(QPalette.ColorRole.Button,          QColor(C_CARD))
     palette.setColor(QPalette.ColorRole.ButtonText,      QColor(C_TEXT))
     palette.setColor(QPalette.ColorRole.Highlight,       QColor(C_ACCENT))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#000000"))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(t["on_accent"]))
     palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(C_MUTED))
     palette.setColor(QPalette.ColorRole.BrightText,      QColor(C_ERR))
     app.setPalette(palette)
@@ -240,68 +551,73 @@ def apply_style(app: QApplication) -> None:
         }}
         QLineEdit, QComboBox, QSpinBox {{
             background: {C_BG};
-            border: 1px solid rgba(255,255,255,26);
+            border: 1px solid {C_BORDER2};
             border-radius: 5px;
-            padding: 6px 10px;
+            padding: 0 9px;
             color: {C_TEXT};
-            min-height: 20px;
+            min-height: 28px;
+            max-height: 28px;
             font-size: 12px;
         }}
         QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{
-            border-color: {C_ACCENT};
-            border-width: 1px;
+            border: 1px solid {C_ACCENT};
         }}
         QPushButton {{
             background-color: transparent;
             border: 1px solid {C_BORDER};
-            border-radius: 6px;
-            padding: 7px 14px;
+            border-radius: 5px;
+            padding: 0 12px;
             color: {C_MUTED};
             font-size: 12px;
         }}
         QPushButton:hover {{
-            background-color: rgba(255,255,255,10);
+            background-color: {C_HOVER};
             color: {C_TEXT};
         }}
         QPushButton#primary {{
             background-color: {C_ACCENT};
-            color: #000000;
+            color: {t['on_accent']};
             border: none;
             font-weight: bold;
         }}
         QPushButton#primary:hover {{
-            background-color: #7aa3ff;
+            background-color: {t['accent_hover']};
+        }}
+        QPushButton#primary:pressed {{
+            background-color: {t['accent_press']};
         }}
         QPushButton#danger {{
             color: {C_ERR};
-            border-color: rgba(240,120,120,77);
+            border-color: {rgba(C_ERR, 77)};
             background: transparent;
         }}
         QPushButton#danger:hover {{
-            background: rgba(240,120,120,20);
+            background: {rgba(C_ERR, 20)};
         }}
         QPushButton:disabled {{
-            background-color: rgba(91,143,255,38);
+            background-color: {C_ACCENT_DIM};
             color: {C_MUTED};
             border: none;
         }}
         QListWidget {{
             background: {C_BG};
             border: 1px solid {C_BORDER};
-            border-radius: 6px;
+            border-radius: 5px;
             font-family: "JetBrains Mono", monospace;
             font-size: 11px;
         }}
         QListWidget::item {{
-            padding: 6px 10px;
-            border-radius: 4px;
+            padding: 0 10px;
+            min-height: 24px;
+            border-radius: 0;
         }}
         QListWidget::item:selected {{
             background: {C_SEL_BG};
             color: {C_ACCENT};
+            border-left: 2px solid {C_ACCENT};
         }}
         QListWidget::item:hover {{
-            background: rgba(255,255,255,10);
+            background: {C_HOVER};
         }}
         QTabWidget::pane {{
             border: none;
@@ -311,18 +627,18 @@ def apply_style(app: QApplication) -> None:
             border: none;
             border-right: 1px solid {C_BORDER};
             padding: 0 14px;
-            min-height: 38px;
+            min-height: 34px;
             color: {C_MUTED};
             font-size: 12px;
         }}
         QTabBar::tab:selected {{
             background: {C_BG};
             color: {C_TEXT};
-            border-top: 2px solid {C_ACCENT};
+            border-bottom: 2px solid {C_ACCENT};
         }}
         QTabBar::tab:hover:!selected {{
             color: {C_TEXT};
-            background: rgba(255,255,255,5);
+            background: {C_HOVER};
         }}
         QComboBox::drop-down {{
             border: none;
@@ -339,12 +655,12 @@ def apply_style(app: QApplication) -> None:
             margin: 0;
         }}
         QScrollBar::handle:vertical {{
-            background: rgba(255,255,255,31);
+            background: {C_HANDLE};
             border-radius: 3px;
             min-height: 30px;
         }}
         QScrollBar::handle:vertical:hover {{
-            background: rgba(91,143,255,128);
+            background: {rgba(C_ACCENT, 128)};
         }}
         QScrollBar::add-line:vertical,
         QScrollBar::sub-line:vertical {{
@@ -355,11 +671,11 @@ def apply_style(app: QApplication) -> None:
             height: 6px;
         }}
         QScrollBar::handle:horizontal {{
-            background: rgba(255,255,255,31);
+            background: {C_HANDLE};
             border-radius: 3px;
         }}
         QScrollBar::handle:horizontal:hover {{
-            background: rgba(91,143,255,128);
+            background: {rgba(C_ACCENT, 128)};
         }}
         QScrollBar::add-line:horizontal,
         QScrollBar::sub-line:horizontal {{
@@ -413,13 +729,13 @@ def apply_style(app: QApplication) -> None:
             border-radius: 4px;
         }}
         QMenuBar::item:selected {{
-            background: rgba(255,255,255,15);
+            background: {C_HOVER};
             color: {C_ACCENT};
         }}
         QMenu {{
             background: {C_CARD};
             border: 1px solid {C_BORDER};
-            border-radius: 8px;
+            border-radius: 6px;
             padding: 4px 0;
             font-size: 12px;
         }}
@@ -437,3 +753,10 @@ def apply_style(app: QApplication) -> None:
             margin: 4px 8px;
         }}
     """)
+    if changed:
+        _convert_widgets(_theme)
+        for fn in list(_theme_callbacks.values()):
+            try:
+                fn(_theme)
+            except Exception:
+                pass

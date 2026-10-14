@@ -15,7 +15,7 @@ a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
-    datas=[(f, ".") for f in glob.glob("CHANGELOG*.md")] + [("locales", "locales")],
+    datas=[(f, ".") for f in glob.glob("CHANGELOG*.md")] + [("locales", "locales"), ("assets/providers", "assets/providers")],
     hiddenimports=[
         "boto3",
         "botocore",

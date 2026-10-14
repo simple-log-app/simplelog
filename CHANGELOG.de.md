@@ -4,6 +4,19 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+- Suche: F3 springt zum nächsten Treffer und Umschalt+F3 zum vorherigen; die Tastenkürzel stehen in den Tooltips der Schaltflächen.
+- Tag-/Nachtmodus: Wechseln Sie das Design mit der Schaltfläche rechts in der Menüleiste (oder mit Strg+Umschalt+L); Ihre Wahl wird gespeichert.
+
+### Geändert
+- Neues Erscheinungsbild: überarbeitete dunkle Farbpalette mit limettengrünem Akzent für bessere Lesbarkeit.
+- Remote-Quellen: Die Liste zeigt nur noch Dienste, für die Sie gespeicherte Verbindungen haben, mit einem Link „+ Neue Verbindung“ und zweistufigem Löschen.
+- Verbindung hinzufügen: eine filterbare Auswahl in 4 Spalten mit dem offiziellen Logo jedes Dienstes und ein übersichtlicheres Verbindungsformular.
+- Dienst-Logos erscheinen jetzt auf den Tabs, und die Auswahl „Öffnen als“ passt in eine Zeile.
+
+### Behoben
+- Die UND-/ODER-Schaltfläche zwischen Such- und Filterbegriffen wird jetzt in Ihrer Sprache angezeigt.
+
 ## [1.0.9] - 2026-10-13
 
 ### Hinzugefügt

@@ -61,6 +61,7 @@ from ui_theme import (
     C_DEBUG,
     C_DIVIDER,
     C_ERR,
+    C_HOVER,
     C_INFO,
     C_MUTED,
     C_PANEL,
@@ -70,6 +71,9 @@ from ui_theme import (
     C_TS,
     C_WARN,
     _svg_icon,
+    on_theme_changed,
+    rgba,
+    themed,
 )
 
 # ── LogDelegate ────────────────────────────────────────────────────────────────
@@ -81,23 +85,37 @@ _TABLE_PAD_B   = 6    # px — padding below last table row
 _BADGE_COL_W   = 52   # px — level badge column width
 _TS_COL_W      = 92   # px — timestamp column width
 
-_LEVEL_COLORS = {
-    "error": C_ERR,
-    "warn":  C_WARN,
-    "info":  C_INFO,
-    "debug": C_DEBUG,
-    "trace": C_TRACE,
-    "plain": C_TEXT,
-}
+_LEVEL_COLORS: dict[str, str] = {}
+_LEVEL_BG: dict[str, QColor] = {}
+_SELECTION_BG = QColor()
 
-_LEVEL_BG = {
-    "error": QColor(240, 120, 120, 26),   # 10% opacity
-    "warn":  QColor(240, 192, 96, 20),
-    "info":  QColor(86, 207, 128, 18),
-    "debug": QColor(91, 143, 255, 20),
-    "trace": QColor(176, 124, 240, 20),
-    "plain": QColor(0, 0, 0, 0),
-}
+
+def _alpha(color: str, alpha: int) -> QColor:
+    c = QColor(color)
+    c.setAlpha(alpha)
+    return c
+
+
+def _refresh_palette(_theme: str = "") -> None:
+    """(Re)build the colour tables from the active theme (also on a theme switch)."""
+    global _SELECTION_BG
+    _LEVEL_COLORS.update({
+        "error": C_ERR, "warn": C_WARN, "info": C_INFO,
+        "debug": C_DEBUG, "trace": C_TRACE, "plain": C_TEXT,
+    })
+    _LEVEL_BG.update({
+        "error": _alpha(C_ERR, 26),   # ~10 % opacity
+        "warn":  _alpha(C_WARN, 20),
+        "info":  _alpha(C_INFO, 18),
+        "debug": _alpha(C_DEBUG, 20),
+        "trace": _alpha(C_TRACE, 20),
+        "plain": QColor(0, 0, 0, 0),
+    })
+    _SELECTION_BG = _alpha(C_ACCENT, 40)
+
+
+_refresh_palette()
+on_theme_changed(id(_refresh_palette), _refresh_palette)
 
 _LEVEL_BADGE_TEXT = {
     "error": "ERROR",
@@ -120,7 +138,6 @@ def _qcolor(spec: str) -> QColor:
     return c
 
 
-_SELECTION_BG = QColor(26, 58, 110, 85)
 _MATCH_BG = QColor(255, 213, 79, 102)
 _MATCH_FOCUSED_BG = QColor(255, 213, 79, 170)
 _ROW_MATCH_BG = QColor(255, 213, 79, 36)          # whole JSON row that contains a match
@@ -306,7 +323,7 @@ class LogDelegate(QStyledItemDelegate):
 
     def _paint_break(self, painter, option, item: LogItem) -> None:
         rect = option.rect
-        painter.fillRect(rect, QColor("#111111"))
+        painter.fillRect(rect, QColor(C_PANEL))
         mid_y = rect.top() + rect.height() // 2
         painter.setPen(QColor(C_DIVIDER))
         painter.drawLine(rect.left(), mid_y, rect.right(), mid_y)
@@ -314,7 +331,7 @@ class LogDelegate(QStyledItemDelegate):
         text_w = fm.horizontalAdvance(item.message)
         tx = rect.left() + (rect.width() - text_w) // 2
         ty = self._baseline(rect, fm, rect.height())
-        painter.fillRect(QRect(tx - 6, rect.top(), text_w + 12, rect.height()), QColor("#111111"))
+        painter.fillRect(QRect(tx - 6, rect.top(), text_w + 12, rect.height()), QColor(C_PANEL))
         painter.setPen(QColor(C_MUTED))
         painter.drawText(tx, ty, item.message)
 
@@ -653,12 +670,13 @@ class LogViewer(QWidget):
         tb.setContentsMargins(12, 0, 12, 0)
         tb.setSpacing(8)
 
-        src_color = _SOURCE_COLORS.get(self._source_type, C_TEXT)
+        src_color = themed(_SOURCE_COLORS.get(self._source_type, C_TEXT))
         self._source_badge = QLabel(self._source_type.replace("_", " ").upper())
         self._source_badge.setStyleSheet(
-            f"background: rgba(91,143,255,31); color: {src_color}; border-radius: 8px;"
-            "padding: 1px 8px; font-size: 10px; font-weight: bold; border: none;"
+            f"background: {rgba(src_color, 31)}; color: {src_color}; border-radius: 9px;"
+            "padding: 0 8px; font-size: 10px; font-weight: 700; border: none;"
         )
+        self._source_badge.setFixedHeight(18)
 
         self.title_label = QLabel("—")
         self.title_label.setStyleSheet(
@@ -690,9 +708,9 @@ class LogViewer(QWidget):
             f"QPushButton:disabled {{ opacity: 0.4; }}"
         )
         _danger_icon_style = (
-            "QPushButton { background: transparent; border: 1px solid rgba(240,120,120,80);"
-            " border-radius: 5px; padding: 0; }"
-            "QPushButton:hover { background: rgba(240,120,120,30); }"
+            f"QPushButton {{ background: transparent; border: 1px solid {rgba(C_ERR, 80)};"
+            f" border-radius: 5px; padding: 0; }}"
+            f"QPushButton:hover {{ background: {rgba(C_ERR, 30)}; }}"
         )
 
         _font_btn_style = (
@@ -734,7 +752,7 @@ class LogViewer(QWidget):
         self.close_pane_btn.setIconSize(QSize(12, 12))
         self.close_pane_btn.setStyleSheet(
             "QPushButton { background: transparent; border: none; border-radius: 5px; padding: 0; }"
-            "QPushButton:hover { background: rgba(240,120,120,25); }"
+            f"QPushButton:hover {{ background: {rgba(C_ERR, 25)}; }}"
         )
         self.close_pane_btn.clicked.connect(self.pane_close_requested)
 
@@ -763,8 +781,8 @@ class LogViewer(QWidget):
         self._list_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._list_view.setStyleSheet(
             f"QListView {{ background: {C_BG}; border: none; border-radius: 0; }}"
-            f"QListView::item:selected {{ background: rgba(91,143,255,20); }}"
-            f"QListView::item:hover {{ background: rgba(255,255,255,5); }}"
+            f"QListView::item:selected {{ background: {rgba(C_ACCENT, 20)}; }}"
+            f"QListView::item:hover {{ background: {C_HOVER}; }}"
         )
         self._log_font = QFont("JetBrains Mono")
         self._log_font.setStyleHint(QFont.StyleHint.Monospace)
@@ -789,6 +807,13 @@ class LogViewer(QWidget):
 
     def set_title(self, text: str) -> None:
         self.title_label.setText(text)
+
+    def retheme(self) -> None:
+        """Re-colour the toolbar icons and repaint the rows after a theme switch."""
+        self.clear_btn.setIcon(_svg_icon(_SVG_TRASH, C_ERR, 14))
+        self.stop_btn.setIcon(_svg_icon(_SVG_STOP_SQ, C_MUTED, 14))
+        self.close_pane_btn.setIcon(_svg_icon(_SVG_CLOSE_X, C_MUTED, 12))
+        self._list_view.viewport().update()
 
     def _on_timestamps_toggled(self, _state=None) -> None:
         # The timestamp column narrows the text area, so wrapped rows change height
