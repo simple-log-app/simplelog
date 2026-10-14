@@ -59,3 +59,24 @@ def read_json(path: Path, default):
 
 def write_json(path: Path, data) -> None:
     write_private(path, json.dumps(data, indent=2, ensure_ascii=False))
+
+
+_PREFS_PATH = CONFIG_DIR / "prefs.json"
+
+
+def get_pref(key: str, default):
+    """A value of the shared preferences file (*default* when unset or unreadable)."""
+    prefs = read_json(_PREFS_PATH, {})
+    return prefs.get(key, default) if isinstance(prefs, dict) else default
+
+
+def set_pref(key: str, value) -> None:
+    """Store a value in the shared preferences file (read-modify-write)."""
+    prefs = read_json(_PREFS_PATH, {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+    prefs[key] = value
+    try:
+        write_json(_PREFS_PATH, prefs)
+    except OSError:
+        pass

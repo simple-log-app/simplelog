@@ -695,6 +695,7 @@ class LogViewer(QWidget):
         super().__init__(parent)
         self._source_type = source_type
         self._source_colors: dict[str, str] = {}
+        self._resync: set[tuple[int, str]] | None = None
         self._font_size = self._FONT_SIZE_DEFAULT
         self._search_highlights: dict[int, list[tuple[int, int]]] = {}
 
@@ -914,12 +915,30 @@ class LogViewer(QWidget):
         one update per cooldown period instead of one (costly) re-layout per line."""
         if not events:
             return
+        if self._resync is not None:
+            events = [e for e in events if e not in self._resync]   # re-sent after a reconnect
+            if not events:
+                return
         self.events_added.emit(events)
         if self._append_timer.isActive():
             self._pending.extend(events)
             return
         self._model.append_events(events)
         self._append_timer.start()
+
+    # ── Reconnection ──────────────────────────────────────────────────────────
+
+    def newest_ts(self) -> int:
+        self.flush_pending()
+        return self._model.newest_ts()
+
+    def begin_resync(self, margin_ms: int = 5000) -> None:
+        """A restarted source re-sends recent history: ignore lines already shown."""
+        self.flush_pending()
+        self._resync = self._model.recent_keys(self._model.newest_ts() - margin_ms)
+
+    def end_resync(self) -> None:
+        self._resync = None
 
     # ── Merged view: lines from other logs, in time order ─────────────────────
 

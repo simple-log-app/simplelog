@@ -378,5 +378,13 @@
   "merge_hint": "Wählen Sie zwei oder mehr geöffnete Logs: Ihre Zeilen erscheinen zusammen in zeitlicher Reihenfolge, jeweils mit ihrer Quelle.",
   "merge_action": "Zusammenführen",
   "merge_tab": "Zusammengeführt ({n})",
-  "status_merge_needs_two": "Öffnen Sie mindestens zwei Logs, um sie zusammenzuführen"
+  "status_merge_needs_two": "Öffnen Sie mindestens zwei Logs, um sie zusammenzuführen",
+  "action_auto_reconnect": "Automatisch erneut verbinden",
+  "conn_connecting": "Verbindung wird hergestellt…",
+  "conn_live": "Verbunden",
+  "conn_reconnecting": "Verbindung verloren — neuer Versuch in {s} s (Versuch {n}/{max})",
+  "conn_failed": "Verbindung verloren",
+  "conn_stopped": "Gestoppt",
+  "conn_ended": "Der Stream ist beendet",
+  "status_reconnected": "Wieder verbunden"
 }

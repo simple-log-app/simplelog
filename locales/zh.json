@@ -391,5 +391,13 @@
   "merge_hint": "勾选两个或更多已打开的日志：它们的行将按时间顺序一起显示，并标注来源。",
   "merge_action": "合并",
   "merge_tab": "合并 ({n})",
-  "status_merge_needs_two": "至少打开两个日志才能合并"
+  "status_merge_needs_two": "至少打开两个日志才能合并",
+  "action_auto_reconnect": "自动重新连接",
+  "conn_connecting": "正在连接…",
+  "conn_live": "已连接",
+  "conn_reconnecting": "连接已断开 — {s} 秒后重试（第 {n}/{max} 次）",
+  "conn_failed": "连接已断开",
+  "conn_stopped": "已停止",
+  "conn_ended": "数据流已结束",
+  "status_reconnected": "已重新连接"
 }

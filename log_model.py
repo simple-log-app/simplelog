@@ -234,6 +234,15 @@ class LogModel(QAbstractListModel):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def newest_ts(self) -> int:
+        """Timestamp of the newest line held (0 when there is none)."""
+        return max((it.ts_ms for it in self._items), default=0)
+
+    def recent_keys(self, since_ts: int) -> set[tuple[int, str]]:
+        """``(ts, message)`` of the lines at or after *since_ts* (to spot re-sent lines)."""
+        return {(it.ts_ms, it.message) for it in self._items
+                if it.ts_ms >= since_ts and not it.is_break}
+
     def all_events(self) -> list[tuple[int, str]]:
         """Every line held (shown or not), oldest first, without the section breaks."""
         return [(it.ts_ms, it.message) for it in self._items if not it.is_break]

@@ -12,6 +12,7 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 - Marcadores: marca líneas con Ctrl+B (o el menú contextual) y salta entre ellas con F2 / Mayús+F2.
 - Exportar: guarda en un archivo las líneas mostradas (tras tus filtros) o solo la selección, desde el menú Archivo (Ctrl+Mayús+E) o el menú contextual.
 - Vista combinada (menú Archivo): muestra varios logs abiertos en una sola pestaña, en orden cronológico, con cada línea indicando su origen.
+- Las pestañas remotas muestran su estado de conexión (punto de color en el logotipo) y se reconectan solas cuando el flujo se corta, sin duplicar líneas; se puede desactivar en el menú Archivo.
 
 ## [2.0.0] - 2026-10-14
 

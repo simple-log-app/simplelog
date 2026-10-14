@@ -50,6 +50,8 @@ from PyQt6.QtWidgets import (
 )
 
 import changelog
+import config_store
+import connection_state as cs
 import i18n
 import providers
 import ui_theme
@@ -68,14 +70,18 @@ from ui_theme import (
     C_BORDER,
     C_CARD,
     C_DIVIDER,
+    C_ERR,
     C_HOVER,
+    C_INFO,
     C_MUTED,
     C_PANEL,
     C_SIDE,
     C_STATUS,
     C_TEXT,
+    C_WARN,
     _svg_icon,
     provider_logo,
+    with_status_dot,
 )
 from ui_widgets import MergeTabsDialog, NavRail, _SidebarEdgeBtn, _SLTabWidget, _TabCloseBtn
 from ui_workers import CallWorker
@@ -175,6 +181,8 @@ class MainWindow(QMainWindow):
         self._stopping: set = set()   # stopped workers that are still winding down
         self._connectors: set = set()  # background connections for tabs being opened
         self._cur_viewer: LogViewer | None = None
+        self._links: dict[int, cs.Link] = {}     # remote tabs: how to bring them back
+        self._auto_reconnect = bool(config_store.get_pref("auto_reconnect", True))
         self._splitter_style: str = ""
         self._update_worker = None  # UpdateWorker instance (kept alive)
         self._left_sidebar_width: int = 300
@@ -310,6 +318,11 @@ class MainWindow(QMainWindow):
         self._act_merge = QAction(self)
         self._act_merge.triggered.connect(self._action_merge_tabs)
         self._menu_file.addAction(self._act_merge)
+
+        self._act_reconnect = QAction(self, checkable=True)
+        self._act_reconnect.setChecked(self._auto_reconnect)
+        self._act_reconnect.toggled.connect(self._set_auto_reconnect)
+        self._menu_file.addAction(self._act_reconnect)
 
         self._act_close_tab = QAction(self)
         self._act_close_tab.setShortcut(QKeySequence("Ctrl+W"))
@@ -482,6 +495,7 @@ class MainWindow(QMainWindow):
         self._act_close_tab.setText(i18n.tr("action_close_tab"))
         self._act_export.setText(i18n.tr("action_export"))
         self._act_merge.setText(i18n.tr("action_merge"))
+        self._act_reconnect.setText(i18n.tr("action_auto_reconnect"))
         self._act_close_all.setText(i18n.tr("action_close_all"))
         self._act_update.setText(i18n.tr("action_update"))
         self._act_quit.setText(i18n.tr("action_quit"))
@@ -530,6 +544,17 @@ class MainWindow(QMainWindow):
         if path and os.path.isfile(path):
             # Updates FilePanel's recent list and opens the tab (open_tab signal)
             self._file_panel._open_path(path)
+
+    def _set_auto_reconnect(self, on: bool) -> None:
+        self._auto_reconnect = on
+        config_store.set_pref("auto_reconnect", on)
+        if not on:                      # cancel the countdowns already running
+            for link in self._links.values():
+                if link.state == cs.RECONNECTING:
+                    link.cancel()
+                    link.state = cs.FAILED
+            for viewer in self.findChildren(LogViewer):
+                self._refresh_tab_state(viewer)
 
     def _action_merge_tabs(self) -> None:
         """File → Merge logs: one tab that shows several logs interleaved by time."""
@@ -1092,26 +1117,41 @@ class MainWindow(QMainWindow):
         session = provider.session(cfg, client)
         viewer = LogViewer(source_type=session.source)
         viewer.set_title(session.title)
+        link = cs.Link(provider, dict(cfg))
+        self._links[id(viewer)] = link
+        viewer.destroyed.connect(lambda _=None, k=id(viewer): self._links.pop(k, None))
         self._add_tab(session.tab, viewer, session.worker, split, provider)
 
     # ── Internal tab management ───────────────────────────────────────────────
 
-    def _wire_viewer(self, viewer: LogViewer, worker) -> None:
+    def _attach_worker(self, viewer: LogViewer, worker) -> None:
+        """Connect a (new) worker to the viewer that shows its lines."""
         worker.new_lines.connect(viewer.append_events)
         worker.status.connect(self._status.showMessage)
         worker.error.connect(lambda msg, v=viewer: self._on_error(msg, v))
+        worker.new_lines.connect(lambda _events, v=viewer, w=worker: self._mark_live(v, w))
         if hasattr(worker, "history_done"):
             worker.history_done.connect(
                 lambda n: self._status.showMessage(i18n.tr("history_loaded", n=n))
             )
+            worker.history_done.connect(
+                lambda _n, v=viewer, w=worker: (self._mark_live(v, w), v.end_resync()))
+        if hasattr(worker, "finished"):
+            worker.finished.connect(lambda v=viewer, w=worker: self._worker_finished(v, w))
+        # A quiet stream sends no line to prove it is up: running a moment is enough
+        self._after(viewer, 2500, lambda v=viewer, w=worker: self._mark_live(v, w))
+        viewer.stop_btn.setEnabled(True)
+        self._workers[id(viewer)] = worker
+        self._set_state(viewer, cs.CONNECTING)
+
+    def _wire_viewer(self, viewer: LogViewer, worker) -> None:
+        self._attach_worker(viewer, worker)
         viewer.stop_requested.connect(lambda v=viewer: self._stop_viewer(v))
         viewer.pane_close_requested.connect(lambda v=viewer: self._close_pane(v))
         viewer.pane_activated.connect(lambda v=viewer: self._set_active_viewer(v))
         viewer.export_requested.connect(
             lambda selection, v=viewer: (self._set_active_viewer(v), self._action_export(selection))
         )
-        viewer.stop_btn.setEnabled(True)
-        self._workers[id(viewer)] = worker
 
     def _discard(self, viewer: LogViewer, worker) -> None:
         """Throw away a viewer/worker pair that was never wired or started."""
@@ -1149,6 +1189,7 @@ class MainWindow(QMainWindow):
                 self._top_tabs.count() - 1,
                 QIcon(provider_logo(provider.logo, provider.icon, provider.color, 14, tile=False)),
             )
+        self._refresh_tab_state(viewer)
 
         self._set_active_viewer(viewer)
         worker.start()
@@ -1161,7 +1202,7 @@ class MainWindow(QMainWindow):
         while self._top_tabs.count() > 0:
             self._close_tab_at(0)
 
-    def _stop_viewer(self, viewer: LogViewer):
+    def _stop_viewer(self, viewer: LogViewer, by_user: bool = True):
         """Ask the viewer's worker to stop; it winds down in the background."""
         worker = self._workers.pop(id(viewer), None)
         if worker is not None and worker.isRunning():
@@ -1170,6 +1211,10 @@ class MainWindow(QMainWindow):
             worker.finished.connect(lambda w=worker: self._reap(w))
         if viewer:
             viewer.stop_btn.setEnabled(False)
+            link = self._links.get(id(viewer))
+            if by_user and link is not None:
+                link.cancel()                       # no reconnection behind the user's back
+                self._set_state(viewer, cs.STOPPED)
 
     def _reap(self, worker) -> None:
         worker.wait()   # already finishing: returns at once
@@ -1178,9 +1223,123 @@ class MainWindow(QMainWindow):
     def _on_error(self, msg: str, viewer: LogViewer):
         if id(viewer) not in self._workers:
             return   # tab closed or worker stopped: its late error is of no interest
-        self._stop_viewer(viewer)
+        self._stop_viewer(viewer, by_user=False)
+        self._lost(viewer, msg)
+
+    # ── Connection state and automatic reconnection ───────────────────────────
+
+    def _after(self, viewer: LogViewer, ms: int, fn) -> None:
+        """Run *fn* later, unless the viewer is gone by then (the timer dies with it)."""
+        timer = QTimer(viewer)
+        timer.setSingleShot(True)
+        timer.timeout.connect(fn)
+        timer.start(ms)
+
+    def _lost(self, viewer: LogViewer, msg: str) -> None:
+        """A remote log stopped with an error: retry later, or tell the user we gave up."""
+        link = self._links.get(id(viewer))
+        if link is not None and self._auto_reconnect and link.can_retry():
+            delay = link.next_delay()
+            gen = link.generation
+            link.detail = i18n.tr("conn_reconnecting", s=delay, n=link.attempts,
+                                  max=len(cs.RECONNECT_DELAYS))
+            self._set_state(viewer, cs.RECONNECTING)
+            self._status.showMessage(f"{link.detail} — {msg}")
+            self._after(viewer, delay * 1000, lambda v=viewer, g=gen: self._reconnect(v, g))
+            return
+        if link is not None:
+            self._set_state(viewer, cs.FAILED)
         self._status.showMessage(i18n.tr("err_prefix", msg=msg))
         QMessageBox.critical(self, i18n.tr("err_worker"), msg)
+
+    def _reconnect(self, viewer: LogViewer, generation: int) -> None:
+        link = self._links.get(id(viewer))
+        if link is None or link.generation != generation or id(viewer) in self._workers:
+            return        # stopped / closed / already running again
+        provider = link.provider
+        newest = viewer.newest_ts()
+        gap = max(0.0, time.time() - (newest / 1000 if newest else link.last_ok))
+        cfg = link.reconnect_cfg(gap)
+        self._set_state(viewer, cs.CONNECTING)
+
+        def start(client) -> None:
+            if link.generation != generation:
+                return
+            try:
+                session = provider.session(dict(cfg), client)
+            except Exception as exc:       # a broken config cannot be fixed by waiting
+                self._lost(viewer, str(exc))
+                return
+            viewer.begin_resync()
+            self._after(viewer, 20000, viewer.end_resync)    # streams send no end-of-history mark
+            viewer.insert_break()
+            self._attach_worker(viewer, session.worker)
+            session.worker.start()
+
+        if provider.connect is None:
+            start(None)
+            return
+        worker = CallWorker(lambda: provider.connect(dict(cfg)))
+        worker.success.connect(start)
+        worker.failure.connect(lambda msg: link.generation == generation and self._lost(viewer, msg))
+        self._connectors.add(worker)
+        worker.finished.connect(lambda w=worker: self._connectors.discard(w))
+        worker.start()
+
+    def _mark_live(self, viewer: LogViewer, worker) -> None:
+        link = self._links.get(id(viewer))
+        if link is None or self._workers.get(id(viewer)) is not worker:
+            return
+        if link.state != cs.LIVE:
+            was_reconnect = link.attempts > 0
+            link.connected()
+            link.detail = ""
+            self._set_state(viewer, cs.LIVE)
+            if was_reconnect:
+                self._status.showMessage(i18n.tr("status_reconnected"), 5000)
+
+    def _worker_finished(self, viewer: LogViewer, worker) -> None:
+        """A stream that simply ends (not stopped, no error) is shown as ended."""
+        link = self._links.get(id(viewer))
+        if link is not None and self._workers.get(id(viewer)) is worker \
+                and link.state in (cs.CONNECTING, cs.LIVE):
+            self._set_state(viewer, cs.ENDED)
+
+    def _set_state(self, viewer: LogViewer, state: str) -> None:
+        link = self._links.get(id(viewer))
+        if link is None:
+            return
+        link.state = state
+        if state != cs.RECONNECTING:
+            link.detail = ""                   # the countdown text only belongs to its state
+        self._refresh_tab_state(viewer)
+
+    def _tab_of(self, viewer: LogViewer) -> int:
+        widget = viewer
+        while widget is not None:
+            idx = self._top_tabs.indexOf(widget)
+            if idx >= 0:
+                return idx
+            widget = widget.parentWidget()
+        return -1
+
+    def _refresh_tab_state(self, viewer: LogViewer) -> None:
+        """Show the worst connection state of the tab's logs as a dot on its logo."""
+        idx = self._tab_of(viewer)
+        if idx < 0:
+            return
+        spl = self._top_tabs.widget(idx)
+        links = [self._links[id(v)] for v in spl.findChildren(LogViewer) if id(v) in self._links]
+        state = cs.worst([lk.state for lk in links])
+        if state is None:
+            return
+        lead = links[0].provider
+        colors = {cs.LIVE: C_INFO, cs.CONNECTING: C_WARN, cs.RECONNECTING: C_WARN,
+                  cs.FAILED: C_ERR, cs.STOPPED: C_MUTED, cs.ENDED: C_MUTED}
+        pixmap = provider_logo(lead.logo, lead.icon, lead.color, 14, tile=False)
+        self._top_tabs.setTabIcon(idx, QIcon(with_status_dot(pixmap, colors[state])))
+        detail = next((lk.detail for lk in links if lk.state == state and lk.detail), "")
+        self._top_tabs.setTabToolTip(idx, detail or i18n.tr(f"conn_{state}"))
 
     def closeEvent(self, event):  # noqa: N802
         running = [w for w in (*self._workers.values(), *self._stopping) if w.isRunning()]

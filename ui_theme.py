@@ -282,6 +282,25 @@ def provider_logo(logo: str, glyph: str, color: str, size: int, tile: bool = Tru
     return pm
 
 
+def with_status_dot(pixmap: QPixmap, color: str) -> QPixmap:
+    """*pixmap* with a small filled dot of *color* in its bottom-right corner."""
+    out = QPixmap(pixmap)
+    ratio = out.devicePixelRatio() or 1.0
+    size = out.width() / ratio
+    radius = max(2.5, size * 0.22)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    centre = size - radius - 0.5
+    # a ring in the tab colour keeps the dot readable over the logo
+    p.setBrush(QColor(THEMES[_theme]["panel"]))
+    p.setPen(Qt.PenStyle.NoPen)
+    p.drawEllipse(QRectF(centre - radius - 1, centre - radius - 1, 2 * radius + 2, 2 * radius + 2))
+    p.setBrush(QColor(color))
+    p.drawEllipse(QRectF(centre - radius, centre - radius, 2 * radius, 2 * radius))
+    p.end()
+    return out
+
+
 # ── Colour tokens ──────────────────────────────────────────────────────────────
 
 DARK: dict[str, str] = {

@@ -378,5 +378,13 @@
   "merge_hint": "Marca dos o más logs abiertos: sus líneas se muestran juntas en orden cronológico, cada una con su origen.",
   "merge_action": "Combinar",
   "merge_tab": "Combinado ({n})",
-  "status_merge_needs_two": "Abre al menos dos logs para combinarlos"
+  "status_merge_needs_two": "Abre al menos dos logs para combinarlos",
+  "action_auto_reconnect": "Reconectar automáticamente",
+  "conn_connecting": "Conectando…",
+  "conn_live": "Conectado",
+  "conn_reconnecting": "Conexión perdida — reintentando en {s} s (intento {n}/{max})",
+  "conn_failed": "Conexión perdida",
+  "conn_stopped": "Detenido",
+  "conn_ended": "El flujo ha terminado",
+  "status_reconnected": "Reconectado"
 }

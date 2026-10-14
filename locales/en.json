@@ -391,5 +391,13 @@
   "merge_hint": "Tick two or more open logs: their lines are shown together in time order, each tagged with its source.",
   "merge_action": "Merge",
   "merge_tab": "Merged ({n})",
-  "status_merge_needs_two": "Open at least two logs to merge them"
+  "status_merge_needs_two": "Open at least two logs to merge them",
+  "action_auto_reconnect": "Reconnect automatically",
+  "conn_connecting": "Connecting…",
+  "conn_live": "Connected",
+  "conn_reconnecting": "Connection lost — reconnecting in {s} s (attempt {n}/{max})",
+  "conn_failed": "Connection lost",
+  "conn_stopped": "Stopped",
+  "conn_ended": "The stream has ended",
+  "status_reconnected": "Reconnected"
 }
