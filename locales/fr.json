@@ -375,5 +375,9 @@
   "highlight_hint": "Les lignes contenant ces mots sont colorées dans tous les onglets de logs.",
   "highlight_placeholder": "Texte à colorer…",
   "highlight_add": "+ Ajouter une règle",
-  "highlight_apply": "Appliquer"
+  "highlight_apply": "Appliquer",
+  "action_toggle_bookmark": "Poser / retirer un marque-page",
+  "action_next_bookmark": "Marque-page suivant",
+  "action_prev_bookmark": "Marque-page précédent",
+  "status_no_bookmarks": "Aucun marque-page dans ce log (Ctrl+B pour en ajouter un)"
 }

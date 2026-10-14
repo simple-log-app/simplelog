@@ -89,6 +89,7 @@ _TS_COL_W      = 92   # px — timestamp column width
 _LEVEL_COLORS: dict[str, str] = {}
 _LEVEL_BG: dict[str, QColor] = {}
 _SELECTION_BG = QColor()
+_BOOKMARK_BG = QColor()
 
 
 def _alpha(color: str, alpha: int) -> QColor:
@@ -99,7 +100,7 @@ def _alpha(color: str, alpha: int) -> QColor:
 
 def _refresh_palette(_theme: str = "") -> None:
     """(Re)build the colour tables from the active theme (also on a theme switch)."""
-    global _SELECTION_BG
+    global _SELECTION_BG, _BOOKMARK_BG
     _LEVEL_COLORS.update({
         "error": C_ERR, "warn": C_WARN, "info": C_INFO,
         "debug": C_DEBUG, "trace": C_TRACE, "plain": C_TEXT,
@@ -113,6 +114,7 @@ def _refresh_palette(_theme: str = "") -> None:
         "plain": QColor(0, 0, 0, 0),
     })
     _SELECTION_BG = _alpha(C_ACCENT, 40)
+    _BOOKMARK_BG = _alpha(C_ACCENT, 18)
 
 
 _refresh_palette()
@@ -273,6 +275,12 @@ class LogDelegate(QStyledItemDelegate):
             # Selection background
             if option.state & QStyle.StateFlag.State_Selected:
                 painter.fillRect(option.rect, _SELECTION_BG)
+            if item.bookmarked:
+                painter.fillRect(option.rect, _BOOKMARK_BG)
+                painter.fillRect(
+                    QRect(option.rect.left(), option.rect.top(), 3, option.rect.height()),
+                    _qcolor(C_ACCENT),
+                )
             if item.is_json:
                 self._paint_json(painter, option, index, item)
             else:
@@ -637,6 +645,7 @@ class LogViewer(QWidget):
     filter_applied       = pyqtSignal()
     pane_activated       = pyqtSignal()
     pane_close_requested = pyqtSignal()
+    bookmarks_changed    = pyqtSignal()
 
     _MAX_LINES = 10_000
     _APPEND_COOLDOWN_MS = 50   # lines arriving faster than this are added in one go
@@ -973,6 +982,44 @@ class LogViewer(QWidget):
     def focus_list(self) -> None:
         self._list_view.setFocus()
 
+    # ── Bookmarks ─────────────────────────────────────────────────────────────
+
+    def _target_rows(self) -> list[int]:
+        rows = sorted({i.row() for i in self._list_view.selectedIndexes()})
+        if not rows and self._list_view.currentIndex().isValid():
+            rows = [self._list_view.currentIndex().row()]
+        return rows
+
+    def toggle_bookmark(self) -> None:
+        """Bookmark the selected rows, or remove the bookmark when all of them have one."""
+        rows = self._target_rows()
+        items = self._model.visible_items()
+        marked = [items[r].bookmarked for r in rows if not items[r].is_break]
+        if marked:
+            self._model.set_bookmarks(rows, not all(marked))
+            self.bookmarks_changed.emit()
+
+    def goto_bookmark(self, step: int) -> bool:
+        """Select the next (step=1) or previous (step=-1) bookmark, wrapping around.
+
+        Returns False when there is no bookmark to go to.
+        """
+        marks = self._model.bookmark_rows()
+        if not marks:
+            return False
+        current = self._list_view.currentIndex().row() if self._list_view.currentIndex().isValid() else -1
+        if step > 0:
+            target = next((r for r in marks if r > current), marks[0])
+        else:
+            target = next((r for r in reversed(marks) if r < current), marks[-1])
+        index = self._model.index(target)
+        self._list_view.setCurrentIndex(index)
+        self._list_view.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
+        return True
+
+    def bookmark_count(self) -> int:
+        return len(self._model.bookmark_rows())
+
     def _show_context_menu(self, pos) -> None:
         index = self._list_view.indexAt(pos)
         if index.isValid() and index not in self._list_view.selectedIndexes():
@@ -988,6 +1035,9 @@ class LogViewer(QWidget):
         copy_action = menu.addAction(i18n.tr("action_copy"))
         copy_action.setEnabled(bool(self._list_view.selectedIndexes()))
         copy_action.triggered.connect(self.copy)
+        bookmark_action = menu.addAction(i18n.tr("action_toggle_bookmark"))
+        bookmark_action.setEnabled(bool(self._target_rows()))
+        bookmark_action.triggered.connect(self.toggle_bookmark)
         menu.exec(self._list_view.mapToGlobal(pos))
 
     def copy(self) -> None:

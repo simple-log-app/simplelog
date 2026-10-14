@@ -375,5 +375,9 @@
   "highlight_hint": "包含这些词的行会在所有日志标签页中着色。",
   "highlight_placeholder": "要高亮的文本…",
   "highlight_add": "+ 添加规则",
-  "highlight_apply": "应用"
+  "highlight_apply": "应用",
+  "action_toggle_bookmark": "切换书签",
+  "action_next_bookmark": "下一个书签",
+  "action_prev_bookmark": "上一个书签",
+  "status_no_bookmarks": "此日志中没有书签（按 Ctrl+B 添加）"
 }

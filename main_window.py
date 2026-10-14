@@ -340,6 +340,21 @@ class MainWindow(QMainWindow):
         self._act_break.triggered.connect(self._action_break)
         self._menu_edit.addAction(self._act_break)
 
+        self._menu_edit.addSeparator()
+        self._act_bookmark = QAction(self)
+        self._act_bookmark.setShortcut(QKeySequence("Ctrl+B"))
+        self._act_bookmark.triggered.connect(self._action_toggle_bookmark)
+        self._menu_edit.addAction(self._act_bookmark)
+        self._act_next_bookmark = QAction(self)
+        self._act_next_bookmark.setShortcut(QKeySequence("F2"))
+        self._act_next_bookmark.triggered.connect(lambda: self._action_goto_bookmark(1))
+        self._menu_edit.addAction(self._act_next_bookmark)
+        self._act_prev_bookmark = QAction(self)
+        self._act_prev_bookmark.setShortcut(QKeySequence("Shift+F2"))
+        self._act_prev_bookmark.triggered.connect(lambda: self._action_goto_bookmark(-1))
+        self._menu_edit.addAction(self._act_prev_bookmark)
+
+        self._menu_edit.addSeparator()
         self._act_highlight = QAction(self)
         self._act_highlight.triggered.connect(self._action_highlight_rules)
         self._menu_edit.addAction(self._act_highlight)
@@ -463,6 +478,9 @@ class MainWindow(QMainWindow):
         self._act_copy.setText(i18n.tr("action_copy"))
         self._act_break.setText(i18n.tr("action_break"))
         self._act_highlight.setText(i18n.tr("action_highlight_rules"))
+        self._act_bookmark.setText(i18n.tr("action_toggle_bookmark"))
+        self._act_next_bookmark.setText(i18n.tr("action_next_bookmark"))
+        self._act_prev_bookmark.setText(i18n.tr("action_prev_bookmark"))
         self._menu_lang.setTitle(i18n.tr("menu_language"))
         for code, action in self._lang_actions.items():
             action.setChecked(code == locale)
@@ -472,6 +490,17 @@ class MainWindow(QMainWindow):
         self._act_changelog.setText(i18n.tr("action_changelog"))
 
     # ── Menu action handlers ───────────────────────────────────────────────────
+
+    def _action_toggle_bookmark(self) -> None:
+        """Edit → Toggle bookmark: mark the selected lines so F2 / Shift+F2 can come back."""
+        viewer = self._active_viewer()
+        if viewer:
+            viewer.toggle_bookmark()
+
+    def _action_goto_bookmark(self, step: int) -> None:
+        viewer = self._active_viewer()
+        if viewer and not viewer.goto_bookmark(step):
+            self._status.showMessage(i18n.tr("status_no_bookmarks"), 3000)
 
     def _action_highlight_rules(self) -> None:
         """Edit → Highlight rules: colour the lines that contain chosen words."""

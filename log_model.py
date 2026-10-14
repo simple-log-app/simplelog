@@ -165,6 +165,7 @@ class LogItem:
     expanded: bool = False
     visible: bool = True
     is_break: bool = False
+    bookmarked: bool = False
     # Row-height cache owned by the delegate: (layout key, height)
     size_cache: tuple | None = None
     level: str | None = None   # severity, computed lazily by the delegate
@@ -321,6 +322,18 @@ class LogModel(QAbstractListModel):
                 self._visible.append(item)
         self.endResetModel()
         self.filter_applied.emit()
+
+    def set_bookmarks(self, rows: list[int], on: bool) -> None:
+        """Bookmark (or un-bookmark) the given visible rows; section breaks are skipped."""
+        for row in rows:
+            if 0 <= row < len(self._visible) and not self._visible[row].is_break:
+                self._visible[row].bookmarked = on
+                index = self.index(row)
+                self.dataChanged.emit(index, index)
+
+    def bookmark_rows(self) -> list[int]:
+        """The visible rows that are bookmarked, top to bottom."""
+        return [i for i, item in enumerate(self._visible) if item.bookmarked]
 
     def clear(self) -> None:
         self.beginResetModel()

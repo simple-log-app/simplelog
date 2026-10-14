@@ -375,5 +375,9 @@
   "highlight_hint": "Lines containing these words are coloured in every log tab.",
   "highlight_placeholder": "Text to highlight…",
   "highlight_add": "+ Add rule",
-  "highlight_apply": "Apply"
+  "highlight_apply": "Apply",
+  "action_toggle_bookmark": "Toggle bookmark",
+  "action_next_bookmark": "Next bookmark",
+  "action_prev_bookmark": "Previous bookmark",
+  "status_no_bookmarks": "No bookmarks in this log (Ctrl+B to add one)"
 }

@@ -9,6 +9,7 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 - Filter nach Stufe: Zeilen der Stufen ERROR, WARN, INFO, DEBUG und TRACE lassen sich mit den Chips im Tab „Filter“ ein- oder ausblenden.
 - Suche und Filter: neue Optionen „Groß-/Kleinschreibung beachten“ und „Regulärer Ausdruck“; zuletzt verwendete Begriffe werden beim Tippen vorgeschlagen (↓ in einem leeren Feld zeigt sie an).
 - Hervorhebungsregeln (Menü Bearbeiten): Färben Sie wichtige Wörter in jedem Log ein, optional mit Groß-/Kleinschreibung und regulären Ausdrücken.
+- Lesezeichen: Markieren Sie Zeilen mit Strg+B (oder dem Rechtsklickmenü) und springen Sie mit F2 / Umschalt+F2 zwischen ihnen.
 
 ## [2.0.0] - 2026-10-14
 

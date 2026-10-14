@@ -362,5 +362,9 @@
   "highlight_hint": "Zeilen mit diesen Wörtern werden in jedem Log-Tab farbig hervorgehoben.",
   "highlight_placeholder": "Zu markierender Text…",
   "highlight_add": "+ Regel hinzufügen",
-  "highlight_apply": "Übernehmen"
+  "highlight_apply": "Übernehmen",
+  "action_toggle_bookmark": "Lesezeichen setzen / entfernen",
+  "action_next_bookmark": "Nächstes Lesezeichen",
+  "action_prev_bookmark": "Vorheriges Lesezeichen",
+  "status_no_bookmarks": "Keine Lesezeichen in diesem Log (Strg+B zum Hinzufügen)"
 }

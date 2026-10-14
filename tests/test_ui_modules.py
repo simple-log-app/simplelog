@@ -314,3 +314,71 @@ def test_editing_finished_remembers_the_term(history_file):
     row._input.setText("needle")
     row._input.editingFinished.emit()
     assert sidebar._history[0] == "needle"
+
+
+def _viewer_with_lines(n=6):
+    import ui
+    v = ui.LogViewer(source_type="file")
+    v.resize(500, 300)
+    v.show()
+    v.append_events([(i, f"line {i}") for i in range(n)])
+    v.flush_pending()
+    QApplication.processEvents()
+    return v
+
+
+def test_toggle_bookmark_on_the_selection_and_back():
+    v = _viewer_with_lines()
+    seen = []
+    v.bookmarks_changed.connect(lambda: seen.append(1))
+    v._list_view.setCurrentIndex(v._model.index(2))
+    v.toggle_bookmark()
+    assert v._model.bookmark_rows() == [2] and v.bookmark_count() == 1 and seen
+    v.toggle_bookmark()
+    assert v._model.bookmark_rows() == []
+
+
+def test_goto_bookmark_wraps_in_both_directions():
+    v = _viewer_with_lines()
+    assert v.goto_bookmark(1) is False                       # nothing bookmarked yet
+    v._model.set_bookmarks([1, 4], True)
+    v._list_view.setCurrentIndex(v._model.index(0))
+    assert v.goto_bookmark(1) and v._list_view.currentIndex().row() == 1
+    assert v.goto_bookmark(1) and v._list_view.currentIndex().row() == 4
+    assert v.goto_bookmark(1) and v._list_view.currentIndex().row() == 1      # wraps
+    assert v.goto_bookmark(-1) and v._list_view.currentIndex().row() == 4     # wraps back
+    assert v.goto_bookmark(-1) and v._list_view.currentIndex().row() == 1
+
+
+def test_main_window_bookmark_actions_use_the_active_viewer(tmp_path):
+    import main_window
+    win = main_window.MainWindow()
+    try:
+        win._action_goto_bookmark(1)                          # no viewer: nothing happens
+        v = _viewer_with_lines()
+        win._cur_viewer = v
+        v._list_view.setCurrentIndex(v._model.index(3))
+        win._action_toggle_bookmark()
+        assert v._model.bookmark_rows() == [3]
+        win._action_goto_bookmark(1)
+        assert v._list_view.currentIndex().row() == 3
+        v._model.set_bookmarks([3], False)
+        win._action_goto_bookmark(1)
+        assert "bookmark" in win._status.currentMessage().lower()
+        assert win._act_bookmark.shortcut().toString() == "Ctrl+B"
+        assert win._act_next_bookmark.shortcut().toString() == "F2"
+        assert win._act_prev_bookmark.shortcut().toString() == "Shift+F2"
+    finally:
+        win.close()
+
+
+def test_bookmarked_rows_paint_a_marker():
+    from PyQt6.QtGui import QColor
+    v = _viewer_with_lines(3)
+    v._model.set_bookmarks([1], True)
+    QApplication.processEvents()
+    img = v._list_view.viewport().grab().toImage()
+    rect = v._list_view.visualRect(v._model.index(1))
+    marker = QColor(img.pixel(1, rect.center().y()))
+    plain = QColor(img.pixel(1, v._list_view.visualRect(v._model.index(0)).center().y()))
+    assert marker != plain

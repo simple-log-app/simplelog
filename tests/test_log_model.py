@@ -197,3 +197,27 @@ def test_terms_with_different_options_are_different_filters():
     assert m.visible_count() == 2
     m.apply_filter([TermRow("error", "", case=True)])
     assert m.visible_count() == 1
+
+
+# ── bookmarks ────────────────────────────────────────────────────────────────
+
+def test_bookmarks_are_set_listed_and_skip_breaks():
+    from log_model import LogModel
+    m = LogModel()
+    m.append_events([(1, "a"), (2, "b"), (3, "c")])
+    m.insert_break()
+    m.set_bookmarks([0, 2, 3, 99], True)       # row 3 is the break, 99 does not exist
+    assert m.bookmark_rows() == [0, 2]
+    m.set_bookmarks([0], False)
+    assert m.bookmark_rows() == [2]
+
+
+def test_bookmarks_follow_their_rows_through_a_filter():
+    from log_model import LogModel, TermRow
+    m = LogModel()
+    m.append_events([(1, "keep a"), (2, "drop"), (3, "keep b")])
+    m.set_bookmarks([2], True)                 # "keep b"
+    m.apply_filter([TermRow("keep", "")])
+    assert m.bookmark_rows() == [1]
+    m.apply_filter([TermRow("drop", "")])
+    assert m.bookmark_rows() == []

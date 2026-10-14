@@ -362,5 +362,9 @@
   "highlight_hint": "Las líneas que contienen estas palabras se colorean en todas las pestañas de logs.",
   "highlight_placeholder": "Texto a resaltar…",
   "highlight_add": "+ Añadir regla",
-  "highlight_apply": "Aplicar"
+  "highlight_apply": "Aplicar",
+  "action_toggle_bookmark": "Poner / quitar marcador",
+  "action_next_bookmark": "Marcador siguiente",
+  "action_prev_bookmark": "Marcador anterior",
+  "status_no_bookmarks": "No hay marcadores en este log (Ctrl+B para añadir uno)"
 }
