@@ -372,5 +372,11 @@
   "filter_export_files": "Log-Dateien (*.log *.txt);;Alle Dateien (*)",
   "status_nothing_to_export": "Öffnen Sie zuerst ein Log: Es gibt nichts zu exportieren",
   "status_exported": "{n} Zeilen nach {path} exportiert",
-  "err_export": "Die Datei konnte nicht geschrieben werden: {error}"
+  "err_export": "Die Datei konnte nicht geschrieben werden: {error}",
+  "action_merge": "Logs zusammenführen…",
+  "merge_title": "Logs zusammenführen",
+  "merge_hint": "Wählen Sie zwei oder mehr geöffnete Logs: Ihre Zeilen erscheinen zusammen in zeitlicher Reihenfolge, jeweils mit ihrer Quelle.",
+  "merge_action": "Zusammenführen",
+  "merge_tab": "Zusammengeführt ({n})",
+  "status_merge_needs_two": "Öffnen Sie mindestens zwei Logs, um sie zusammenzuführen"
 }

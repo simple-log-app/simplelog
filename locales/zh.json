@@ -385,5 +385,11 @@
   "filter_export_files": "日志文件 (*.log *.txt);;所有文件 (*)",
   "status_nothing_to_export": "请先打开日志：没有可导出的内容",
   "status_exported": "已将 {n} 行导出到 {path}",
-  "err_export": "无法写入文件：{error}"
+  "err_export": "无法写入文件：{error}",
+  "action_merge": "合并日志…",
+  "merge_title": "合并日志",
+  "merge_hint": "勾选两个或更多已打开的日志：它们的行将按时间顺序一起显示，并标注来源。",
+  "merge_action": "合并",
+  "merge_tab": "合并 ({n})",
+  "status_merge_needs_two": "至少打开两个日志才能合并"
 }

@@ -443,3 +443,52 @@ def test_main_window_export_action(tmp_path, monkeypatch):
         assert warned
     finally:
         win.close()
+
+
+def test_merge_viewers_shows_both_logs_in_time_order_and_follows_new_lines():
+    import main_window
+    import ui
+    win = main_window.MainWindow()
+    try:
+        a = ui.LogViewer(source_type="file")
+        b = ui.LogViewer(source_type="file")
+        a.append_events([(10, "a1"), (30, "a3")])
+        b.append_events([(20, "b2")])
+        merged = win.merge_viewers([("api", a), ("db", b)])
+        assert merged.merged
+        rows = [(i.source, i.message) for i in merged._model.visible_items()]
+        assert rows == [("api", "a1"), ("db", "b2"), ("api", "a3")]
+        b.append_events([(25, "b2.5"), (40, "b4")])                # live lines arrive in order
+        assert [i.message for i in merged._model.visible_items()] == ["a1", "b2", "b2.5", "a3", "b4"]
+        assert win._top_tabs.tabText(win._top_tabs.currentIndex()) == "Merged (2)"
+        assert win._cur_viewer is merged and not merged.stop_btn.isEnabled()
+        merged.timestamps_cb.setChecked(False)
+        assert merged.export_text().splitlines()[0] == "[api] a1"
+        merged.resize(600, 200)
+        merged.show()
+        QApplication.processEvents()
+        assert not merged.grab().toImage().isNull()                # painting the source column works
+        win._close_tab_at(win._top_tabs.currentIndex())
+        QApplication.processEvents()
+        a.append_events([(50, "after close")])                     # a closed merge must not crash
+    finally:
+        win.close()
+
+
+def test_merge_action_needs_two_logs_and_the_dialog_lists_them():
+    from PyQt6.QtCore import Qt
+
+    import main_window
+    import ui
+    win = main_window.MainWindow()
+    try:
+        win._action_merge_tabs()
+        assert "two" in win._status.currentMessage()
+        dlg = ui.MergeTabsDialog(["one", "two", "three"])
+        assert not dlg._ok.isEnabled()
+        dlg._list.item(0).setCheckState(Qt.CheckState.Checked)
+        assert not dlg._ok.isEnabled()
+        dlg._list.item(2).setCheckState(Qt.CheckState.Checked)
+        assert dlg._ok.isEnabled() and dlg.chosen() == [0, 2]
+    finally:
+        win.close()

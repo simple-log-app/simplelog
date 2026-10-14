@@ -166,6 +166,7 @@ class LogItem:
     visible: bool = True
     is_break: bool = False
     bookmarked: bool = False
+    source: str = ""     # which tab a line came from (merged views only)
     # Row-height cache owned by the delegate: (layout key, height)
     size_cache: tuple | None = None
     level: str | None = None   # severity, computed lazily by the delegate
@@ -233,7 +234,29 @@ class LogModel(QAbstractListModel):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def append_events(self, events: list[tuple[int, str]]) -> None:
+    def all_events(self) -> list[tuple[int, str]]:
+        """Every line held (shown or not), oldest first, without the section breaks."""
+        return [(it.ts_ms, it.message) for it in self._items if not it.is_break]
+
+    def append_events_sorted(self, events: list[tuple[int, str]], source: str = "") -> None:
+        """Add lines that may be older than what is already here, keeping time order.
+
+        Used by merged views, which receive lines from several logs at once.
+        """
+        if not events:
+            return
+        events = sorted(events, key=lambda e: e[0])
+        newest = max((it.ts_ms for it in self._items), default=0)
+        self.append_events(events, source)
+        if events[0][0] >= newest:
+            return                       # all newer: already in order
+        self._items.sort(key=lambda it: it.ts_ms)     # stable: equal times keep their order
+        self.beginResetModel()
+        self._visible = [it for it in self._items if it.visible]
+        self.endResetModel()
+        self.rows_appended.emit()
+
+    def append_events(self, events: list[tuple[int, str]], source: str = "") -> None:
         if not events:
             return
         new_keys: set[str] = set()
@@ -248,6 +271,7 @@ class LogModel(QAbstractListModel):
                 is_json=json_data is not None,
                 json_data=json_data,
                 main_key=main_key,
+                source=source,
             )
             item.visible = self._passes_filter(item)
             self._items.append(item)

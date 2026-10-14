@@ -85,6 +85,7 @@ _TABLE_ROW_H   = 18   # px — each key/value data row height
 _TABLE_PAD_B   = 6    # px — padding below last table row
 _BADGE_COL_W   = 52   # px — level badge column width
 _TS_COL_W      = 92   # px — timestamp column width
+_SRC_COL_W     = 96   # px — source column width (merged views)
 
 _LEVEL_COLORS: dict[str, str] = {}
 _LEVEL_BG: dict[str, QColor] = {}
@@ -245,7 +246,8 @@ class LogDelegate(QStyledItemDelegate):
             cached = item.size_cache
             if cached is not None and cached[0] == key:
                 return QSize(cached[2], cached[1])
-            x_offset = _BADGE_COL_W + (_TS_COL_W if show_ts else 0)
+            x_offset = (_BADGE_COL_W + (_TS_COL_W if show_ts else 0)
+                        + (_SRC_COL_W if self._viewer.merged else 0))
             if wrap:
                 avail_w = max(1, vp_w - x_offset - 14)
                 br = fm.boundingRect(
@@ -386,6 +388,8 @@ class LogDelegate(QStyledItemDelegate):
         msg_x = rect.left() + _BADGE_COL_W
         if self._viewer.show_timestamps and item.ts_ms:
             msg_x += _TS_COL_W
+        if self._viewer.merged:
+            msg_x += _SRC_COL_W
         self._draw_rule_bg(painter, rect, msg_x, item)
         self._draw_search_bg(painter, rect, msg_x, item.message, vis_idx)
 
@@ -403,6 +407,10 @@ class LogDelegate(QStyledItemDelegate):
                              self._ts_text(item))
             x += _TS_COL_W
 
+        if self._viewer.merged:
+            self._paint_source(painter, rect, x, item)
+            x += _SRC_COL_W
+
         # Message column
         text_rect = QRect(x, rect.top() + 3, rect.right() - x - 14, rect.height() - 6)
         painter.setPen(_qcolor(color))
@@ -410,6 +418,27 @@ class LogDelegate(QStyledItemDelegate):
         flags |= (Qt.TextFlag.TextWordWrap if self._viewer.wrap_lines
                   else Qt.TextFlag.TextSingleLine)
         painter.drawText(text_rect, flags, item.message)
+
+    def _paint_source(self, painter, rect: QRect, x: int, item: LogItem) -> None:
+        """The pill naming the log a line of a merged view came from."""
+        if not item.source:
+            return
+        color = self._viewer.source_color(item.source)
+        font = QFont(painter.font())
+        font.setPointSize(max(6, font.pointSize() - 1))
+        fm = QFontMetrics(font)
+        label = fm.elidedText(item.source, Qt.TextElideMode.ElideRight, _SRC_COL_W - 14)
+        h = fm.height() + 2
+        top = rect.top() + (_ROW_H - h) // 2
+        orig = painter.font()
+        painter.setFont(font)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(_alpha(color, 40)))
+        painter.drawRoundedRect(QRect(x, top, _SRC_COL_W - 8, h), 3, 3)
+        painter.setPen(QColor(color))
+        painter.drawText(QRect(x + 5, top, _SRC_COL_W - 14, h),
+                         Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
+        painter.setFont(orig)
 
     def _paint_level_badge(self, painter, rect: QRect, level: str, _fm=None) -> None:
         """Draw the level badge in the left column."""
@@ -491,8 +520,13 @@ class LogDelegate(QStyledItemDelegate):
         # Timestamp column
         if self._viewer.show_timestamps and item.ts_ms:
             x = self._draw_segments(painter, x, y, [(self._ts_text(item) + "  ", C_TS)], fm)
-        else:
-            x += 0  # no ts column when disabled
+        if self._viewer.merged:
+            # Line the source up with the other rows (the timestamp text is narrower than its column)
+            x = rect.left() + _BADGE_COL_W
+            if self._viewer.show_timestamps and item.ts_ms:
+                x += _TS_COL_W
+            self._paint_source(painter, rect, x, item)
+            x += _SRC_COL_W
 
         # ▸/▾ toggle arrow (C_TRACE color)
         arrow = "▾" if item.expanded else "▸"
@@ -632,6 +666,7 @@ class _LogListView(QListView):
 
 
 _SOURCE_COLORS = {
+    "merged": C_TRACE,
     "file":  C_INFO,
     "stdin": C_WARN,
     **providers.source_colors(),
@@ -647,6 +682,7 @@ class LogViewer(QWidget):
     pane_close_requested = pyqtSignal()
     bookmarks_changed    = pyqtSignal()
     export_requested     = pyqtSignal(bool)   # True: the selection only
+    events_added         = pyqtSignal(list)   # every batch of (ts_ms, message) this log receives
 
     _MAX_LINES = 10_000
     _APPEND_COOLDOWN_MS = 50   # lines arriving faster than this are added in one go
@@ -658,6 +694,7 @@ class LogViewer(QWidget):
     def __init__(self, source_type: str = "cloudwatch", parent=None):
         super().__init__(parent)
         self._source_type = source_type
+        self._source_colors: dict[str, str] = {}
         self._font_size = self._FONT_SIZE_DEFAULT
         self._search_highlights: dict[int, list[tuple[int, int]]] = {}
 
@@ -877,11 +914,31 @@ class LogViewer(QWidget):
         one update per cooldown period instead of one (costly) re-layout per line."""
         if not events:
             return
+        self.events_added.emit(events)
         if self._append_timer.isActive():
             self._pending.extend(events)
             return
         self._model.append_events(events)
         self._append_timer.start()
+
+    # ── Merged view: lines from other logs, in time order ─────────────────────
+
+    @property
+    def merged(self) -> bool:
+        return self._source_type == "merged"
+
+    def source_color(self, source: str) -> str:
+        """A stable colour for a source label of a merged view."""
+        if source not in self._source_colors:
+            palette = highlight_rules.PALETTE
+            self._source_colors[source] = palette[len(self._source_colors) % len(palette)]
+        return self._source_colors[source]
+
+    def append_merged(self, source: str, events: list[tuple[int, str]]) -> None:
+        """Add *events* coming from the log labelled *source* (kept sorted by time)."""
+        self.flush_pending()
+        self._model.append_events_sorted(events, source)
+        self.line_badge.setText(i18n.tr("viewer_lines", n=self._model.visible_count()))
 
     def _flush_on_timer(self) -> None:
         if self._pending:
@@ -995,11 +1052,12 @@ class LogViewer(QWidget):
             items = [items[r] for r in rows if r < len(items)]
         lines = []
         for item in items:
+            text = f"[{item.source}] {item.message}" if item.source else item.message
             if self.show_timestamps and item.ts_ms and not item.is_break:
                 stamp = datetime.fromtimestamp(item.ts_ms / 1000).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                lines.append(f"{stamp}  {item.message}")
+                lines.append(f"{stamp}  {text}")
             else:
-                lines.append(item.message)
+                lines.append(text)
         return "\n".join(lines) + ("\n" if lines else "")
 
     def export_lines(self, path: str, selection_only: bool = False) -> int:

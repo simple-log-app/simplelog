@@ -385,5 +385,11 @@
   "filter_export_files": "Log files (*.log *.txt);;All files (*)",
   "status_nothing_to_export": "Open a log first: there is nothing to export",
   "status_exported": "{n} lines exported to {path}",
-  "err_export": "Could not write the file: {error}"
+  "err_export": "Could not write the file: {error}",
+  "action_merge": "Merge logs…",
+  "merge_title": "Merge logs",
+  "merge_hint": "Tick two or more open logs: their lines are shown together in time order, each tagged with its source.",
+  "merge_action": "Merge",
+  "merge_tab": "Merged ({n})",
+  "status_merge_needs_two": "Open at least two logs to merge them"
 }

@@ -77,7 +77,7 @@ from ui_theme import (
     _svg_icon,
     provider_logo,
 )
-from ui_widgets import NavRail, _SidebarEdgeBtn, _SLTabWidget, _TabCloseBtn
+from ui_widgets import MergeTabsDialog, NavRail, _SidebarEdgeBtn, _SLTabWidget, _TabCloseBtn
 from ui_workers import CallWorker
 from workers import DebInstallWorker, FileWorker, StdinWorker
 
@@ -307,6 +307,10 @@ class MainWindow(QMainWindow):
         self._act_export.triggered.connect(lambda: self._action_export(False))
         self._menu_file.addAction(self._act_export)
 
+        self._act_merge = QAction(self)
+        self._act_merge.triggered.connect(self._action_merge_tabs)
+        self._menu_file.addAction(self._act_merge)
+
         self._act_close_tab = QAction(self)
         self._act_close_tab.setShortcut(QKeySequence("Ctrl+W"))
         self._act_close_tab.triggered.connect(self._action_close_current_tab)
@@ -477,6 +481,7 @@ class MainWindow(QMainWindow):
         self._act_open.setText(i18n.tr("action_open"))
         self._act_close_tab.setText(i18n.tr("action_close_tab"))
         self._act_export.setText(i18n.tr("action_export"))
+        self._act_merge.setText(i18n.tr("action_merge"))
         self._act_close_all.setText(i18n.tr("action_close_all"))
         self._act_update.setText(i18n.tr("action_update"))
         self._act_quit.setText(i18n.tr("action_quit"))
@@ -525,6 +530,57 @@ class MainWindow(QMainWindow):
         if path and os.path.isfile(path):
             # Updates FilePanel's recent list and opens the tab (open_tab signal)
             self._file_panel._open_path(path)
+
+    def _action_merge_tabs(self) -> None:
+        """File → Merge logs: one tab that shows several logs interleaved by time."""
+        sources: list[tuple[str, LogViewer]] = []
+        for i in range(self._top_tabs.count()):
+            spl = self._top_tabs.widget(i)
+            if isinstance(spl, QSplitter):
+                for viewer in spl.findChildren(LogViewer):
+                    if not viewer.merged:
+                        sources.append((self._top_tabs.tabText(i), viewer))
+        if len(sources) < 2:
+            self._status.showMessage(i18n.tr("status_merge_needs_two"), 4000)
+            return
+        dlg = MergeTabsDialog([f"{title}   {viewer.title_label.text()}" for title, viewer in sources], self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.merge_viewers([sources[i] for i in dlg.chosen()])
+
+    def merge_viewers(self, sources: list[tuple[str, LogViewer]]) -> LogViewer:
+        """Open a tab that shows *sources* (label, viewer) together, in time order."""
+        merged = LogViewer(source_type="merged")
+        labels = list(dict.fromkeys(label for label, _ in sources))
+        merged.set_title(" + ".join(labels))
+        for label, viewer in sources:
+            merged.append_merged(label, viewer._model.all_events())
+            # New lines of a source flow in as long as both stay open
+            def feed(events, lb=label):
+                merged.append_merged(lb, events)
+
+            viewer.events_added.connect(feed)
+            merged.destroyed.connect(
+                lambda _=None, v=viewer, f=feed: self._unfeed(v, f))
+        merged.stop_btn.setEnabled(False)
+        merged.pane_close_requested.connect(lambda v=merged: self._close_pane(v))
+        merged.pane_activated.connect(lambda v=merged: self._set_active_viewer(v))
+        merged.export_requested.connect(
+            lambda selection, v=merged: (self._set_active_viewer(v), self._action_export(selection))
+        )
+        spl = self._make_tab_splitter()
+        spl.addWidget(merged)
+        idx = self._top_tabs.addTab(spl, i18n.tr("merge_tab", n=len(sources)))
+        self._top_tabs.setCurrentIndex(idx)
+        self._set_active_viewer(merged)
+        return merged
+
+    @staticmethod
+    def _unfeed(viewer: LogViewer, feed) -> None:
+        try:
+            viewer.events_added.disconnect(feed)
+        except (RuntimeError, TypeError):
+            pass      # the source is gone already
 
     def _action_export(self, selection_only: bool = False) -> None:
         """File → Export: save the lines shown in the active log (or its selection)."""

@@ -175,6 +175,7 @@ from ui_theme import (  # noqa: F401
     apply_style,
 )
 from ui_widgets import (  # noqa: F401
+    MergeTabsDialog,
     NavButton,
     NavRail,
     NoScrollComboBox,

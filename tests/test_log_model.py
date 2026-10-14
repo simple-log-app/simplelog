@@ -221,3 +221,38 @@ def test_bookmarks_follow_their_rows_through_a_filter():
     assert m.bookmark_rows() == [1]
     m.apply_filter([TermRow("drop", "")])
     assert m.bookmark_rows() == []
+
+
+# ── merged views ─────────────────────────────────────────────────────────────
+
+def test_sorted_append_interleaves_sources_by_time():
+    from log_model import LogModel
+    m = LogModel()
+    m.append_events_sorted([(10, "api 1"), (30, "api 3")], "api")
+    m.append_events_sorted([(20, "db 2"), (40, "db 4")], "db")
+    assert [(i.ts_ms, i.source) for i in m.visible_items()] == [
+        (10, "api"), (20, "db"), (30, "api"), (40, "db")]
+    m.append_events_sorted([(50, "api 5")], "api")                   # newer: plain append
+    assert m.visible_items()[-1].message == "api 5"
+    m.append_events_sorted([(5, "late")], "db")                      # older: re-sorted
+    assert m.visible_items()[0].message == "late"
+
+
+def test_sorted_append_keeps_the_filter_and_the_cap():
+    from log_model import LogModel, TermRow
+    m = LogModel()
+    m._MAX_LINES = 4
+    m.append_events_sorted([(1, "keep a"), (3, "drop")], "x")
+    m.apply_filter([TermRow("keep", "")])
+    m.append_events_sorted([(2, "keep b"), (4, "keep c")], "y")
+    assert [i.message for i in m.visible_items()] == ["keep a", "keep b", "keep c"]
+    m.append_events_sorted([(5, "keep d"), (6, "keep e")], "x")
+    assert len(m._items) == 4
+
+
+def test_all_events_lists_everything_but_breaks():
+    from log_model import LogModel
+    m = LogModel()
+    m.append_events([(1, "a"), (2, "b")])
+    m.insert_break()
+    assert m.all_events() == [(1, "a"), (2, "b")]

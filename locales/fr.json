@@ -385,5 +385,11 @@
   "filter_export_files": "Fichiers de log (*.log *.txt);;Tous les fichiers (*)",
   "status_nothing_to_export": "Ouvrez d'abord un log : il n'y a rien à exporter",
   "status_exported": "{n} lignes exportées vers {path}",
-  "err_export": "Impossible d'écrire le fichier : {error}"
+  "err_export": "Impossible d'écrire le fichier : {error}",
+  "action_merge": "Fusionner des logs…",
+  "merge_title": "Fusionner des logs",
+  "merge_hint": "Cochez deux logs ouverts ou plus : leurs lignes s'affichent ensemble par ordre chronologique, chacune avec sa source.",
+  "merge_action": "Fusionner",
+  "merge_tab": "Fusion ({n})",
+  "status_merge_needs_two": "Ouvrez au moins deux logs pour les fusionner"
 }

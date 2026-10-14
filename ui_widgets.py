@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QTabBar,
     QTabWidget,
@@ -54,6 +56,7 @@ from ui_theme import (
     C_MUTED,
     C_MUTED2,
     C_ON_ACCENT,
+    C_OVERLAY_SURFACE,
     C_PANEL,
     C_RAIL,
     C_TEXT,
@@ -650,3 +653,53 @@ def _lookback_combo(default_idx: int = 1) -> QComboBox:
         combo.addItem(label, secs)
     combo.setCurrentIndex(default_idx)
     return combo
+
+
+class MergeTabsDialog(QDialog):
+    """Pick (at least two) open logs to show together, interleaved by time."""
+
+    def __init__(self, labels: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(i18n.tr("merge_title"))
+        self.setModal(True)
+        self.setMinimumWidth(380)
+        self.setStyleSheet(
+            f"QDialog {{ background: {C_OVERLAY_SURFACE}; color: {C_TEXT};"
+            f" border: 1px solid {C_BORDER2}; }}"
+        )
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setSpacing(10)
+
+        hint = QLabel(i18n.tr("merge_hint"))
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color: {C_MUTED}; font-size: 11px; background: transparent;")
+        lay.addWidget(hint)
+
+        self._list = QListWidget()
+        for label in labels:
+            item = QListWidgetItem(label)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self._list.addItem(item)
+        self._list.itemChanged.connect(self._sync)
+        lay.addWidget(self._list)
+
+        row = QHBoxLayout()
+        row.addStretch()
+        cancel = _ghost_btn(i18n.tr("remote_cancel"))
+        cancel.clicked.connect(self.reject)
+        self._ok = _primary_btn(i18n.tr("merge_action"))
+        self._ok.clicked.connect(self.accept)
+        row.addWidget(cancel)
+        row.addWidget(self._ok)
+        lay.addLayout(row)
+        self._sync()
+
+    def _sync(self, *_args) -> None:
+        self._ok.setEnabled(len(self.chosen()) >= 2)
+
+    def chosen(self) -> list[int]:
+        """Indexes (into the labels given) of the logs ticked."""
+        return [i for i in range(self._list.count())
+                if self._list.item(i).checkState() == Qt.CheckState.Checked]
