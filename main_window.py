@@ -385,6 +385,9 @@ class MainWindow(QMainWindow):
         self._act_merge = QAction(self)
         self._act_merge.triggered.connect(self._action_merge_tabs)
         self._menu_edit.addAction(self._act_merge)
+        self._menu_edit.aboutToShow.connect(
+            lambda: self._act_merge.setEnabled(len(self._merge_sources()) >= 2)
+        )
 
         # ── Language ──
         self._menu_lang = mb.addMenu("")
@@ -568,8 +571,7 @@ class MainWindow(QMainWindow):
             for viewer in self.findChildren(LogViewer):
                 self._refresh_tab_state(viewer)
 
-    def _action_merge_tabs(self) -> None:
-        """Edit → Merge logs: one tab that shows several logs interleaved by time."""
+    def _merge_sources(self) -> list[tuple[str, LogViewer]]:
         sources: list[tuple[str, LogViewer]] = []
         for i in range(self._top_tabs.count()):
             spl = self._top_tabs.widget(i)
@@ -577,6 +579,11 @@ class MainWindow(QMainWindow):
                 for viewer in spl.findChildren(LogViewer):
                     if not viewer.merged:
                         sources.append((self._top_tabs.tabText(i), viewer))
+        return sources
+
+    def _action_merge_tabs(self) -> None:
+        """Edit → Merge logs: one tab that shows several logs interleaved by time."""
+        sources = self._merge_sources()
         if len(sources) < 2:
             self._status.showMessage(i18n.tr("status_merge_needs_two"), 4000)
             return
@@ -606,6 +613,7 @@ class MainWindow(QMainWindow):
             lambda selection, v=merged: (self._set_active_viewer(v), self._action_export(selection))
         )
         merged.merge_requested.connect(self._action_merge_tabs)
+        merged.can_merge = lambda: len(self._merge_sources()) >= 2
         spl = self._make_tab_splitter()
         spl.addWidget(merged)
         idx = self._top_tabs.addTab(spl, i18n.tr("merge_tab", n=len(sources)))
@@ -1166,6 +1174,7 @@ class MainWindow(QMainWindow):
             lambda selection, v=viewer: (self._set_active_viewer(v), self._action_export(selection))
         )
         viewer.merge_requested.connect(self._action_merge_tabs)
+        viewer.can_merge = lambda: len(self._merge_sources()) >= 2
 
     def _discard(self, viewer: LogViewer, worker) -> None:
         """Throw away a viewer/worker pair that was never wired or started."""

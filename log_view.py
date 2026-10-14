@@ -694,6 +694,7 @@ class LogViewer(QWidget):
 
     def __init__(self, source_type: str = "cloudwatch", parent=None):
         super().__init__(parent)
+        self.can_merge = lambda: True  # set by the main window: are there ≥ 2 logs to merge?
         self._source_type = source_type
         self._source_colors: dict[str, str] = {}
         self._resync: set[tuple[int, str]] | None = None
@@ -1161,6 +1162,7 @@ class LogViewer(QWidget):
         clear_action.triggered.connect(self.clear_bookmarks)
         menu.addSeparator()
         merge_action = menu.addAction(i18n.tr("action_merge"))
+        merge_action.setEnabled(self.can_merge())
         merge_action.triggered.connect(self.merge_requested)
         menu.exec(self._list_view.mapToGlobal(pos))
 

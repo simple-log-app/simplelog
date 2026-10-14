@@ -585,3 +585,28 @@ def test_merge_logs_is_in_the_context_menu_of_a_log_and_a_merged_view(monkeypatc
         assert len(asked) == 2                          # both viewers reach the window's action
     finally:
         win.close()
+
+
+def test_merge_logs_is_greyed_out_with_fewer_than_two_logs(monkeypatch):
+    from PyQt6.QtWidgets import QMenu
+
+    import main_window
+    import ui
+    win = main_window.MainWindow()
+    try:
+        viewer = ui.LogViewer(source_type="file")
+        win._wire_viewer(viewer, _Worker())
+        states = {}
+
+        def grab(self, *args):
+            states["ctx"] = [a.isEnabled() for a in self.actions() if a.text() == "Merge logs…"]
+
+        monkeypatch.setattr(QMenu, "exec", grab)
+        for count in (1, 2):
+            monkeypatch.setattr(win, "_merge_sources", lambda n=count: [("t", viewer)] * n)
+            win._menu_edit.aboutToShow.emit()
+            viewer._show_context_menu(viewer._list_view.rect().center())
+            assert win._act_merge.isEnabled() == (count == 2)
+            assert states["ctx"] == [count == 2]
+    finally:
+        win.close()
