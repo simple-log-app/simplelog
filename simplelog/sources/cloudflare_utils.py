@@ -118,6 +118,7 @@ def ws_connect(ws_url: str, api_token: str = "", timeout: int = 30) -> ssl.SSLSo
 
     key = base64.b64encode(os.urandom(16)).decode()
     ctx = ssl.create_default_context()
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     raw = socket.create_connection((host, port), timeout=timeout)
     ssock = ctx.wrap_socket(raw, server_hostname=host)
 

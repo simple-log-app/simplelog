@@ -6,6 +6,7 @@ import os
 import time
 import urllib.error
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -254,7 +255,7 @@ def test_betterstack_fetch_builds_the_query_and_reads_json_rows():
     assert events == [(1714564800250, '{"message": "hi"}'), (1714564801000, '{"nested": 1}')]
     req = _sent(op)
     sql = req.data.decode()
-    assert req.full_url.startswith("https://eu-nbg-2-connect.betterstackdata.com")
+    assert urlparse(req.full_url).hostname == "eu-nbg-2-connect.betterstackdata.com"
     assert "FROM remote(t1_src_logs)" in sql and "dt > toDateTime64('2024-05-01 11:58:20.000'" in sql
     assert "LIMIT 50" in sql and sql.endswith("FORMAT JSONEachRow")
     assert req.get_header("Authorization").startswith("Basic ")

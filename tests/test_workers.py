@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -251,7 +252,7 @@ def test_update_worker_sends_changes_since_current_version_in_user_language():
 
     def fake_urlopen(req, timeout=None):
         urls.append(req.full_url)
-        return _fake_urlopen("v1.2.0") if "api.github.com" in req.full_url else _fake_text(_CHANGELOG)
+        return _fake_urlopen("v1.2.0") if urlparse(req.full_url).hostname == "api.github.com" else _fake_text(_CHANGELOG)
 
     with patch("urllib.request.urlopen", side_effect=fake_urlopen):
         worker.run()
@@ -268,7 +269,7 @@ def test_update_worker_falls_back_to_english_changelog():
     worker.update_available.connect(lambda tag, url, notes: received.append(notes))
 
     def fake_urlopen(req, timeout=None):
-        if "api.github.com" in req.full_url:
+        if urlparse(req.full_url).hostname == "api.github.com":
             return _fake_urlopen("v1.2.0")
         if req.full_url.endswith("CHANGELOG.de.md"):
             raise OSError("404")
@@ -287,7 +288,7 @@ def test_update_worker_still_reports_update_without_changelog():
     worker.update_available.connect(lambda tag, url, notes: received.append((tag, notes)))
 
     def fake_urlopen(req, timeout=None):
-        if "api.github.com" in req.full_url:
+        if urlparse(req.full_url).hostname == "api.github.com":
             return _fake_urlopen("v1.2.0")
         raise OSError("404")
 
