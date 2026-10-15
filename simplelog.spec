@@ -7,10 +7,16 @@ PyInstaller spec for SimpleLog.
 import glob
 import os
 import sys
-
-from PyInstaller.utils.hooks import collect_submodules
+from pathlib import Path
 
 block_cipher = None
+
+# Every module of the package: panels are loaded by name at runtime, so the import scan
+# cannot see them. Listed from disk (collect_submodules needs the package to be installed).
+APP_MODULES = [
+    ".".join(p.with_suffix("").parts[:-1] if p.name == "__init__.py" else p.with_suffix("").parts)
+    for p in sorted(Path("simplelog").rglob("*.py"))
+]
 APP_VERSION = os.environ.get("VERSION", "0.0.0").lstrip("v")
 
 a = Analysis(
@@ -18,7 +24,7 @@ a = Analysis(
     pathex=["."],
     binaries=[],
     datas=[(f, ".") for f in glob.glob("CHANGELOG*.md")] + [("locales", "locales"), ("assets/providers", "assets/providers")],
-    hiddenimports=collect_submodules("simplelog") + [
+    hiddenimports=APP_MODULES + [
         "boto3",
         "botocore",
         "botocore.handlers",

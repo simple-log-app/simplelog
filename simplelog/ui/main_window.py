@@ -74,6 +74,7 @@ from simplelog.ui.ui_theme import (
     C_INFO,
     C_MUTED,
     C_PANEL,
+    C_SEL_BG,
     C_SIDE,
     C_STATUS,
     C_TEXT,
@@ -435,6 +436,13 @@ class MainWindow(QMainWindow):
         self._theme_btn.clicked.connect(self._toggle_theme)
         # The arrow next to the button picks the mode: follow the system, or force one
         self._theme_menu = QMenu(self._theme_btn)
+        # Styled on the menu itself: its pop-up window must follow the day / night theme
+        self._theme_menu.setStyleSheet(
+            f"QMenu {{ background: {C_CARD}; border: 1px solid {C_BORDER}; border-radius: 6px;"
+            f" padding: 4px 0; }}"
+            f"QMenu::item {{ background: transparent; color: {C_TEXT}; padding: 8px 24px 8px 16px; }}"
+            f"QMenu::item:selected {{ background: {C_SEL_BG}; color: {C_ACCENT}; }}"
+        )
         self._theme_actions: dict[str, QAction] = {}
         group = QActionGroup(self)
         for mode in ui_theme.MODES:

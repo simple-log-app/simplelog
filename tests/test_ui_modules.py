@@ -663,3 +663,37 @@ def test_add_connection_dialog_never_shows_a_top_level_window_while_building():
         assert spy.shown == []
     finally:
         app.removeEventFilter(spy)
+
+
+def test_pyinstaller_spec_lists_every_panel_without_the_package_being_installed():
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    spec = (root / "simplelog.spec").read_text()
+    snippet = re.search(r"^APP_MODULES = \[.*?^\]$", spec, re.S | re.M).group(0)
+    cwd = os.getcwd()
+    os.chdir(root)          # the spec is evaluated from the repository root
+    try:
+        scope = {"Path": Path}
+        exec(snippet, scope)
+    finally:
+        os.chdir(cwd)
+    listed = set(scope["APP_MODULES"])
+    assert set(PANELS) <= listed
+    assert {"simplelog.sources.docker_utils", "simplelog.ui.facade"} <= listed
+
+
+def test_theme_menu_follows_the_day_night_switch(monkeypatch, tmp_path):
+    import simplelog.ui.ui_theme as ui_theme
+    from simplelog.ui import facade as ui
+
+    monkeypatch.setattr(ui_theme, "_PREFS_PATH", tmp_path / "prefs.json")
+    win = ui.MainWindow()
+    try:
+        win._set_theme_mode("light")
+        assert ui_theme.LIGHT["card"] in win._theme_menu.styleSheet()
+        win._set_theme_mode("dark")
+        assert ui_theme.DARK["card"] in win._theme_menu.styleSheet()
+    finally:
+        win.close()
