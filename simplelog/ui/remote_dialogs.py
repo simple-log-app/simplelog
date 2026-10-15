@@ -52,7 +52,13 @@ from simplelog.ui.ui_theme import (
     provider_logo,
     rgba,
 )
-from simplelog.ui.ui_widgets import OpenModeWidget, _field_label, _ghost_btn, _primary_btn
+from simplelog.ui.ui_widgets import (
+    OpenModeWidget,
+    _field_label,
+    _ghost_btn,
+    _primary_btn,
+    make_frameless,
+)
 
 # ── Remote redesign: providers + AddConnectionDialog + RemoteHomePanel ────────
 
@@ -170,6 +176,7 @@ class AddConnectionDialog(QDialog):
         self._step2_layout.setSpacing(0)
         self._stack.addWidget(self._step2_widget)
 
+        make_frameless(self)         # its steps draw their own header and close button
         if preselect:
             self._go_step2(preselect, from_picker=False)
 

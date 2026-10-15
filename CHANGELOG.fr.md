@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Modifié
+- Les fenêtres de dialogue n'ont plus la barre de titre du système : plus de boutons réduire / agrandir et elles ne se déplacent plus ; fermez-les avec ✕ ou Échap.
+
 ## [2.1.3] - 2026-10-15
 
 ### Corrigé

@@ -4,6 +4,9 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Dialogs no longer have the system title bar: no minimise / maximise buttons and they cannot be dragged away; close them with ✕ or Esc.
+
 ## [2.1.3] - 2026-10-15
 
 ### Fixed

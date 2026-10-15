@@ -89,6 +89,7 @@ from simplelog.ui.ui_widgets import (
     _SidebarEdgeBtn,
     _SLTabWidget,
     _TabCloseBtn,
+    make_frameless,
 )
 from simplelog.ui.ui_workers import CallWorker
 
@@ -175,6 +176,7 @@ class ChangelogDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
+        make_frameless(self, lay)
 
 
 class MainWindow(QMainWindow):
@@ -874,6 +876,7 @@ class MainWindow(QMainWindow):
         btns.rejected.connect(dlg.accept)
         btns.setStyleSheet(f"color: {C_TEXT};")
         layout.addWidget(btns)
+        make_frameless(dlg, layout)
 
         dlg.exec()
 

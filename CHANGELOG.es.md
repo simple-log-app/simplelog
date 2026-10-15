@@ -4,6 +4,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+### Cambiado
+- Los cuadros de diálogo ya no tienen la barra de título del sistema: sin botones de minimizar / maximizar y no se pueden mover; ciérralos con ✕ o Esc.
+
 ## [2.1.3] - 2026-10-15
 
 ### Corregido

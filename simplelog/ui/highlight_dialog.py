@@ -27,7 +27,7 @@ from simplelog.ui.ui_theme import (
     C_TEXT,
     rgba,
 )
-from simplelog.ui.ui_widgets import _ghost_btn, _primary_btn
+from simplelog.ui.ui_widgets import _ghost_btn, _primary_btn, make_frameless
 
 
 def _swatch(color: str) -> QIcon:
@@ -159,6 +159,7 @@ class HighlightRulesDialog(QDialog):
         buttons.addWidget(cancel)
         buttons.addWidget(apply_btn)
         root.addLayout(buttons)
+        make_frameless(self, root)
         for rule in highlight_rules.get_rules():
             self._add_row(rule)
 

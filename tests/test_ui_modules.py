@@ -697,3 +697,23 @@ def test_theme_menu_follows_the_day_night_switch(monkeypatch, tmp_path):
         assert ui_theme.DARK["card"] in win._theme_menu.styleSheet()
     finally:
         win.close()
+
+
+def test_dialogs_have_no_system_title_bar():
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QPushButton, QWidget
+
+    from simplelog.ui.highlight_dialog import HighlightRulesDialog
+    from simplelog.ui.main_window import ChangelogDialog
+    from simplelog.ui.remote_dialogs import AddConnectionDialog
+    from simplelog.ui.ui_widgets import MergeTabsDialog, _HelpDialog
+
+    host = QWidget()
+    dialogs = [
+        _HelpDialog("<p>x</p>", host), MergeTabsDialog(["a", "b"], host),
+        HighlightRulesDialog(host), ChangelogDialog(host, "T", "# x"),
+        AddConnectionDialog(parent=host),
+    ]
+    for dlg in dialogs:
+        assert dlg.windowFlags() & Qt.WindowType.FramelessWindowHint, type(dlg).__name__
+        assert any(b.text() == "✕" for b in dlg.findChildren(QPushButton)), type(dlg).__name__

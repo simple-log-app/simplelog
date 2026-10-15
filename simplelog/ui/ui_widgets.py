@@ -415,6 +415,47 @@ def _ghost_btn(text: str = "") -> QPushButton:
     return btn
 
 
+def make_frameless(dialog: QDialog, layout=None) -> None:
+    """Drop the system title bar (its buttons and drag): the dialog stays where it opens.
+
+    With a *layout*, an in-app header (title + close button) is added at its top; a dialog
+    that already draws its own header passes none. Call it once the dialog is built.
+    """
+    dialog.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+    sheet = dialog.styleSheet().strip()
+    if sheet and "{" not in sheet:
+        sheet = f"* {{ {sheet} }}"        # a bare declaration list applies to every child
+    dialog.setStyleSheet(f"{sheet} QDialog {{ border: 1px solid {C_BORDER2}; }}")
+    if layout is None:
+        return
+    bar = QWidget()
+    bar.setObjectName("dialogTitleBar")
+    bar.setStyleSheet(
+        f"#dialogTitleBar {{ background: transparent; border: none;"
+        f" border-bottom: 1px solid {C_BORDER}; }}"
+    )
+    row = QHBoxLayout(bar)
+    row.setContentsMargins(0, 0, 0, 8)
+    title = QLabel(dialog.windowTitle())
+    title.setStyleSheet(
+        f"color: {C_TEXT}; font-size: 13px; font-weight: 600;"
+        " background: transparent; border: none;"
+    )
+    dialog.windowTitleChanged.connect(title.setText)
+    close = QPushButton("✕")
+    close.setFixedSize(24, 24)
+    close.setCursor(Qt.CursorShape.PointingHandCursor)
+    close.setStyleSheet(
+        f"QPushButton {{ background: transparent; color: {C_MUTED};"
+        f" border: none; font-size: 13px; padding: 0; min-height: 24px; }}"
+        f"QPushButton:hover {{ color: {C_TEXT}; }}"
+    )
+    close.clicked.connect(dialog.reject)
+    row.addWidget(title, 1)
+    row.addWidget(close)
+    layout.insertWidget(0, bar)
+
+
 class _HelpDialog(QDialog):
     def __init__(self, html: str, parent=None):
         super().__init__(parent)
@@ -442,6 +483,7 @@ class _HelpDialog(QDialog):
         row.addStretch()
         row.addWidget(close_btn)
         lay.addLayout(row)
+        make_frameless(self, lay)
 
 
 class _ProfileBar(QWidget):
@@ -709,6 +751,7 @@ class MergeTabsDialog(QDialog):
         row.addWidget(cancel)
         row.addWidget(self._ok)
         lay.addLayout(row)
+        make_frameless(self, lay)
         self._sync()
 
     def _sync(self, *_args) -> None:

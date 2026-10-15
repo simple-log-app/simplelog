@@ -38,6 +38,7 @@ from simplelog.ui.ui_widgets import (
     _primary_btn,
     _ProfileBar,
     make_card,
+    make_frameless,
 )
 from simplelog.ui.ui_workers import CallWorker
 
@@ -100,6 +101,7 @@ class _SftpBrowserDialog(QDialog):
         btns.accepted.connect(self._on_ok)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
+        make_frameless(self, layout)
 
         self._navigate(start_path)
 
