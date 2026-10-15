@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -22,7 +21,7 @@ from PyQt6.QtWidgets import (
 
 from simplelog.core import i18n
 from simplelog.ui.ui_theme import C_MUTED, C_SIDE, C_TEXT
-from simplelog.ui.ui_widgets import OpenModeWidget, _primary_btn, make_card
+from simplelog.ui.ui_widgets import MessageBox, OpenModeWidget, _primary_btn, make_card
 
 # ── FilePanel ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +135,7 @@ class FilePanel(QWidget):
         if os.path.isfile(path):
             self._open_path(path)
         else:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self,
                 i18n.tr("err_file_not_found"),
                 i18n.tr("err_cannot_open", path=path),

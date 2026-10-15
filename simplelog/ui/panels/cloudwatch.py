@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,
@@ -26,6 +25,7 @@ from simplelog.sources import cloudwatch
 from simplelog.ui.panels.base import ProviderPanel
 from simplelog.ui.ui_theme import C_ACCENT, C_SIDE, C_TEXT
 from simplelog.ui.ui_widgets import (
+    MessageBox,
     NoScrollComboBox,
     OpenModeWidget,
     _field_label,
@@ -336,7 +336,7 @@ class CloudWatchPanel(ProviderPanel):
         self._restore = None
         self._region_section.setVisible(False)
         self._card_groups.setVisible(False)
-        QMessageBox.critical(self, i18n.tr("err_connection"), msg)
+        MessageBox.critical(self, i18n.tr("err_connection"), msg)
         self.connect_btn.setText(i18n.tr("cw_connect"))
         self._connecting = False
         self.connect_btn.setEnabled(True)
@@ -365,7 +365,7 @@ class CloudWatchPanel(ProviderPanel):
             if first:
                 self._on_connect_failed(str(exc))
             else:
-                QMessageBox.critical(self, i18n.tr("err_connection"), str(exc))
+                MessageBox.critical(self, i18n.tr("err_connection"), str(exc))
             return
         self._groups_gen += 1
         gen = self._groups_gen
@@ -393,7 +393,7 @@ class CloudWatchPanel(ProviderPanel):
         if first:
             self._on_connect_failed(msg)
         else:
-            QMessageBox.critical(self, i18n.tr("err_connection"), msg)
+            MessageBox.critical(self, i18n.tr("err_connection"), msg)
 
     def _on_region_changed(self) -> None:
         self._region_chosen = True   # picked by the user
@@ -441,7 +441,7 @@ class CloudWatchPanel(ProviderPanel):
     def _on_streams_failed(self, gen: int, msg: str) -> None:
         if gen != self._streams_gen:
             return
-        QMessageBox.warning(self, i18n.tr("err_streams"), msg)
+        MessageBox.warning(self, i18n.tr("err_streams"), msg)
         self._show_stream_cards()
 
     def _on_open_clicked(self):

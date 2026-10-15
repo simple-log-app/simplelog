@@ -388,7 +388,7 @@ def test_sftp_dialog_reports_a_listing_error(qapp):
         raise RuntimeError("permission denied")
 
     with patch.object(ssh_utils, "list_remote_dir_full", fail), \
-         patch("simplelog.ui.panels.ssh.QMessageBox.warning") as warn:
+         patch("simplelog.ui.panels.ssh.MessageBox.warning") as warn:
         dlg = _SftpBrowserDialog(MagicMock(), "/root")
         assert _wait_for(lambda: warn.called)
     assert "permission denied" in str(warn.call_args)
@@ -462,7 +462,7 @@ def test_ssh_tab_restore_failure_is_reported(window):
         raise RuntimeError("no route")
 
     with patch.object(ssh_utils, "make_client", fail), \
-         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.MessageBox.critical") as crit:
         window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x"})
         assert _wait_for(lambda: crit.called)
     assert "no route" in str(crit.call_args) and window._top_tabs.count() == 0
@@ -510,7 +510,7 @@ def test_gcp_and_azure_restore_failures_are_reported(window):
     from simplelog.sources import azure_utils, gcp_utils
     with patch.object(gcp_utils, "make_client", MagicMock(side_effect=RuntimeError("gcp down"))), \
          patch.object(azure_utils, "make_credential", MagicMock(side_effect=RuntimeError("az down"))), \
-         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.MessageBox.critical") as crit:
         window.open_remote_tab({"type": "gcp", "project_id": "p"})
         window.open_remote_tab({"type": "azure", "tenant_id": "t", "client_id": "c", "client_secret": "s",
                                "workspace_id": "w", "query": "q"})

@@ -18,11 +18,12 @@ import traceback
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication
 
 from simplelog.core import highlight_rules, i18n
 from simplelog.ui.main_window import MainWindow
 from simplelog.ui.ui_theme import apply_mode, load_theme
+from simplelog.ui.ui_widgets import MessageBox
 from simplelog.version import __version__  # noqa: F401  (imported for UpdateWorker)
 
 # Unique socket name for this app's IPC channel
@@ -179,7 +180,7 @@ def main():
             if os.path.isfile(path):
                 window.open_file_tab(path, args.tail, args.split)
             else:
-                QMessageBox.warning(
+                MessageBox.warning(
                     window,
                     i18n.tr("err_file_not_found"),
                     i18n.tr("err_cannot_open", path=path),

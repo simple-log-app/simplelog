@@ -43,7 +43,7 @@ def _wait(cond, timeout=8.0):
 # ── Error from a worker whose tab is already closed ─────────────────────────
 
 def test_error_of_a_closed_tab_is_ignored(monkeypatch):
-    monkeypatch.setattr(main_window.QMessageBox, "critical", staticmethod(lambda *a, **k: None))
+    monkeypatch.setattr(main_window.MessageBox, "critical", staticmethod(lambda *a, **k: None))
     w = main_window.MainWindow()
     viewer = main_window.LogViewer(source_type="file")
     worker = _Idle()
@@ -194,7 +194,7 @@ def test_appimage_update_script_survives_a_quote_in_the_path(tmp_path, monkeypat
     scripts = []
     w = main_window.MainWindow()
     monkeypatch.setenv("APPIMAGE", "/home/u/Bob's apps/simplelog.AppImage")
-    monkeypatch.setattr(main_window.QMessageBox, "information", staticmethod(lambda *a, **k: None))
+    monkeypatch.setattr(main_window.MessageBox, "information", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(main_window.QApplication, "quit", staticmethod(lambda: None))
     with monkeypatch.context() as mp:
         mp.setattr(subprocess, "Popen", lambda cmd, **k: scripts.append(cmd[1]))

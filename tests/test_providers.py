@@ -277,7 +277,7 @@ def test_a_missing_connection_is_made_in_the_background_with_the_provider_title(
     provider = providers.get("ssh")
     fake = providers.Provider(**{**provider.__dict__, "connect": slow})
     with patch.dict(providers._BY_TYPE, {"ssh": fake}), \
-         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.MessageBox.critical") as crit:
         t0 = time.monotonic()
         window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x"})
         assert time.monotonic() - t0 < 0.5

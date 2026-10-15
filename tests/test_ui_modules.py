@@ -440,7 +440,7 @@ def test_main_window_export_action(tmp_path, monkeypatch):
         assert target.read_text() == "line 0\nline 1\nline 2\n"
         assert "3" in win._status.currentMessage()
         warned = []
-        monkeypatch.setattr(main_window.QMessageBox, "warning",
+        monkeypatch.setattr(main_window.MessageBox, "warning",
                             staticmethod(lambda *a, **k: warned.append(a)))
         monkeypatch.setattr(main_window.QFileDialog, "getSaveFileName",
                             staticmethod(lambda *a, **k: (str(tmp_path / "no" / "dir.log"), "")))
@@ -717,3 +717,32 @@ def test_dialogs_have_no_system_title_bar():
     for dlg in dialogs:
         assert dlg.windowFlags() & Qt.WindowType.FramelessWindowHint, type(dlg).__name__
         assert any(b.text() == "✕" for b in dlg.findChildren(QPushButton)), type(dlg).__name__
+
+
+def test_message_box_is_frameless_and_returns_the_clicked_button(monkeypatch):
+    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtWidgets import QApplication, QDialogButtonBox
+
+    from simplelog.ui.ui_widgets import MessageBox
+
+    def press(which):
+        def _go():
+            dlg = next(w for w in QApplication.topLevelWidgets()
+                       if isinstance(w, MessageBox) and w.isVisible())
+            assert dlg.windowFlags() & Qt.WindowType.FramelessWindowHint
+            box = dlg.findChild(QDialogButtonBox)
+            box.button(which).click()
+        QTimer.singleShot(0, _go)
+
+    press(QDialogButtonBox.StandardButton.No)
+    assert MessageBox.question(None, "t", "ok?") == QDialogButtonBox.StandardButton.No
+    press(QDialogButtonBox.StandardButton.Ok)
+    assert MessageBox.warning(None, "t", "careful") == QDialogButtonBox.StandardButton.Ok
+
+    def choose_action():
+        dlg = next(w for w in QApplication.topLevelWidgets()
+                   if isinstance(w, MessageBox) and w.isVisible())
+        box = dlg.findChild(QDialogButtonBox)
+        next(b for b in box.buttons() if b.text() == "Install").click()
+    QTimer.singleShot(0, choose_action)
+    assert MessageBox.offer(None, "t", "new version", "Install") is True

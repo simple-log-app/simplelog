@@ -18,15 +18,18 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QAbstractButton,
+    QApplication,
     QButtonGroup,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QStyle,
     QTabBar,
     QTabWidget,
     QTextBrowser,
@@ -454,6 +457,91 @@ def make_frameless(dialog: QDialog, layout=None) -> None:
     row.addWidget(title, 1)
     row.addWidget(close)
     layout.insertWidget(0, bar)
+
+
+class MessageBox(QDialog):
+    """Message box without the system title bar; same static API as ``QMessageBox``."""
+
+    StandardButton = QDialogButtonBox.StandardButton
+    _ICONS = {
+        "information": QStyle.StandardPixmap.SP_MessageBoxInformation,
+        "warning": QStyle.StandardPixmap.SP_MessageBoxWarning,
+        "critical": QStyle.StandardPixmap.SP_MessageBoxCritical,
+        "question": QStyle.StandardPixmap.SP_MessageBoxQuestion,
+    }
+
+    def __init__(self, parent, title: str, text: str, kind: str | None,
+                 buttons: QDialogButtonBox.StandardButton, action_label: str = "") -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.result_button = QDialogButtonBox.StandardButton.NoButton
+        self.action_clicked = False
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(12)
+        body = QHBoxLayout()
+        body.setSpacing(14)
+        if kind:
+            icon = QLabel()
+            icon.setPixmap(
+                QApplication.style().standardIcon(self._ICONS[kind]).pixmap(40, 40))
+            icon.setAlignment(Qt.AlignmentFlag.AlignTop)
+            body.addWidget(icon)
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setTextFormat(Qt.TextFormat.AutoText)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        label.setMinimumWidth(260)
+        label.setMaximumWidth(460)
+        body.addWidget(label, 1)
+        lay.addLayout(body)
+        box = QDialogButtonBox(buttons)
+        action = (box.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
+                  if action_label else None)
+        box.clicked.connect(lambda b: self._finish(box.standardButton(b), b is action))
+        lay.addWidget(box)
+        make_frameless(self, lay)
+
+    def _finish(self, button, is_action: bool) -> None:
+        self.result_button = button
+        self.action_clicked = is_action
+        self.accept()
+
+    @classmethod
+    def _show(cls, parent, kind, title, text, buttons):
+        dlg = cls(parent, title, text, kind, buttons)
+        dlg.exec()
+        return dlg.result_button
+
+    @staticmethod
+    def information(parent, title, text, buttons=QDialogButtonBox.StandardButton.Ok, *_):
+        return MessageBox._show(parent, "information", title, text, buttons)
+
+    @staticmethod
+    def warning(parent, title, text, buttons=QDialogButtonBox.StandardButton.Ok, *_):
+        return MessageBox._show(parent, "warning", title, text, buttons)
+
+    @staticmethod
+    def critical(parent, title, text, buttons=QDialogButtonBox.StandardButton.Ok, *_):
+        return MessageBox._show(parent, "critical", title, text, buttons)
+
+    @staticmethod
+    def question(parent, title, text,
+                 buttons=QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No, *_):
+        return MessageBox._show(parent, "question", title, text, buttons)
+
+    @staticmethod
+    def about(parent, title, text) -> None:
+        MessageBox._show(parent, None, title, text, QDialogButtonBox.StandardButton.Ok)
+
+    @staticmethod
+    def offer(parent, title, text, action_label: str) -> bool:
+        """Show *text* with an action button and Close; True when the action was chosen."""
+        dlg = MessageBox(parent, title, text, None, QDialogButtonBox.StandardButton.Close,
+                         action_label=action_label)
+        dlg.exec()
+        return dlg.action_clicked
 
 
 class _HelpDialog(QDialog):

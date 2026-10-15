@@ -4,6 +4,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+### Corregido
+- Los cuadros de mensaje (Acerca de, actualización, errores, confirmaciones) también pierden la barra de título del sistema, como los demás diálogos.
+
 ## [2.2.0] - 2026-10-15
 
 ### Cambiado

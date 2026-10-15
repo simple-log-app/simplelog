@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,
@@ -32,6 +31,7 @@ from simplelog.sources import ssh_utils
 from simplelog.ui.panels.base import ProviderPanel
 from simplelog.ui.ui_theme import C_ERR, C_INFO, C_MUTED, C_SIDE, C_TEXT
 from simplelog.ui.ui_widgets import (
+    MessageBox,
     NoScrollComboBox,
     OpenModeWidget,
     _ghost_btn,
@@ -126,7 +126,7 @@ class _SftpBrowserDialog(QDialog):
         if gen != self._nav_gen:
             return
         self._list.setEnabled(True)
-        QMessageBox.warning(self, i18n.tr("err_title"), msg)
+        MessageBox.warning(self, i18n.tr("err_title"), msg)
 
     def _on_listed(self, gen: int, path: str, entries: list) -> None:
         if gen != self._nav_gen:
@@ -460,7 +460,7 @@ class SSHPanel(ProviderPanel):
         host = self._host_input.text().strip()
         user = self._user_input.text().strip()
         if not host or not user:
-            QMessageBox.warning(self, "SSH", i18n.tr("err_ssh_required"))
+            MessageBox.warning(self, "SSH", i18n.tr("err_ssh_required"))
             return
         self._client = None
         self._file_card_frame.setVisible(False)
@@ -482,13 +482,13 @@ class SSHPanel(ProviderPanel):
         self._connect_worker.start()
 
     def _on_unknown_host(self, host: str, key_type: str, fingerprint: str) -> None:
-        answer = QMessageBox.question(
+        answer = MessageBox.question(
             self,
             i18n.tr("ssh_trust_host_title"),
             i18n.tr("ssh_trust_host_text", host=host, key_type=key_type,
                     fingerprint=fingerprint),
         )
-        if answer == QMessageBox.StandardButton.Yes:
+        if answer == MessageBox.StandardButton.Yes:
             self._on_connect(trust_new_host=True)
         else:
             self._on_connect_failure(i18n.tr("ssh_trust_host_title"))
@@ -576,7 +576,7 @@ class SSHPanel(ProviderPanel):
 
     def _on_open_failed(self, msg: str) -> None:
         self._open_btn.setEnabled(True)
-        QMessageBox.critical(self, i18n.tr("err_connection"), msg)
+        MessageBox.critical(self, i18n.tr("err_connection"), msg)
 
     def _on_recent_double_click(self, item: QListWidgetItem) -> None:
         entry = item.data(Qt.ItemDataRole.UserRole)

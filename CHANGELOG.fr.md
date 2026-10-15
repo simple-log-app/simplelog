@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Corrigé
+- Les boîtes de message (À propos, mise à jour, erreurs, confirmations) perdent elles aussi la barre de titre du système, comme les autres dialogues.
+
 ## [2.2.0] - 2026-10-15
 
 ### Modifié

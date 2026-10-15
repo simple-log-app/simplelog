@@ -4,6 +4,9 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- The About, update, error and confirmation message boxes now also lose the system title bar, like the other dialogs.
+
 ## [2.2.0] - 2026-10-15
 
 ### Changed

@@ -183,6 +183,7 @@ from simplelog.ui.ui_theme import (  # noqa: F401
 )
 from simplelog.ui.ui_widgets import (  # noqa: F401
     MergeTabsDialog,
+    MessageBox,
     NavButton,
     NavRail,
     NoScrollComboBox,

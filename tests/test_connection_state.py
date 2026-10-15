@@ -80,7 +80,7 @@ def env(tmp_path, monkeypatch):
     provider = providers.Provider(
         "fake", "Fake", "F", "#ffffff", "<svg/>", "fake", "simplelog.ui.panels.railway:RailwayPanel", session)
     dialogs: list = []
-    monkeypatch.setattr(main_window.QMessageBox, "critical",
+    monkeypatch.setattr(main_window.MessageBox, "critical",
                         staticmethod(lambda *a, **k: dialogs.append(a[2])))
     win = main_window.MainWindow()
     win._open_session(provider, {"lookback_s": 3600, "id": 1}, None, "tab")

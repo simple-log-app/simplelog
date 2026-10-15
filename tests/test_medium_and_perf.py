@@ -733,7 +733,7 @@ def test_deb_install_reports_failure_detail(tmp_path):
 
 
 def test_deb_update_failure_is_shown_to_the_user(window):
-    with patch("simplelog.ui.main_window.QMessageBox.warning") as warn:
+    with patch("simplelog.ui.main_window.MessageBox.warning") as warn:
         window._on_deb_installed(1, "boom")
     warn.assert_called_once()
     assert "boom" in str(warn.call_args)
@@ -823,7 +823,7 @@ def test_ssh_open_failure_is_reported(qapp, tmp_path, monkeypatch):
     p._host_input.setText("h")
     p._user_input.setText("u")
     p._path_input.setText("/x")
-    with patch("simplelog.ui.panels.ssh.QMessageBox.critical") as crit:
+    with patch("simplelog.ui.panels.ssh.MessageBox.critical") as crit:
         p._on_open()
         assert _wait_for(lambda: crit.called)
     assert "refused" in str(crit.call_args)
@@ -874,7 +874,7 @@ def test_cloudwatch_ignores_an_outdated_streams_answer(cw_panel):
 def test_cloudwatch_connect_failure_resets_the_panel(cw_panel):
     with patch("simplelog.sources.cloudwatch.make_client", return_value=MagicMock()), \
          patch("simplelog.sources.cloudwatch.list_log_groups", side_effect=RuntimeError("denied")), \
-         patch("simplelog.ui.panels.cloudwatch.QMessageBox.critical") as crit:
+         patch("simplelog.ui.panels.cloudwatch.MessageBox.critical") as crit:
         cw_panel._on_connect()
         assert _wait_for(lambda: crit.called)
     assert "denied" in str(crit.call_args)

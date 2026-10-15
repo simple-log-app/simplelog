@@ -37,7 +37,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMenu,
-    QMessageBox,
     QProgressDialog,
     QSplitter,
     QStackedWidget,
@@ -85,6 +84,7 @@ from simplelog.ui.ui_theme import (
 )
 from simplelog.ui.ui_widgets import (
     MergeTabsDialog,
+    MessageBox,
     NavRail,
     _SidebarEdgeBtn,
     _SLTabWidget,
@@ -659,7 +659,7 @@ class MainWindow(QMainWindow):
         try:
             count = viewer.export_lines(path, selection_only)
         except OSError as exc:
-            QMessageBox.warning(self, i18n.tr("action_export"), i18n.tr("err_export", error=exc))
+            MessageBox.warning(self, i18n.tr("action_export"), i18n.tr("err_export", error=exc))
             return
         self._status.showMessage(i18n.tr("status_exported", n=count, path=path), 5000)
 
@@ -672,7 +672,7 @@ class MainWindow(QMainWindow):
         self._update_worker.up_to_date.connect(self._on_up_to_date)
         self._update_worker.update_available.connect(self._on_update_available)
         self._update_worker.error.connect(
-            lambda msg: QMessageBox.warning(
+            lambda msg: MessageBox.warning(
                 self, i18n.tr("update_title"), i18n.tr("update_error", error=msg)
             )
         )
@@ -690,7 +690,7 @@ class MainWindow(QMainWindow):
 
     def _action_about(self) -> None:
         from simplelog.version import __version__
-        QMessageBox.about(
+        MessageBox.about(
             self,
             i18n.tr("action_about"),
             f"<b>SimpleLog</b> v{__version__}<br><br>"
@@ -698,7 +698,7 @@ class MainWindow(QMainWindow):
         )
 
     def _on_up_to_date(self, version: str) -> None:
-        QMessageBox.information(
+        MessageBox.information(
             self,
             i18n.tr("update_title"),
             i18n.tr("update_up_to_date", version=version),
@@ -716,13 +716,7 @@ class MainWindow(QMainWindow):
             if dlg.exec() != QDialog.DialogCode.Accepted:
                 return
         else:
-            box = QMessageBox(self)
-            box.setWindowTitle(i18n.tr("update_title"))
-            box.setText(header)
-            action_btn = box.addButton(action_label, QMessageBox.ButtonRole.AcceptRole)
-            box.addButton(QMessageBox.StandardButton.Close)
-            box.exec()
-            if box.clickedButton() is not action_btn:
+            if not MessageBox.offer(self, i18n.tr("update_title"), header, action_label):
                 return
         if can_auto:
             self._install_update(latest)
@@ -769,7 +763,7 @@ class MainWindow(QMainWindow):
         self._dl_worker.progress.connect(progress.setValue)
         self._dl_worker.error.connect(lambda msg: (
             progress.close(),
-            QMessageBox.warning(self, i18n.tr("update_title"), i18n.tr("update_install_error", error=msg)),
+            MessageBox.warning(self, i18n.tr("update_title"), i18n.tr("update_install_error", error=msg)),
         ))
         self._dl_worker.finished.connect(lambda path: self._apply_update(path, progress))
         self._dl_worker.start()
@@ -784,7 +778,7 @@ class MainWindow(QMainWindow):
             self._deb_worker.start()
             return
 
-        QMessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
+        MessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
 
         pid = os.getpid()
         if tmp_path.endswith(".AppImage"):
@@ -802,7 +796,7 @@ class MainWindow(QMainWindow):
             # macOS: replace .app bundle from mounted DMG
             app_bundle = macos_app_bundle(sys.executable)
             if app_bundle is None:
-                QMessageBox.warning(
+                MessageBox.warning(
                     self, i18n.tr("update_title"),
                     i18n.tr("update_install_error", error=sys.executable),
                 )
@@ -818,12 +812,12 @@ class MainWindow(QMainWindow):
 
     def _on_deb_installed(self, code: int, detail: str) -> None:
         if code != 0:
-            QMessageBox.warning(
+            MessageBox.warning(
                 self, i18n.tr("update_title"),
                 i18n.tr("update_install_error", error=detail),
             )
             return
-        QMessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
+        MessageBox.information(self, i18n.tr("update_title"), i18n.tr("update_restarting"))
         # Use a background script so the new binary starts after we exit
         pid = os.getpid()
         exe = sys.executable
@@ -1125,7 +1119,7 @@ class MainWindow(QMainWindow):
 
         def _failed(msg: str) -> None:
             self._status.showMessage(i18n.tr("status_ready"))
-            QMessageBox.critical(self, title, msg)
+            MessageBox.critical(self, title, msg)
 
         worker.success.connect(_ok)
         worker.failure.connect(_failed)
@@ -1288,7 +1282,7 @@ class MainWindow(QMainWindow):
         if link is not None:
             self._set_state(viewer, cs.FAILED)
         self._status.showMessage(i18n.tr("err_prefix", msg=msg))
-        QMessageBox.critical(self, i18n.tr("err_worker"), msg)
+        MessageBox.critical(self, i18n.tr("err_worker"), msg)
 
     def _reconnect(self, viewer: LogViewer, generation: int) -> None:
         link = self._links.get(id(viewer))
