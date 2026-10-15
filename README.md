@@ -1,22 +1,25 @@
 # SimpleLog
 
-A fast, Material Design log viewer for **AWS CloudWatch**, **local log files**, and **piped stdin** — built with PyQt6.
+A fast log viewer for **local files**, **piped stdin** and **20 remote sources** (cloud, containers, servers, observability tools) — built with PyQt6. Available in English, French, German, Spanish and Chinese.
 
 ---
 
 ## Features
 
-- **Three log sources** — CloudWatch streams, local files, and piped stdin in a unified interface
-- **Tabs + split panes** — each tab holds one or more panes; open logs side-by-side (vertical) or stacked (horizontal) inside the active tab
-- **Configurable tail** — load only the last N lines of large files to prevent UI freezing (default: 100)
-- **Live tailing** — files and CloudWatch streams are polled continuously for new events
-- **Syntax highlighting** — color-coded `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, timestamps, JSON keys
-- **Sidebar search** — incremental search with `Ctrl+F`, previous/next navigation, hit count
-- **Sidebar filter** — live filter with AND / OR logic; matching lines only are shown
-- **JSON key detection** — detected JSON keys listed automatically for quick filtering
-- **Workspaces** — save and restore full sessions (sources, split layout, filters)
-- **Language** — EN / FR via the Language menu, preference persisted across restarts
-- **Material Design dark theme**
+- **Many log sources** — local files, piped stdin, and remote providers: AWS CloudWatch, Google Cloud, Azure Monitor, SSH, Docker, Kubernetes, systemd journal, Vercel, Heroku, Render, Railway, Fly.io, Cloudflare, Grafana Loki, Datadog, Elasticsearch, Splunk, Better Stack, Sentry
+- **Saved connections** — remote connections are saved and reopened in one click, restoring the selected target and options; remote tabs show their connection state and reconnect by themselves when the stream drops
+- **Tabs + split panes** — open logs side-by-side (vertical) or stacked (horizontal) inside the active tab
+- **Merged view** — show several open logs together in one tab, in time order, each line tagged with its source
+- **Live tailing** — files and remote streams are followed continuously; configurable tail for large files (default: 100 lines)
+- **Search** — incremental search with hit count, `F3` / `Shift+F3` navigation, match case and regular expression options, recent terms suggested
+- **Filter** — live filter with AND / OR logic, level chips (ERROR, WARN, INFO, DEBUG, TRACE) and `key=value` filters on JSON logs
+- **Highlight rules** — colour the words you care about in every log (Edit menu)
+- **Bookmarks** — mark lines (`Ctrl+B`) and jump between them (`F2` / `Shift+F2`)
+- **Export** — save the displayed (filtered) or selected lines to a file (`Ctrl+Shift+E`)
+- **Syntax highlighting** — colour-coded levels, timestamps and JSON, with collapsible JSON rows
+- **Day / Night / Auto theme** — follows your system or set manually (`Ctrl+Shift+L`)
+- **Languages** — EN / FR / DE / ES / ZH via the Language menu, persisted across restarts
+- **Changelog and updates** — Help → What's New, and an in-app update check
 
 ---
 
@@ -24,7 +27,7 @@ A fast, Material Design log viewer for **AWS CloudWatch**, **local log files**, 
 
 - Python 3.11+
 - PyQt6 >= 6.6, < 6.11 (6.11+ has a macOS dylib symbol mismatch bug)
-- AWS credentials configured (for CloudWatch only — `~/.aws/credentials` or environment variables)
+- Credentials for the remote sources you use (for example `~/.aws/credentials` for CloudWatch); they are entered when you add a connection
 
 ---
 
@@ -110,7 +113,7 @@ python main.py
 
 ## Usage
 
-### GUI mode (CloudWatch browser)
+### GUI mode
 
 ```bash
 python main.py
@@ -159,7 +162,7 @@ command | simplelog [--split MODE]
 ### Examples
 
 ```bash
-# Launch the CloudWatch browser (no arguments)
+# Launch the app (no arguments)
 simplelog
 
 # Tail a single file
@@ -193,61 +196,57 @@ tail -f /var/log/syslog | grep -i error | simplelog
 
 | Shortcut | Action |
 |---|---|
+| `Ctrl+O` | Open a file |
+| `Ctrl+W` | Close the current tab |
+| `Ctrl+Shift+W` | Close all open logs |
 | `Ctrl+F` | Open / focus sidebar search |
-| `Ctrl+Shift+F` | Toggle sidebar |
-| `Ctrl+W` | Close all open logs |
-| `Enter` / `▼ Next` | Find next match |
-| `▲ Prev` | Find previous match |
-| `Escape` | Close search bar |
+| `F3` / `Shift+F3` | Next / previous match |
+| `Ctrl+Shift+F` | Toggle the search sidebar |
+| `Ctrl+\` | Toggle the sources sidebar |
+| `Ctrl+B` | Toggle a bookmark on the line |
+| `F2` / `Shift+F2` | Next / previous bookmark |
+| `Ctrl+Shift+B` | Remove all bookmarks |
+| `Ctrl+Shift+E` | Export lines to a file |
+| `Ctrl+Shift+L` | Switch Day / Night theme |
+| `Ctrl+C` | Copy the selected lines |
+| `Ctrl+Q` | Quit |
 
 ---
 
 ## Split panes
 
-Each tab can contain multiple panes arranged in a splitter. The split mode is choosable from the sidebar before opening a source:
+Each tab can contain multiple panes arranged in a splitter. The "Open as" choice, shown when adding a connection, decides where a log opens:
 
 - **New tab** — opens in a new tab (default)
 - **Split ↔ side by side** — adds a pane to the right inside the current tab
 - **Split ↕ top / bottom** — adds a pane below inside the current tab
 
-Closing the last pane in a tab closes the tab automatically. Panes can be resized by dragging the splitter handle, and closed individually with the ✕ button in their toolbar.
+The split choices are greyed out while no log is open. Closing the last pane in a tab closes the tab automatically. Panes can be resized by dragging the splitter handle, and closed individually with the ✕ button in their toolbar. For a combined, time-ordered view of several logs, use **Merged view** (Edit menu or right-click menu).
 
 ---
 
 ## Sidebar
 
-The sidebar (toggle: `Ctrl+Shift+F`) has three panels:
+The search sidebar (toggle: `Ctrl+Shift+F`) has three panels:
 
 ### Search
-Incremental full-text search across visible log lines. Shows hit count and supports ▲ / ▼ navigation.
+Incremental full-text search across visible log lines, with hit count and ▲ / ▼ (or `F3` / `Shift+F3`) navigation. Options: match case, regular expression.
 
 ### Filter
-Live filter that hides non-matching lines. Multiple terms can be combined with **AND** or **OR** logic. Enable **Live** to also filter incoming lines as they arrive.
+Live filter that hides non-matching lines. Multiple terms can be combined with **AND** or **OR** logic, and level chips show or hide ERROR, WARN, INFO, DEBUG and TRACE lines. Enable **Live** to also filter incoming lines as they arrive.
 
 ### JSON Keys
 When log lines contain JSON, detected keys are listed automatically. Click a key to add it as a filter term.
 
----
-
-## Workspaces
-
-The Workspaces panel lets you save and restore complete sessions:
-
-- **Save** — captures the current open sources (files, CloudWatch streams), their split layout, and filter state
-- **Open** — re-opens all sources in the saved layout in a new tab
-- **Rename / Delete** — manage saved workspaces
-
-Workspaces are persisted to `~/.config/simplelog/workspaces.json`.
+The left sidebar (toggle: `Ctrl+\`) lists your saved remote connections.
 
 ---
 
-## CloudWatch
+## Remote sources
 
-1. Select an AWS **profile** and **region**, then click **Connect**
-2. Browse and filter **log groups**
-3. Select a **log stream** (or "All streams")
-4. Set lookback window, poll interval, and optional filter pattern
-5. Choose how to open it (tab or split), then click **Open ↗**
+Click **Add** (or **+ New connection** under a provider) and pick a source in the filterable list. Fill in the connection form, choose the target (log group, project, service, pod, container…), set the options, then choose how to open it (tab or split) and click **Open**. Connections are saved under `~/.config/simplelog/` (readable only by your user); reopening one reconnects automatically and restores the selected target and options.
+
+Supported sources: AWS CloudWatch, Google Cloud, Azure Monitor, SSH (with SFTP file browser), Docker, Kubernetes, systemd journal, Vercel, Heroku, Render, Railway, Fly.io, Cloudflare, Grafana Loki, Datadog, Elasticsearch, Splunk, Better Stack and Sentry. See [`docs/provider-testing-guide.md`](docs/provider-testing-guide.md) for how each one is tested.
 
 ---
 
@@ -255,14 +254,24 @@ Workspaces are persisted to `~/.config/simplelog/workspaces.json`.
 
 ```
 simplelog/
-├── main.py          # Entry point, CLI argument parsing
-├── ui.py            # All PyQt6 UI components
-├── workers.py       # Background QThread workers (file, CloudWatch, stdin, updater)
-├── cloudwatch.py    # boto3 CloudWatch Logs helpers
-├── i18n.py          # EN / FR translation system
-├── version.py       # Single source of truth for the app version
-├── requirements.txt # Runtime dependencies
-└── tests/           # Unit tests
+├── main.py            # Entry point, CLI argument parsing
+├── main_window.py     # Main window, menus, tabs
+├── ui.py, ui_*.py     # PyQt6 components, theme, widgets, workers
+├── sidebar.py         # Search / Filter / JSON keys sidebar
+├── log_view.py        # Log viewer
+├── log_model.py       # Log data model
+├── remote_dialogs.py  # Saved connections and "Add connection" dialog
+├── providers.py       # Remote sources registry
+├── panels/            # One connection form per provider
+├── *_utils.py         # Provider API clients (docker, ssh, loki, ...)
+├── workers.py         # Background QThread workers
+├── profiles_store.py  # Saved connections
+├── i18n.py, locales/  # Translations (en, fr, de, es, zh)
+├── changelog.py       # Reads the CHANGELOG.*.md files
+├── version.py         # Single source of truth for the app version
+├── packaging/         # Linux / macOS packaging
+├── html/              # Project website
+└── tests/             # Tests
 ```
 
 ---
