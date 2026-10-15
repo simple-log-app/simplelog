@@ -2,7 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import elastic_utils
+from simplelog.sources import elastic_utils
 
 
 def _fake_urlopen(payload) -> MagicMock:

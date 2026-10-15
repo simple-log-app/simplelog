@@ -1,8 +1,8 @@
 """Tests for changelog.py and the bundled CHANGELOG files."""
 import pytest
 
-import changelog
-from version import __version__
+from simplelog.core import changelog
+from simplelog.version import __version__
 
 _TEXT = """# Changelog
 

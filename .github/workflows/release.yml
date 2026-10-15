@@ -126,7 +126,7 @@ jobs:
 
       - name: Build release notes
         run: |
-          python3 changelog.py "$GITHUB_REF_NAME" > release-notes.md
+          python3 -m simplelog.core.changelog "$GITHUB_REF_NAME" > release-notes.md
           cat >> release-notes.md <<'EOF'
 
           ## Install SimpleLog __VERSION__

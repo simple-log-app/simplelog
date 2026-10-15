@@ -8,6 +8,8 @@ import glob
 import os
 import sys
 
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
 APP_VERSION = os.environ.get("VERSION", "0.0.0").lstrip("v")
 
@@ -16,7 +18,7 @@ a = Analysis(
     pathex=["."],
     binaries=[],
     datas=[(f, ".") for f in glob.glob("CHANGELOG*.md")] + [("locales", "locales"), ("assets/providers", "assets/providers")],
-    hiddenimports=[
+    hiddenimports=collect_submodules("simplelog") + [
         "boto3",
         "botocore",
         "botocore.handlers",
@@ -32,13 +34,6 @@ a = Analysis(
         "paramiko.sftp_client",
         "cryptography",
         "cryptography.hazmat.primitives",
-        "ssh_utils",
-        "docker_utils",
-        "vercel_utils",
-        "config_store",
-        "profiles_store",
-        "gcp_utils",
-        "azure_utils",
         "google.cloud.logging",
         "google.cloud.resourcemanager_v3",
         "google.oauth2.service_account",

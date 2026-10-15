@@ -9,13 +9,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import betterstack_utils
-import heroku_utils
-import journald_utils
-import profiles_store
-import render_utils
-import sentry_utils
-import splunk_utils
+from simplelog.core import profiles_store
+from simplelog.sources import (
+    betterstack_utils,
+    heroku_utils,
+    journald_utils,
+    render_utils,
+    sentry_utils,
+    splunk_utils,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -39,7 +41,7 @@ def _wait(cond, timeout=5.0):
 
 
 def _panel(pid):
-    import providers
+    from simplelog.sources import providers
     return providers.get(pid).panel_class()()
 
 
@@ -201,7 +203,7 @@ def test_journald_panel_refuses_without_journalctl_or_with_a_bad_unit(monkeypatc
 # ── inside the dialog: saving, reopening and restoring the choice ────────────
 
 def test_dialog_saves_a_new_connection_and_restores_its_selection(monkeypatch):
-    import ui
+    from simplelog.ui import facade as ui
     monkeypatch.setattr(heroku_utils, "list_apps",
                         lambda token: [{"id": "1", "name": "shop"}, {"id": "2", "name": "blog"}])
     dlg = ui.AddConnectionDialog(preselect="heroku")
@@ -228,7 +230,7 @@ def test_dialog_saves_a_new_connection_and_restores_its_selection(monkeypatch):
 
 
 def test_dialog_for_journald_has_no_name_field_and_no_save(monkeypatch):
-    import ui
+    from simplelog.ui import facade as ui
     monkeypatch.setattr(journald_utils, "is_available", lambda: True)
     dlg = ui.AddConnectionDialog(preselect="journald")
     assert "name" not in dlg._fields and dlg._save_open_btn is None
@@ -237,8 +239,8 @@ def test_dialog_for_journald_has_no_name_field_and_no_save(monkeypatch):
 
 
 def test_the_picker_lists_every_source_and_filters_the_new_ones():
-    import providers
-    import ui
+    from simplelog.sources import providers
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog()
     assert len(dlg._cards) == len(providers.PROVIDERS) >= 19
     dlg.show()

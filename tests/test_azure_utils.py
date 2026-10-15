@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import azure_utils
+from simplelog.sources import azure_utils
 
 # -- constants -----------------------------------------------------------------
 

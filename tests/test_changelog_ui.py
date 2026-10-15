@@ -15,7 +15,7 @@ def app():
 
 
 def test_changelog_dialog_renders_markdown_and_action(app):
-    import ui
+    from simplelog.ui import facade as ui
 
     dlg = ui.ChangelogDialog(None, "Title", "## [1.0.0]\n- hello",
                              header="Update!", action_label="Install")
@@ -26,7 +26,7 @@ def test_changelog_dialog_renders_markdown_and_action(app):
 
 
 def test_whats_new_menu_shows_local_changelog(app):
-    import ui
+    from simplelog.ui import facade as ui
 
     shown = []
     with patch.object(ui.ChangelogDialog, "exec",
@@ -37,7 +37,7 @@ def test_whats_new_menu_shows_local_changelog(app):
 
 
 def test_update_available_with_notes_shows_changes(app):
-    import ui
+    from simplelog.ui import facade as ui
 
     shown = []
     with patch.object(ui.ChangelogDialog, "exec",

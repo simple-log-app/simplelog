@@ -1,5 +1,5 @@
 """Unit tests for profiles_store.py."""
-import profiles_store
+from simplelog.core import profiles_store
 
 
 def test_load_all_empty_when_absent(tmp_path, monkeypatch):

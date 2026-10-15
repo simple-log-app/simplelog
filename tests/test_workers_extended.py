@@ -3,7 +3,7 @@ import sys
 import tempfile
 import time
 
-from workers import _parse_docker_ts, _parse_k8s_line  # noqa: E402
+from simplelog.sources.workers import _parse_docker_ts, _parse_k8s_line  # noqa: E402
 
 # ── _parse_docker_ts ───────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ def test_file_worker_emits_initial_lines():
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication
 
-    from workers import FileWorker
+    from simplelog.sources.workers import FileWorker
 
     QApplication.instance() or QApplication(sys.argv)
 
@@ -100,7 +100,7 @@ def test_file_worker_emits_error_for_missing_file():
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication
 
-    from workers import FileWorker
+    from simplelog.sources.workers import FileWorker
 
     QApplication.instance() or QApplication(sys.argv)
 

@@ -11,7 +11,7 @@ def _import_logic():
     """Import only after ensuring no display is needed."""
     import os as _os
     _os.environ.setdefault("DISPLAY", ":0")
-    from ui import (
+    from simplelog.ui.facade import (
         TermRow,
         _classify_line,
         _line_matches,

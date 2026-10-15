@@ -1,7 +1,7 @@
 """Tests for i18n.py — translation module."""
 import pytest
 
-import i18n
+from simplelog.core import i18n
 
 
 def setup_function():
@@ -238,7 +238,7 @@ def test_save_locale_creates_parent_dirs(monkeypatch, tmp_path):
 
 def test_catalogs_are_loaded_from_locales_dir():
     from pathlib import Path
-    files = {p.stem for p in (Path(i18n.__file__).parent / "locales").glob("*.json")}
+    files = {p.stem for p in (Path(i18n.__file__).resolve().parents[2] / "locales").glob("*.json")}
     assert files == set(i18n._STRINGS) == {"en", "fr", "de", "es", "zh"}
 
 
@@ -258,5 +258,5 @@ def test_placeholders_match_english():
 
 def test_locales_are_bundled_by_pyinstaller():
     from pathlib import Path
-    spec = (Path(i18n.__file__).parent / "simplelog.spec").read_text()
+    spec = (Path(i18n.__file__).resolve().parents[2] / "simplelog.spec").read_text()
     assert '("locales", "locales")' in spec

@@ -4,11 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import datadog_utils
-import elastic_utils
-import flyio_utils
-import loki_utils
-import railway_utils
+from simplelog.sources import datadog_utils, elastic_utils, flyio_utils, loki_utils, railway_utils
 
 
 def _http_error(code: int, body: bytes):

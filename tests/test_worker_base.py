@@ -10,8 +10,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtCore import QCoreApplication
 
-import workers
-from worker_base import (
+from simplelog.sources import workers
+from simplelog.sources.worker_base import (
     HISTORY_CAP,
     DockerStreamWorker,
     LogWorker,
@@ -202,7 +202,7 @@ def _stopper(worker, answers):
 
 
 def test_vercel_worker(monkeypatch):
-    import vercel_utils
+    from simplelog.sources import vercel_utils
     w = workers.VercelWorker("t", "pid", "my-app", "dep", interval_s=0.001)
     monkeypatch.setattr(vercel_utils, "fetch_deployment_events",
                         _stopper(w, [[(10, "a")], [(20, "b")]]))
@@ -215,7 +215,7 @@ def test_vercel_worker(monkeypatch):
 
 
 def test_cloudwatch_worker(monkeypatch):
-    import cloudwatch
+    from simplelog.sources import cloudwatch
     w = workers.TailWorker(MagicMock(), "g", "s", "", 0.001, 3600)
     monkeypatch.setattr(cloudwatch, "fetch_events", _stopper(w, [[(5, "a")], [(9, "b")]]))
     got = _run_to_end(w)
@@ -227,7 +227,7 @@ def test_cloudwatch_worker(monkeypatch):
 
 
 def test_gcp_worker(monkeypatch):
-    import gcp_utils
+    from simplelog.sources import gcp_utils
     w = workers.GCPWorker(MagicMock(), "proj", "(all)", "ALL", "", interval_s=0.001)
     monkeypatch.setattr(gcp_utils, "fetch_entries", _stopper(w, [[(1000, "a")], [(2000, "b")]]))
     got = _run_to_end(w)
@@ -238,7 +238,7 @@ def test_gcp_worker(monkeypatch):
 
 
 def test_azure_worker(monkeypatch):
-    import azure_utils
+    from simplelog.sources import azure_utils
     w = workers.AzureWorker(MagicMock(), "workspace-id", "q", label="prod", interval_s=0.001)
     monkeypatch.setattr(azure_utils, "fetch_logs", _stopper(w, [[(1000, "a")]]))
     monkeypatch.setattr(azure_utils, "fetch_logs_since", _stopper(w, [[(2000, "b")]]))
@@ -254,7 +254,7 @@ def test_azure_worker_label_defaults_to_the_workspace():
 
 
 def test_loki_worker_status_names_the_host(monkeypatch):
-    import loki_utils
+    from simplelog.sources import loki_utils
     w = workers.LokiWorker("https://loki.example.com:3100/path", "q", interval_s=0.001)
     monkeypatch.setattr(loki_utils, "fetch_logs", _stopper(w, [[(1, "a")], [(2, "b")]]))
     got = _run_to_end(w)
@@ -264,7 +264,7 @@ def test_loki_worker_status_names_the_host(monkeypatch):
 
 
 def test_datadog_worker_status_names_the_site(monkeypatch):
-    import datadog_utils
+    from simplelog.sources import datadog_utils
     w = workers.DatadogWorker("https://api.datadoghq.eu", "*", "k", "a", interval_s=0.001)
     monkeypatch.setattr(datadog_utils, "fetch_logs", _stopper(w, [[(1000, "a")], [(2000, "b")]]))
     got = _run_to_end(w)
@@ -274,7 +274,7 @@ def test_datadog_worker_status_names_the_site(monkeypatch):
 
 
 def test_elastic_worker_passes_its_options(monkeypatch):
-    import elastic_utils
+    from simplelog.sources import elastic_utils
     calls = []
     w = workers.ElasticWorker("http://es:9200", "logs-*", "level:error", api_key="K",
                               ts_field="ts", interval_s=0.001)
@@ -296,7 +296,7 @@ def test_elastic_worker_passes_its_options(monkeypatch):
 
 
 def test_railway_worker_without_a_deployment_reports_an_error(monkeypatch):
-    import railway_utils
+    from simplelog.sources import railway_utils
     monkeypatch.setattr(railway_utils, "get_latest_deployment", lambda *a: None)
     w = workers.RailwayWorker("t", "proj", "svc", "sid", interval_s=0.001)
     got = _run_to_end(w)
@@ -305,7 +305,7 @@ def test_railway_worker_without_a_deployment_reports_an_error(monkeypatch):
 
 
 def test_railway_worker_follows_new_deployments(monkeypatch):
-    import railway_utils
+    from simplelog.sources import railway_utils
     now = int(time.time() * 1000)
     deploys = iter([{"id": "d1"}, {"id": "d1"}, {"id": "d2"}, {"id": "d2"}])
     logs = {"d1": [(now, "old")], "d2": [(now, "old"), (now + 1, "fresh")]}
@@ -333,7 +333,7 @@ def test_railway_worker_follows_new_deployments(monkeypatch):
 
 
 def test_flyio_worker_only_shows_recent_history(monkeypatch):
-    import flyio_utils
+    from simplelog.sources import flyio_utils
     now = int(time.time() * 1000)
     w = workers.FlyioWorker("t", "app", interval_s=0.001, lookback_s=60)
     monkeypatch.setattr(flyio_utils, "fetch_logs_sse",
@@ -520,7 +520,7 @@ def test_process_worker_requires_a_command():
 
 
 def test_kubernetes_worker_command_and_stderr(monkeypatch):
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "build_logs_cmd",
                         lambda pod, ns, ctx, container, since_s: ["kubectl", pod, ns, ctx, str(since_s)])
     calls = _popen(monkeypatch, _Proc(["2023-11-14T12:00:00Z one\n", "two\n"], code=1,
@@ -538,7 +538,7 @@ def test_kubernetes_worker_command_and_stderr(monkeypatch):
 
 
 def test_kubernetes_worker_keeps_blank_lines_and_reports_history_once(monkeypatch):
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "build_logs_cmd", lambda *a, **k: ["kubectl"])
 
     class SlowProc(_Proc):
@@ -563,7 +563,7 @@ def test_kubernetes_worker_keeps_blank_lines_and_reports_history_once(monkeypatc
 
 
 def test_kubernetes_worker_clean_exit_has_no_error(monkeypatch):
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "build_logs_cmd", lambda *a, **k: ["kubectl"])
     _popen(monkeypatch, _Proc(["x\n"], code=0, stderr="ignored"))
     w = workers.KubernetesWorker("p", "n")

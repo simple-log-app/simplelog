@@ -6,7 +6,7 @@ import os
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import ui_theme
+from simplelog.ui import ui_theme
 
 
 @pytest.fixture(autouse=True)
@@ -97,9 +97,9 @@ import os, sys, tempfile
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QWidget
 app = QApplication([])
-import ui_theme
+from simplelog.ui import ui_theme
 ui_theme._PREFS_PATH = Path(tempfile.mkdtemp()) / "prefs.json"
-import log_view, ui_widgets, main_window
+from simplelog.ui import log_view, ui_widgets, main_window
 
 seen = []
 ui_theme.on_theme_changed(1, seen.append)

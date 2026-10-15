@@ -12,7 +12,7 @@ import pytest
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
-import workers
+from simplelog.sources import workers
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -52,9 +52,9 @@ class _FakeWorker(QObject):
 
 def test_paramiko_and_boto3_are_not_imported_at_startup():
     code = (
-        "import sys, ui\n"
+        "import sys\nfrom simplelog.ui import facade\n"
         "print('paramiko' in sys.modules, 'boto3' in sys.modules)\n"
-        "import ssh_utils, cloudwatch\n"
+        "from simplelog.sources import ssh_utils, cloudwatch\n"
         "ssh_utils.paramiko; cloudwatch.boto3\n"
         "print('paramiko' in sys.modules, 'boto3' in sys.modules)\n"
     )
@@ -68,8 +68,7 @@ def test_paramiko_and_boto3_are_not_imported_at_startup():
 
 
 def test_lazy_module_attribute_errors_stay_attribute_errors():
-    import cloudwatch
-    import ssh_utils
+    from simplelog.sources import cloudwatch, ssh_utils
     with pytest.raises(AttributeError):
         ssh_utils.nope
     with pytest.raises(AttributeError):
@@ -77,7 +76,7 @@ def test_lazy_module_attribute_errors_stay_attribute_errors():
 
 
 def test_trust_policy_is_built_once():
-    import ssh_utils
+    from simplelog.sources import ssh_utils
     assert ssh_utils._TrustPolicy is ssh_utils._TrustPolicy
 
 
@@ -121,7 +120,7 @@ def test_file_worker_never_loads_more_than_the_viewer_keeps(tmp_path):
 
 
 def test_cloudwatch_keep_last_bounds_memory():
-    import cloudwatch
+    from simplelog.sources import cloudwatch
     pages = [{"events": [{"timestamp": i * 10 + j, "message": f"m{i * 10 + j}"} for j in range(10)]}
              for i in range(100)]
     client = MagicMock()
@@ -132,7 +131,7 @@ def test_cloudwatch_keep_last_bounds_memory():
 
 
 def test_cloudwatch_without_keep_last_returns_everything():
-    import cloudwatch
+    from simplelog.sources import cloudwatch
     client = MagicMock()
     client.get_paginator.return_value.paginate.return_value = iter(
         [{"events": [{"timestamp": i, "message": f"m{i}"} for i in range(50)]}]
@@ -141,7 +140,7 @@ def test_cloudwatch_without_keep_last_returns_everything():
 
 
 def test_cloudwatch_tail_worker_asks_for_a_bounded_history(monkeypatch):
-    import cloudwatch
+    from simplelog.sources import cloudwatch
     seen = {}
 
     def fake(client, group, stream, **kw):
@@ -170,7 +169,7 @@ def test_ssh_tail_command_is_capped():
 
 @pytest.fixture
 def viewer():
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     v.resize(800, 400)
     v.show()
@@ -180,7 +179,7 @@ def viewer():
 
 
 def test_color_strings_are_parsed_once():
-    import log_view
+    from simplelog.ui import log_view
     assert log_view._qcolor("#abcdef") is log_view._qcolor("#abcdef")
     assert log_view._qcolor("#abcdef").name() == "#abcdef"
 
@@ -189,7 +188,7 @@ def test_timestamp_text_is_formatted_once_per_row(viewer):
     viewer.append_events([(1_700_000_000_000, "INFO a")])
     item = viewer._model.visible_items()[0]
     assert item.ts_text is None
-    with patch("log_view.datetime") as dt:
+    with patch("simplelog.ui.log_view.datetime") as dt:
         dt.fromtimestamp.return_value.strftime.return_value = "12:00:00"
         assert viewer._delegate._ts_text(item) == "12:00:00"
         assert viewer._delegate._ts_text(item) == "12:00:00"
@@ -224,12 +223,12 @@ def test_badge_painting_restores_the_painter_font(viewer):
 # ── P9: search only scans rows it has not seen ───────────────────────────────
 
 def test_search_rescans_only_new_rows(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, f"needle {i}") for i in range(50)])
     viewer.flush_pending()
     terms = [TermRow("needle", "")]
     calls = []
-    import log_view
+    from simplelog.ui import log_view
     real = log_view._line_matches
 
     def counting(line, ts):
@@ -252,7 +251,7 @@ def test_search_rescans_only_new_rows(viewer):
 
 
 def test_cached_search_gives_the_same_matches_as_a_fresh_one(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, "red apple"), (0, "green apple"), (0, "red pear"), (0, "x")])
     viewer.flush_pending()
     terms = [TermRow("red", ""), TermRow("apple", "OR")]
@@ -268,7 +267,7 @@ def test_cached_search_gives_the_same_matches_as_a_fresh_one(viewer):
 
 
 def test_search_cache_follows_a_changed_filter(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, "a needle"), (0, "b needle"), (0, "c")])
     viewer.flush_pending()
     search = [TermRow("needle", "")]
@@ -342,7 +341,7 @@ def test_unwrapped_rows_paint_without_error(viewer):
 
 
 def test_wrap_label_is_translated():
-    import i18n
+    from simplelog.core import i18n
     for lang in ("en", "fr", "de", "es", "zh"):
         assert i18n._STRINGS[lang]["viewer_wrap"]
 
@@ -350,8 +349,8 @@ def test_wrap_label_is_translated():
 # ── 14: SFTP browser lists directories in the background ─────────────────────
 
 def test_sftp_dialog_does_not_block_while_listing(qapp):
-    import ssh_utils
-    from panels.ssh import _SftpBrowserDialog
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import _SftpBrowserDialog
     release = threading.Event()
 
     def slow(client, path):
@@ -371,8 +370,8 @@ def test_sftp_dialog_does_not_block_while_listing(qapp):
 
 
 def test_sftp_dialog_ignores_an_outdated_listing(qapp):
-    import ssh_utils
-    from panels.ssh import _SftpBrowserDialog
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import _SftpBrowserDialog
     with patch.object(ssh_utils, "list_remote_dir_full", lambda c, p: []):
         dlg = _SftpBrowserDialog(MagicMock(), "/")
         assert _wait_for(lambda: dlg._list.isEnabled())
@@ -382,14 +381,14 @@ def test_sftp_dialog_ignores_an_outdated_listing(qapp):
 
 
 def test_sftp_dialog_reports_a_listing_error(qapp):
-    import ssh_utils
-    from panels.ssh import _SftpBrowserDialog
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import _SftpBrowserDialog
 
     def fail(c, p):
         raise RuntimeError("permission denied")
 
     with patch.object(ssh_utils, "list_remote_dir_full", fail), \
-         patch("panels.ssh.QMessageBox.warning") as warn:
+         patch("simplelog.ui.panels.ssh.QMessageBox.warning") as warn:
         dlg = _SftpBrowserDialog(MagicMock(), "/root")
         assert _wait_for(lambda: warn.called)
     assert "permission denied" in str(warn.call_args)
@@ -397,8 +396,8 @@ def test_sftp_dialog_reports_a_listing_error(qapp):
 
 
 def test_sftp_dialog_closed_while_listing_is_harmless(qapp):
-    import ssh_utils
-    from panels.ssh import _SftpBrowserDialog
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import _SftpBrowserDialog
     release = threading.Event()
     with patch.object(ssh_utils, "list_remote_dir_full",
                       lambda c, p: (release.wait(5), [("x", False)])[1]):
@@ -412,8 +411,8 @@ def test_sftp_dialog_closed_while_listing_is_harmless(qapp):
 
 
 def test_sftp_navigation_into_a_folder_keeps_working(qapp):
-    import ssh_utils
-    from panels.ssh import _SftpBrowserDialog
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import _SftpBrowserDialog
     listing = {"/": [("var", True)], "/var": [("syslog", False)]}
     with patch.object(ssh_utils, "list_remote_dir_full", lambda c, p: listing[p]):
         dlg = _SftpBrowserDialog(MagicMock(), "/")
@@ -427,7 +426,7 @@ def test_sftp_navigation_into_a_folder_keeps_working(qapp):
 
 @pytest.fixture
 def window(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     win = ui.MainWindow()
     win.show()
     qapp.processEvents()
@@ -436,7 +435,7 @@ def window(qapp):
 
 
 def test_ssh_tab_restore_does_not_block_and_then_opens(window):
-    import ssh_utils
+    from simplelog.sources import ssh_utils
     release = threading.Event()
     client = MagicMock()
 
@@ -446,7 +445,7 @@ def test_ssh_tab_restore_does_not_block_and_then_opens(window):
 
     cfg = {"type": "ssh", "host": "h", "user": "u", "remote_path": "/var/log/x.log"}
     with patch.object(ssh_utils, "make_client", slow), \
-         patch("providers.SSHWorker", _FakeWorker):
+         patch("simplelog.sources.providers.SSHWorker", _FakeWorker):
         t0 = time.monotonic()
         window.open_remote_tab(cfg)
         assert time.monotonic() - t0 < 0.5
@@ -457,27 +456,27 @@ def test_ssh_tab_restore_does_not_block_and_then_opens(window):
 
 
 def test_ssh_tab_restore_failure_is_reported(window):
-    import ssh_utils
+    from simplelog.sources import ssh_utils
 
     def fail(*a, **k):
         raise RuntimeError("no route")
 
     with patch.object(ssh_utils, "make_client", fail), \
-         patch("main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
         window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x"})
         assert _wait_for(lambda: crit.called)
     assert "no route" in str(crit.call_args) and window._top_tabs.count() == 0
 
 
 def test_gcp_tab_restore_connects_in_the_background(window):
-    import gcp_utils
+    from simplelog.sources import gcp_utils
     release = threading.Event()
 
     def slow(project, key_path=None):
         release.wait(5)
         return MagicMock()
 
-    with patch.object(gcp_utils, "make_client", slow), patch("providers.GCPWorker", _FakeWorker):
+    with patch.object(gcp_utils, "make_client", slow), patch("simplelog.sources.providers.GCPWorker", _FakeWorker):
         t0 = time.monotonic()
         window.open_remote_tab({"type": "gcp", "project_id": "proj"})
         assert time.monotonic() - t0 < 0.5
@@ -487,7 +486,7 @@ def test_gcp_tab_restore_connects_in_the_background(window):
 
 
 def test_azure_tab_restore_connects_in_the_background(window):
-    import azure_utils
+    from simplelog.sources import azure_utils
     release = threading.Event()
 
     def slow_cred(*a):
@@ -498,7 +497,7 @@ def test_azure_tab_restore_connects_in_the_background(window):
            "query": "q", "label": "prod"}
     with patch.object(azure_utils, "make_credential", slow_cred), \
          patch.object(azure_utils, "make_logs_client", lambda cred: MagicMock()), \
-         patch("providers.AzureWorker", _FakeWorker):
+         patch("simplelog.sources.providers.AzureWorker", _FakeWorker):
         t0 = time.monotonic()
         window.open_remote_tab(cfg)
         assert time.monotonic() - t0 < 0.5
@@ -508,11 +507,10 @@ def test_azure_tab_restore_connects_in_the_background(window):
 
 
 def test_gcp_and_azure_restore_failures_are_reported(window):
-    import azure_utils
-    import gcp_utils
+    from simplelog.sources import azure_utils, gcp_utils
     with patch.object(gcp_utils, "make_client", MagicMock(side_effect=RuntimeError("gcp down"))), \
          patch.object(azure_utils, "make_credential", MagicMock(side_effect=RuntimeError("az down"))), \
-         patch("main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
         window.open_remote_tab({"type": "gcp", "project_id": "p"})
         window.open_remote_tab({"type": "azure", "tenant_id": "t", "client_id": "c", "client_secret": "s",
                                "workspace_id": "w", "query": "q"})
@@ -522,7 +520,7 @@ def test_gcp_and_azure_restore_failures_are_reported(window):
 
 
 def test_tabs_opened_with_a_ready_client_are_still_synchronous(window):
-    with patch("providers.SSHWorker", _FakeWorker):
+    with patch("simplelog.sources.providers.SSHWorker", _FakeWorker):
         window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x", "_client": MagicMock()})
     assert window._top_tabs.count() == 1
 
@@ -531,7 +529,7 @@ def test_tabs_opened_with_a_ready_client_are_still_synchronous(window):
 
 @pytest.fixture
 def k8s(monkeypatch):
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "is_available", lambda: True)
     return kubernetes_utils
 
@@ -545,7 +543,7 @@ def test_kubernetes_panel_builds_without_waiting_for_kubectl(qapp, k8s, monkeypa
 
     monkeypatch.setattr(k8s, "list_contexts", slow_contexts)
     monkeypatch.setattr(k8s, "current_context", lambda: "prod")
-    from panels.kubernetes import KubernetesPanel
+    from simplelog.ui.panels.kubernetes import KubernetesPanel
     t0 = time.monotonic()
     p = KubernetesPanel()
     assert time.monotonic() - t0 < 0.5
@@ -564,7 +562,7 @@ def test_kubernetes_saved_context_survives_the_late_listing(qapp, k8s, monkeypat
 
     monkeypatch.setattr(k8s, "list_contexts", slow_contexts)
     monkeypatch.setattr(k8s, "current_context", lambda: "prod")
-    from panels.kubernetes import KubernetesPanel
+    from simplelog.ui.panels.kubernetes import KubernetesPanel
     p = KubernetesPanel()
     p._load_k8s_profile({"context": "staging"})     # reopened before kubectl answered
     assert p._k8s_context_combo.currentText() == "staging"
@@ -580,7 +578,7 @@ def test_kubernetes_survives_kubectl_failure(qapp, k8s, monkeypatch):
 
     monkeypatch.setattr(k8s, "list_contexts", boom)
     monkeypatch.setattr(k8s, "current_context", lambda: "")
-    from panels.kubernetes import KubernetesPanel
+    from simplelog.ui.panels.kubernetes import KubernetesPanel
     p = KubernetesPanel()
     QApplication.processEvents()
     time.sleep(0.1)

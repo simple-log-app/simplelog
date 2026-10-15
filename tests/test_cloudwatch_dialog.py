@@ -9,7 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import profiles_store
+from simplelog.core import profiles_store
 
 
 def _wait_for(cond, timeout=5.0):
@@ -27,15 +27,15 @@ def _wait_for(cond, timeout=5.0):
 def cw_env(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841 — keep alive
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
-    with patch("cloudwatch.list_profiles", return_value=[]), \
-         patch("cloudwatch.make_client", return_value=MagicMock()), \
-         patch("cloudwatch.list_log_groups", return_value=["/app/a", "/app/b"]), \
-         patch("cloudwatch.list_log_streams", return_value=["s1", "s2"]):
+    with patch("simplelog.sources.cloudwatch.list_profiles", return_value=[]), \
+         patch("simplelog.sources.cloudwatch.make_client", return_value=MagicMock()), \
+         patch("simplelog.sources.cloudwatch.list_log_groups", return_value=["/app/a", "/app/b"]), \
+         patch("simplelog.sources.cloudwatch.list_log_streams", return_value=["s1", "s2"]):
         yield
 
 
 def test_save_and_open_stores_full_cloudwatch_config(cw_env):
-    import ui
+    from simplelog.ui import facade as ui
 
     dlg = ui.AddConnectionDialog(preselect="cloudwatch")
     p = dlg._embedded_panel
@@ -62,7 +62,7 @@ def test_save_and_open_stores_full_cloudwatch_config(cw_env):
 
 
 def test_reopen_saved_cloudwatch_connection_is_ready_to_open(cw_env):
-    import ui
+    from simplelog.ui import facade as ui
 
     profile = {
         "name": "prod", "region": "eu-west-1",

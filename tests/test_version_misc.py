@@ -5,9 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import flyio_utils
-import vercel_utils
-import version
+from simplelog import version
+from simplelog.sources import flyio_utils, vercel_utils
 
 # -- version.py ----------------------------------------------------------------
 
@@ -176,11 +175,8 @@ def test_vercel_fetch_deployment_events_invalid_iso_ts_yields_zero():
     assert result == [(0, "x")]
 
 
-def test_all_top_level_modules_are_packaged():
-    import re
+def test_every_code_folder_is_a_package():
     from pathlib import Path
-    root = Path(__file__).resolve().parent.parent
-    declared = set(re.findall(r'"(\w+)"', re.search(r"py-modules = \[(.*?)\]",
-                   (root / "pyproject.toml").read_text(), re.S).group(1)))
-    on_disk = {p.stem for p in root.glob("*.py")} - {"pyi_rth_qt_conf"}
-    assert on_disk == declared
+    root = Path(__file__).resolve().parent.parent / "simplelog"
+    for folder in {p.parent for p in root.rglob("*.py")}:
+        assert (folder / "__init__.py").exists(), folder

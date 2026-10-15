@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication, QListWidget, QSpinBox
 
-import profiles_store
+from simplelog.core import profiles_store
 
 PROVIDERS = [
     "ssh", "vercel", "gcp", "azure", "loki", "datadog",
@@ -26,16 +26,16 @@ def env(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication(sys.argv)  # noqa: F841 — keep alive
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     # kubectl may be absent on the test machine: simulate it
-    with patch("kubernetes_utils.is_available", return_value=True), \
-         patch("kubernetes_utils.list_contexts", return_value=[]), \
-         patch("kubernetes_utils.current_context", return_value=""):
+    with patch("simplelog.sources.kubernetes_utils.is_available", return_value=True), \
+         patch("simplelog.sources.kubernetes_utils.list_contexts", return_value=[]), \
+         patch("simplelog.sources.kubernetes_utils.current_context", return_value=""):
         yield
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def test_list_state_matches_on_name_and_ignores_status(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     lst = QListWidget()
     lst.addItems(["pod-a  (Running)", "pod-b  (Pending)"])
@@ -44,7 +44,7 @@ def test_list_state_matches_on_name_and_ignores_status(env):
 
 
 def test_list_state_waits_until_item_is_listed(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     lst = QListWidget()
     assert not ui._restore_widget_state(lst, "api")
@@ -53,7 +53,7 @@ def test_list_state_waits_until_item_is_listed(env):
 
 
 def test_spinbox_state_roundtrip(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     spin = QSpinBox()
     spin.setRange(1, 60)
@@ -63,7 +63,7 @@ def test_spinbox_state_roundtrip(env):
 
 @pytest.mark.parametrize("provider", PROVIDERS)
 def test_every_saved_state_attr_exists(env, provider):
-    import ui
+    from simplelog.ui import facade as ui
 
     dlg = ui.AddConnectionDialog(preselect=provider)
     assert dlg._embedded_panel.restore_attrs, f"{provider} saves no selection"
@@ -74,7 +74,7 @@ def test_every_saved_state_attr_exists(env, provider):
 # ── Save → reopen ─────────────────────────────────────────────────────────────
 
 def test_railway_save_then_reopen_restores_project_and_service(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     with patch.object(ui.RailwayPanel, "_do_connect",
                       lambda self: self._on_connected_railway(RAILWAY_PROJECTS)):
@@ -103,7 +103,7 @@ def test_railway_save_then_reopen_restores_project_and_service(env):
 
 
 def test_kubernetes_reopen_restores_namespace_and_pod(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     profile = {
         "name": "prod", "context": "",
@@ -125,7 +125,7 @@ def test_kubernetes_reopen_restores_namespace_and_pod(env):
 
 
 def test_azure_reopen_waits_for_connection_before_selecting_table(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     profile = {
         "name": "az", "tenant_id": "t", "client_id": "c",
@@ -145,7 +145,7 @@ def test_azure_reopen_waits_for_connection_before_selecting_table(env):
 
 
 def test_ssh_password_profile_does_not_auto_connect(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     profile = {"name": "srv", "host": "h", "user": "u", "auth_mode": "password",
                "remote_path": "/var/log/app.log"}
@@ -155,7 +155,7 @@ def test_ssh_password_profile_does_not_auto_connect(env):
 
 
 def test_restore_gives_up_when_saved_item_is_gone(env):
-    import ui
+    from simplelog.ui import facade as ui
 
     profile = {"name": "blog", "token": "tok", "state": {"_project_list": "deleted"}}
     with patch.object(ui.RailwayPanel, "_do_connect",

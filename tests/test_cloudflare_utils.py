@@ -8,7 +8,7 @@ import time
 import urllib.error
 from unittest.mock import MagicMock, patch
 
-import cloudflare_utils
+from simplelog.sources import cloudflare_utils
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

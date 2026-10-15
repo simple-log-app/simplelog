@@ -12,8 +12,8 @@ from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
-import workers
-from worker_base import _batched
+from simplelog.sources import workers
+from simplelog.sources.worker_base import _batched
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -102,7 +102,7 @@ def _run_polling(worker, polls):
 
 
 def test_loki_survives_one_failed_poll(monkeypatch):
-    import loki_utils
+    from simplelog.sources import loki_utils
     calls = {"n": 0}
     w = workers.LokiWorker("http://l", "{a=\"b\"}", interval_s=0.001)
 
@@ -124,7 +124,7 @@ def test_loki_survives_one_failed_poll(monkeypatch):
 
 
 def test_worker_gives_up_after_repeated_failures(monkeypatch):
-    import loki_utils
+    from simplelog.sources import loki_utils
     calls = {"n": 0}
 
     def fetch(*a, **k):
@@ -143,7 +143,7 @@ def test_worker_gives_up_after_repeated_failures(monkeypatch):
 # ── 2. duplicates through the workers ─────────────────────────────────────────
 
 def test_loki_does_not_repeat_the_last_entry(monkeypatch):
-    import loki_utils
+    from simplelog.sources import loki_utils
     seen_starts = []
     w = workers.LokiWorker("http://l", "q", interval_s=0.001)
     answers = [[(5, "a"), (6, "b")], [(6, "b"), (7, "c")], None]
@@ -163,7 +163,7 @@ def test_loki_does_not_repeat_the_last_entry(monkeypatch):
 
 
 def test_flyio_does_not_replay_its_history(monkeypatch):
-    import flyio_utils
+    from simplelog.sources import flyio_utils
     now = int(time.time() * 1000)
     hist = [(now - 2000, "a"), (now - 1000, "b")]
     answers = [hist, hist + [(now, "c")], None]
@@ -182,7 +182,7 @@ def test_flyio_does_not_replay_its_history(monkeypatch):
 
 
 def test_datadog_does_not_repeat_the_last_entry(monkeypatch):
-    import datadog_utils
+    from simplelog.sources import datadog_utils
     w = workers.DatadogWorker("https://api.x", "*", "k", "a", interval_s=0.001)
     answers = [[(1000, "a")], [(1000, "a"), (2000, "b")], None]
 
@@ -209,7 +209,7 @@ def _urlopen(payload):
 
 
 def test_loki_latest_asks_for_the_newest_entries():
-    import loki_utils
+    from simplelog.sources import loki_utils
     with patch("urllib.request.urlopen", return_value=_urlopen({"data": {"result": []}})) as m:
         loki_utils.fetch_logs("http://l", "q", 0, 9, latest=True)
         loki_utils.fetch_logs("http://l", "q", 0, 9)
@@ -218,7 +218,7 @@ def test_loki_latest_asks_for_the_newest_entries():
 
 
 def test_datadog_latest_sorts_newest_first_but_returns_oldest_first():
-    import datadog_utils
+    from simplelog.sources import datadog_utils
     payload = {"data": [
         {"attributes": {"timestamp": "2023-11-14T12:00:02Z", "message": "new"}},
         {"attributes": {"timestamp": "2023-11-14T12:00:01Z", "message": "old"}},
@@ -230,7 +230,7 @@ def test_datadog_latest_sorts_newest_first_but_returns_oldest_first():
 
 
 def test_elastic_latest_returns_oldest_first_with_the_newest_sort_key():
-    import elastic_utils
+    from simplelog.sources import elastic_utils
     hits = [
         {"_source": {"@timestamp": "2023-11-14T12:00:02Z", "message": "new"}, "sort": ["N"]},
         {"_source": {"@timestamp": "2023-11-14T12:00:01Z", "message": "old"}, "sort": ["O"]},
@@ -247,7 +247,7 @@ def test_elastic_latest_returns_oldest_first_with_the_newest_sort_key():
 def test_gcp_ascending_tail_does_not_skip_the_oldest_entries():
     import sys
 
-    import gcp_utils
+    from simplelog.sources import gcp_utils
     fake = MagicMock()
     fake.ASCENDING, fake.DESCENDING = "ASC", "DESC"
     entries = []
@@ -312,7 +312,7 @@ def test_batched_stops_when_asked():
 def test_kubernetes_worker_emits_before_200_lines(monkeypatch):
     import subprocess
 
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "build_logs_cmd", lambda *a, **k: ["x"])
 
     class Proc:
@@ -470,7 +470,7 @@ class _FakeWorker(QObject):
 
 @pytest.fixture
 def window(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     win = ui.MainWindow()
     win.show()
     qapp.processEvents()
@@ -479,7 +479,7 @@ def window(qapp):
 
 
 def test_return_in_the_search_box_does_not_insert_a_break(window, qapp):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     window._add_tab("t", v, _FakeWorker())
     v.append_events([(0, "INFO a")])
@@ -493,7 +493,7 @@ def test_return_in_the_search_box_does_not_insert_a_break(window, qapp):
 
 
 def test_return_in_the_log_list_still_inserts_a_break(window, qapp):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     window._add_tab("t", v, _FakeWorker())
     v.append_events([(0, "INFO a")])
@@ -503,7 +503,7 @@ def test_return_in_the_log_list_still_inserts_a_break(window, qapp):
 
 
 def test_break_menu_action_still_works(window):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     window._add_tab("t", v, _FakeWorker())
     n = v._model.rowCount()
@@ -514,7 +514,7 @@ def test_break_menu_action_still_works(window):
 # ── 6. pane limit ─────────────────────────────────────────────────────────────
 
 def test_pane_beyond_the_limit_is_not_started(window, qapp):
-    import ui
+    from simplelog.ui import facade as ui
     started = []
 
     class W(_FakeWorker):
@@ -532,7 +532,7 @@ def test_pane_beyond_the_limit_is_not_started(window, qapp):
 
 
 def test_discarded_worker_closes_its_ssh_client(window):
-    import ui
+    from simplelog.ui import facade as ui
     client = MagicMock()
     w = _FakeWorker()
     w._client = client
@@ -545,11 +545,10 @@ def test_discarded_worker_closes_its_ssh_client(window):
 # ── 7. closed connection dialogs are released ─────────────────────────────────
 
 def test_closing_a_dialog_stops_its_timer_and_callbacks(qapp, tmp_path, monkeypatch):
-    import i18n
-    import profiles_store
-    import ui
+    from simplelog.core import i18n, profiles_store
+    from simplelog.ui import facade as ui
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
-    with patch("panels.railway.RailwayPanel._do_connect", lambda self: None):
+    with patch("simplelog.ui.panels.railway.RailwayPanel._do_connect", lambda self: None):
         dlg = ui.AddConnectionDialog(preselect="railway")
     assert dlg._ready_timer.isActive()
     key = id(dlg)
@@ -560,9 +559,9 @@ def test_closing_a_dialog_stops_its_timer_and_callbacks(qapp, tmp_path, monkeypa
 
 
 def test_remote_panel_deletes_dialogs_after_use(qapp, tmp_path, monkeypatch):
-    import profiles_store
-    import ui
-    from remote_dialogs import AddConnectionDialog
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
+    from simplelog.ui.remote_dialogs import AddConnectionDialog
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     panel = ui.RemoteHomePanel()
     deleted = []
@@ -574,15 +573,15 @@ def test_remote_panel_deletes_dialogs_after_use(qapp, tmp_path, monkeypatch):
 
     with patch.object(AddConnectionDialog, "exec", lambda self: self.reject()), \
          patch.object(AddConnectionDialog, "deleteLater", spy), \
-         patch("panels.railway.RailwayPanel._do_connect", lambda self: None):
+         patch("simplelog.ui.panels.railway.RailwayPanel._do_connect", lambda self: None):
         panel._on_add(preselect="railway")
         panel._on_open_profile("railway", {"name": "x", "token": "t"})
     assert len(deleted) == 2
 
 
 def test_closing_a_dialog_closes_the_panel_ssh_client(qapp, tmp_path, monkeypatch):
-    import profiles_store
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     dlg = ui.AddConnectionDialog(preselect="ssh")
     client = MagicMock()
@@ -592,9 +591,9 @@ def test_closing_a_dialog_closes_the_panel_ssh_client(qapp, tmp_path, monkeypatc
 
 
 def test_running_workers_of_a_closed_dialog_stay_referenced(qapp, tmp_path, monkeypatch):
-    import profiles_store
-    import remote_dialogs
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
+    from simplelog.ui import remote_dialogs
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     dlg = ui.AddConnectionDialog(preselect="railway")
     gate = threading.Event()

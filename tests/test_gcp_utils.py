@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import gcp_utils
+from simplelog.sources import gcp_utils
 
 # -- module-level constants ----------------------------------------------------
 

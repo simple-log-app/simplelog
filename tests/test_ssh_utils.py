@@ -4,13 +4,13 @@ from unittest.mock import MagicMock, patch
 import paramiko
 import pytest
 
-import ssh_utils
+from simplelog.sources import ssh_utils
 
 # -- make_client ---------------------------------------------------------------
 
 def _patch_sshclient():
     instance = MagicMock()
-    cls_patch = patch("ssh_utils.paramiko.SSHClient", return_value=instance)
+    cls_patch = patch("simplelog.sources.ssh_utils.paramiko.SSHClient", return_value=instance)
     return cls_patch, instance
 
 

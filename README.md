@@ -254,24 +254,22 @@ Supported sources: AWS CloudWatch, Google Cloud, Azure Monitor, SSH (with SFTP f
 
 ```
 simplelog/
-├── main.py            # Entry point, CLI argument parsing
-├── main_window.py     # Main window, menus, tabs
-├── ui.py, ui_*.py     # PyQt6 components, theme, widgets, workers
-├── sidebar.py         # Search / Filter / JSON keys sidebar
-├── log_view.py        # Log viewer
-├── log_model.py       # Log data model
-├── remote_dialogs.py  # Saved connections and "Add connection" dialog
-├── providers.py       # Remote sources registry
-├── panels/            # One connection form per provider
-├── *_utils.py         # Provider API clients (docker, ssh, loki, ...)
-├── workers.py         # Background QThread workers
-├── profiles_store.py  # Saved connections
-├── i18n.py, locales/  # Translations (en, fr, de, es, zh)
-├── changelog.py       # Reads the CHANGELOG.*.md files
-├── version.py         # Single source of truth for the app version
-├── packaging/         # Linux / macOS packaging
-├── html/              # Project website
-└── tests/             # Tests
+├── main.py                 # Launcher (python main.py, PyInstaller entry point)
+├── simplelog/              # The application package
+│   ├── main.py             # CLI argument parsing, single-instance IPC, startup
+│   ├── version.py          # Single source of truth for the app version
+│   ├── core/               # No-UI logic: i18n, config and saved connections,
+│   │                       #   log model, highlight rules, changelog, HTTP helpers
+│   ├── sources/            # Log sources: provider registry, background workers,
+│   │                       #   one API client per provider (docker_utils, loki_utils, ...)
+│   └── ui/                 # PyQt6 interface: main window, log view, sidebar, theme,
+│       └── panels/         #   dialogs; one connection form per provider in panels/
+├── locales/                # Translations (en, fr, de, es, zh)
+├── assets/providers/       # Provider logos
+├── packaging/, build/      # Linux / macOS packaging and build scripts
+├── html/                   # Project website
+├── simplelog.spec          # PyInstaller spec
+└── tests/
 ```
 
 ---

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from workers import _read_last_n_lines, _version_tuple
+from simplelog.sources.workers import _read_last_n_lines, _version_tuple
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ def _fake_urlopen(tag: str, html_url: str = "https://example.com"):
 
 
 def test_update_worker_emits_update_available():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.0.0")
     received = []
     worker.update_available.connect(lambda tag, url, notes: received.append(tag))
@@ -173,7 +173,7 @@ def test_update_worker_emits_update_available():
 
 
 def test_update_worker_emits_up_to_date_when_equal():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.5.8")
     received = []
     worker.up_to_date.connect(lambda v: received.append(v))
@@ -185,7 +185,7 @@ def test_update_worker_emits_up_to_date_when_equal():
 
 
 def test_update_worker_emits_up_to_date_when_older():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("2.0.0")
     received = []
     worker.up_to_date.connect(lambda v: received.append(v))
@@ -198,7 +198,7 @@ def test_update_worker_emits_up_to_date_when_older():
 
 def test_update_worker_lexicographic_fix():
     """1.10.0 must be considered newer than 1.9.0 (not equal via string comparison)."""
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.9.0")
     received = []
     worker.update_available.connect(lambda tag, url, notes: received.append(tag))
@@ -210,7 +210,7 @@ def test_update_worker_lexicographic_fix():
 
 
 def test_update_worker_emits_error_on_network_failure():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.0.0")
     errors = []
     worker.error.connect(lambda e: errors.append(e))
@@ -243,7 +243,7 @@ def _fake_text(text: str):
 
 
 def test_update_worker_sends_changes_since_current_version_in_user_language():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.0.0", "fr")
     received = []
     worker.update_available.connect(lambda tag, url, notes: received.append(notes))
@@ -262,7 +262,7 @@ def test_update_worker_sends_changes_since_current_version_in_user_language():
 
 
 def test_update_worker_falls_back_to_english_changelog():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.1.0", "de")
     received = []
     worker.update_available.connect(lambda tag, url, notes: received.append(notes))
@@ -281,7 +281,7 @@ def test_update_worker_falls_back_to_english_changelog():
 
 
 def test_update_worker_still_reports_update_without_changelog():
-    from workers import UpdateWorker
+    from simplelog.sources.workers import UpdateWorker
     worker = UpdateWorker("1.0.0", "fr")
     received = []
     worker.update_available.connect(lambda tag, url, notes: received.append((tag, notes)))

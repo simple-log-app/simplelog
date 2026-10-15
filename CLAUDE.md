@@ -20,9 +20,9 @@ The changelog exists in 5 languages: `CHANGELOG.md` (en), `CHANGELOG.fr.md`,
 When asked to release:
 1. Rename the unreleased section to `[X.Y.Z] - YYYY-MM-DD` in all 5 changelog files,
    and add a new empty unreleased section above it.
-2. Bump `__version__` in `version.py` and `version` in `pyproject.toml`.
+2. Bump `__version__` in `simplelog/version.py` and `version` in `pyproject.toml`.
 3. Run lint and tests, commit `chore: bump version to X.Y.Z`, tag `vX.Y.Z`, push
    master then the tag.
 
 The release workflow fails if `CHANGELOG.md` has no section for the tag, and the
-tests fail if `version.py` is not documented or if the 5 files list different versions.
+tests fail if `simplelog/version.py` is not documented or if the 5 files list different versions.

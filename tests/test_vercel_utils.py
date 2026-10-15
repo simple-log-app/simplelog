@@ -2,7 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import vercel_utils
+from simplelog.sources import vercel_utils
 
 
 def _fake_urlopen(payload) -> MagicMock:

@@ -3,7 +3,7 @@ import json
 import re
 from unittest.mock import MagicMock, patch
 
-import datadog_utils
+from simplelog.sources import datadog_utils
 
 
 def _fake_urlopen(payload: dict) -> MagicMock:

@@ -9,10 +9,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import config_store
-import i18n
-import profiles_store
-import providers
+from simplelog.core import config_store, i18n, profiles_store
+from simplelog.sources import providers
 
 
 @pytest.fixture(scope="module")
@@ -47,8 +45,8 @@ def test_append_private_creates_0600_and_appends(tmp_path):
 
 
 def test_every_config_file_goes_through_config_store(tmp_path, monkeypatch):
-    import ssh_utils
-    from panels.ssh import SSHRecentManager
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import SSHRecentManager
     monkeypatch.setattr(SSHRecentManager, "_path", tmp_path / "recents.json")
     SSHRecentManager.push({"host": "h", "port": 22, "user": "u", "remote_path": "/x"})
     assert stat.S_IMODE((tmp_path / "recents.json").stat().st_mode) == 0o600
@@ -69,7 +67,7 @@ SAVEABLE = [p for p in providers.PROVIDERS if p.id not in ("docker", "kubernetes
 def test_no_panel_keeps_its_own_save_handler():
     import glob
     import re
-    for path in glob.glob(os.path.join(os.path.dirname(__file__), "..", "panels", "*.py")):
+    for path in glob.glob(os.path.join(os.path.dirname(__file__), "..", "simplelog", "ui", "panels", "*.py")):
         text = open(path, encoding="utf-8").read()
         assert not re.search(r"def _on_save_\w*profile", text), path
         assert "Profile name:" not in text and "Save as profile" not in text, path
@@ -78,12 +76,12 @@ def test_no_panel_keeps_its_own_save_handler():
 @pytest.mark.parametrize("provider", SAVEABLE, ids=lambda p: p.id)
 def test_save_profile_stores_profile_data(app, tmp_path, monkeypatch, provider):
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
-    with patch("cloudwatch.list_profiles", return_value=[]):
+    with patch("simplelog.sources.cloudwatch.list_profiles", return_value=[]):
         panel = provider.panel_class()()
     assert panel.profile_type == provider.id
     fake = {k: "v" for k in panel.profile_required} | {"extra": 1}
     with patch.object(type(panel), "profile_data", return_value=fake), \
-         patch("panels.base.QInputDialog.getText", return_value=("  mine ", True)) as ask:
+         patch("simplelog.ui.panels.base.QInputDialog.getText", return_value=("  mine ", True)) as ask:
         panel._save_profile()
     assert ask.call_args.args[1:3] == (i18n.tr("profile_save_title"), i18n.tr("profile_name_prompt"))
     assert [p["name"] for p in profiles_store.load_all(provider.id)] == ["mine"]
@@ -91,13 +89,13 @@ def test_save_profile_stores_profile_data(app, tmp_path, monkeypatch, provider):
 
 def test_save_profile_ignores_cancel_and_missing_fields(app, tmp_path, monkeypatch):
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
-    from panels.loki import LokiPanel
+    from simplelog.ui.panels.loki import LokiPanel
     panel = LokiPanel()
-    with patch("panels.base.QInputDialog.getText") as ask:
+    with patch("simplelog.ui.panels.base.QInputDialog.getText") as ask:
         panel._save_profile()                 # no URL yet: nothing to save, no prompt
     ask.assert_not_called()
     panel._url_input.setText("http://loki:3100")
-    with patch("panels.base.QInputDialog.getText", return_value=("x", False)) as ask:
+    with patch("simplelog.ui.panels.base.QInputDialog.getText", return_value=("x", False)) as ask:
         panel._save_profile()
     assert ask.call_args.kwargs["text"] == "loki:3100"       # default name from the URL
     assert profiles_store.load_all("loki") == []
@@ -106,7 +104,7 @@ def test_save_profile_ignores_cancel_and_missing_fields(app, tmp_path, monkeypat
 # ── R8: language menu follows locales/*.json ─────────────────────────────────
 
 def test_language_menu_lists_every_catalog(app):
-    import ui
+    from simplelog.ui import facade as ui
     codes = [c for c, _ in i18n.available_locales()]
     assert codes[0] == "en" and set(codes) >= {"en", "fr", "de", "es", "zh"}
     win = ui.MainWindow()
@@ -136,7 +134,7 @@ def french():
 
 
 def test_worker_status_and_errors_follow_the_language(french):
-    import workers
+    from simplelog.sources import workers
     w = workers.GCPWorker(None, "proj", "(all)", "ALL", "", interval_s=1)
     got = []
     w.status.connect(got.append)
@@ -147,9 +145,9 @@ def test_worker_status_and_errors_follow_the_language(french):
 
 
 def test_ssh_and_cloudflare_errors_are_translated(french):
-    import ssh_utils
+    from simplelog.sources import ssh_utils
     assert "inconnue" in str(ssh_utils.UnknownHostKeyError("h", "ssh-rsa", "SHA256:x"))
-    import cloudflare_utils
+    from simplelog.sources import cloudflare_utils
     assert i18n.tr("err_ws_closed") == "Connexion WebSocket fermée"
     assert cloudflare_utils.i18n is i18n
 

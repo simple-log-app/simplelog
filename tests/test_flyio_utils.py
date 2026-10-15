@@ -2,7 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import flyio_utils
+from simplelog.sources import flyio_utils
 
 
 def _sse_lines(events: list[dict]) -> list[bytes]:

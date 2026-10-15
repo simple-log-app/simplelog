@@ -13,7 +13,7 @@ from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
-import workers
+from simplelog.sources import workers
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -49,14 +49,14 @@ class _FakeWorker(QObject):
 # ── model: no full reset for filters / trimming ──────────────────────────────
 
 def _model():
-    from log_model import LogModel
+    from simplelog.core.log_model import LogModel
     m = LogModel()
     m._MAX_LINES = 10
     return m
 
 
 def test_same_filter_does_not_rebuild_the_model():
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     m = _model()
     m.append_events([(0, "ERROR a"), (0, "INFO b")])
     terms = [TermRow(text="ERROR", operator="")]
@@ -71,7 +71,7 @@ def test_same_filter_does_not_rebuild_the_model():
 
 
 def test_changed_filter_still_rebuilds():
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     m = _model()
     m.append_events([(0, "ERROR a"), (0, "INFO b")])
     m.apply_filter([TermRow(text="ERROR", operator="")])
@@ -92,7 +92,7 @@ def test_trimming_removes_rows_instead_of_resetting():
 
 
 def test_trimming_counts_only_visible_rows():
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     m = _model()
     m.apply_filter([TermRow(text="keep", operator="")])
     m.append_events([(0, "keep 0"), (0, "drop 1"), (0, "keep 2"), (0, "drop 3")] * 3)
@@ -116,7 +116,7 @@ def test_a_batch_bigger_than_the_buffer_keeps_only_its_tail():
 
 @pytest.fixture
 def viewer():
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     v.resize(800, 400)
     v.show()
@@ -157,7 +157,7 @@ def test_clear_drops_pending_lines(viewer):
 
 
 def test_filter_and_search_see_the_pending_lines(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, "INFO a")])
     viewer.append_events([(0, "ERROR b")])
     viewer.apply_filter([TermRow(text="ERROR", operator="")])
@@ -235,7 +235,7 @@ def test_severity_is_computed_once_per_row(viewer):
     viewer.append_events([(0, "ERROR boom")])
     item = viewer._model.visible_items()[0]
     assert item.level is None
-    with patch("log_model._classify_line", return_value="error") as classify:
+    with patch("simplelog.core.log_model._classify_line", return_value="error") as classify:
         assert viewer._delegate._level(item) == "error"
         assert viewer._delegate._level(item) == "error"
     classify.assert_called_once()
@@ -302,7 +302,7 @@ def test_release_without_a_press_does_not_expand(json_viewer):
 # ── search: highlight geometry, colours, AND/OR ──────────────────────────────
 
 def test_highlight_colours_are_translucent_yellow_not_opaque_pink():
-    import log_view
+    from simplelog.ui import log_view
     for c in (log_view._MATCH_BG, log_view._MATCH_FOCUSED_BG):
         assert (c.red(), c.green(), c.blue()) == (255, 213, 79)
         assert 0 < c.alpha() < 255
@@ -312,7 +312,7 @@ def test_highlight_colours_are_translucent_yellow_not_opaque_pink():
 
 
 def test_match_rect_follows_the_wrapped_line(viewer):
-    import log_view
+    from simplelog.ui import log_view
     font = viewer._log_font
     text = "alpha beta gamma delta epsilon zeta eta theta"
     width = 90                        # forces several lines
@@ -326,12 +326,12 @@ def test_match_rect_follows_the_wrapped_line(viewer):
 
 
 def test_match_rects_empty_text():
-    import log_view
+    from simplelog.ui import log_view
     assert log_view._match_rects("", MagicMock(), 100, [(0, 1)]) == []
 
 
 def test_search_respects_and_or(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, "red apple"), (0, "green apple"), (0, "red pear"), (0, "plain")])
     viewer.flush_pending()
     hits_and = viewer.apply_search([TermRow("red", ""), TermRow("apple", "AND")])
@@ -343,7 +343,7 @@ def test_search_respects_and_or(viewer):
 
 
 def test_search_ignores_separator_rows(viewer):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     viewer.append_events([(0, "needle")])
     viewer.insert_break()
     assert [r for r, _, _ in viewer.apply_search([TermRow("needle", "")])] == [0]
@@ -363,7 +363,7 @@ def test_json_rows_tint_the_whole_row(viewer):
 
 
 def test_tail_refresh_keeps_the_current_match(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     sb = ui.FilterSearchSidebar()
     v = ui.LogViewer(source_type="file")
     v.append_events([(0, f"needle {i}") for i in range(5)])
@@ -383,7 +383,7 @@ def test_tail_refresh_keeps_the_current_match(qapp):
 
 
 def test_new_search_still_jumps_to_the_first_match(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     sb = ui.FilterSearchSidebar()
     v = ui.LogViewer(source_type="file")
     v.append_events([(0, "needle a"), (0, "needle b")])
@@ -414,7 +414,7 @@ def test_stop_interrupts_the_poll_sleep():
 
 
 def test_a_running_poll_worker_stops_promptly(monkeypatch):
-    import loki_utils
+    from simplelog.sources import loki_utils
     monkeypatch.setattr(loki_utils, "fetch_logs", lambda *a, **k: [])
     w = workers.LokiWorker("http://l", "q", interval_s=30)
     w.start()
@@ -491,7 +491,7 @@ def test_stdin_worker_stops_even_when_the_pipe_is_silent(monkeypatch):
 
 @pytest.fixture
 def window(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     win = ui.MainWindow()
     win.show()
     qapp.processEvents()
@@ -517,7 +517,7 @@ class _SlowStop(workers.QThread):
 
 
 def test_stopping_a_busy_worker_does_not_block_the_ui(window):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     w = _SlowStop()
     window._add_tab("t", v, w)
@@ -531,7 +531,7 @@ def test_stopping_a_busy_worker_does_not_block_the_ui(window):
 
 
 def test_closing_the_window_shares_one_wait_budget(window):
-    import ui
+    from simplelog.ui import facade as ui
     workers_ = []
     for _ in range(3):
         w = _SlowStop()
@@ -548,7 +548,7 @@ def test_closing_the_window_shares_one_wait_budget(window):
 
 
 def test_ctrl_w_closes_only_the_current_tab(window):
-    import ui
+    from simplelog.ui import facade as ui
     for _ in range(3):
         window._add_tab("t", ui.LogViewer(source_type="file"), _FakeWorker())
     assert window._act_close_tab.shortcut().toString() == "Ctrl+W"
@@ -557,7 +557,7 @@ def test_ctrl_w_closes_only_the_current_tab(window):
 
 
 def test_close_all_has_its_own_shortcut(window):
-    import ui
+    from simplelog.ui import facade as ui
     for _ in range(3):
         window._add_tab("t", ui.LogViewer(source_type="file"), _FakeWorker())
     assert window._act_close_all.shortcut().toString() == "Ctrl+Shift+W"
@@ -574,12 +574,12 @@ def test_close_tab_does_nothing_without_tabs(window):
 def test_forwarded_paths_are_absolute(tmp_path, monkeypatch):
     import json
 
-    import main
+    from simplelog import main
     monkeypatch.chdir(tmp_path)
     sock = MagicMock()
     sock.waitForConnected.return_value = True
-    with patch("main._stdin_is_piped", return_value=False), \
-         patch("main.QLocalSocket", return_value=sock):
+    with patch("simplelog.main._stdin_is_piped", return_value=False), \
+         patch("simplelog.main.QLocalSocket", return_value=sock):
         main._try_forward_to_existing(MagicMock(files=["rel.log"], split="tab", tail=10))
     data = json.loads(sock.write.call_args.args[0].rstrip(b"\n"))
     assert data["files"] == [str(tmp_path / "rel.log")]
@@ -588,16 +588,16 @@ def test_forwarded_paths_are_absolute(tmp_path, monkeypatch):
 # ── credentials: atomic writes ───────────────────────────────────────────────
 
 def test_write_private_leaves_no_temp_file(tmp_path):
-    import config_store
+    from simplelog.core import config_store
     config_store.write_private(tmp_path / "a.json", "{}")
     assert [p.name for p in tmp_path.iterdir()] == ["a.json"]
 
 
 def test_a_failed_write_keeps_the_previous_file(tmp_path):
-    import config_store
+    from simplelog.core import config_store
     target = tmp_path / "a.json"
     config_store.write_private(target, '{"keep": 1}')
-    with patch("config_store.os.replace", side_effect=OSError("disk full")), \
+    with patch("simplelog.core.config_store.os.replace", side_effect=OSError("disk full")), \
          pytest.raises(OSError):
         config_store.write_private(target, '{"new": 2')
     assert target.read_text() == '{"keep": 1}'
@@ -605,10 +605,10 @@ def test_a_failed_write_keeps_the_previous_file(tmp_path):
 
 
 def test_profiles_survive_a_crash_while_saving(tmp_path, monkeypatch):
-    import profiles_store
+    from simplelog.core import profiles_store
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     profiles_store.upsert("ssh", "prod", {"host": "h"})
-    with patch("config_store.os.replace", side_effect=OSError("crash")), pytest.raises(OSError):
+    with patch("simplelog.core.config_store.os.replace", side_effect=OSError("crash")), pytest.raises(OSError):
         profiles_store.upsert("ssh", "dev", {"host": "d"})
     assert [p["name"] for p in profiles_store.load_all("ssh")] == ["prod"]
 
@@ -627,7 +627,7 @@ def _urlopen(payload):
 def test_elastic_query_never_sorts_on_id():
     import json
 
-    import elastic_utils
+    from simplelog.sources import elastic_utils
     with patch("urllib.request.urlopen", return_value=_urlopen({"hits": {"hits": []}})) as m:
         elastic_utils.fetch_logs("http://e", "i", "*", since_iso="2024-01-01T00:00:00.000Z")
     body = json.loads(m.call_args[0][0].data)
@@ -638,7 +638,7 @@ def test_elastic_query_never_sorts_on_id():
 def test_elastic_inclusive_start_uses_gte():
     import json
 
-    import elastic_utils
+    from simplelog.sources import elastic_utils
     with patch("urllib.request.urlopen", return_value=_urlopen({"hits": {"hits": []}})) as m:
         elastic_utils.fetch_logs("http://e", "i", "*", since_iso="T", inclusive=True)
         elastic_utils.fetch_logs("http://e", "i", "*", since_iso="T")
@@ -648,7 +648,7 @@ def test_elastic_inclusive_start_uses_gte():
 
 
 def test_elastic_worker_does_not_repeat_the_last_hit(monkeypatch):
-    import elastic_utils
+    from simplelog.sources import elastic_utils
     w = workers.ElasticWorker("http://e", "idx", "*", interval_s=0.001)
     answers = [([(1000, "a")], ["s1"]), ([(1000, "a"), (2000, "b")], ["s2"]), None]
     starts = []
@@ -715,7 +715,7 @@ def test_deb_install_reports_success_and_removes_the_file(tmp_path):
     w = workers.DebInstallWorker(str(deb))
     got = []
     w.done.connect(lambda code, detail: got.append((code, detail)))
-    with patch("workers.subprocess.run", return_value=MagicMock(returncode=0)) as run:
+    with patch("simplelog.sources.workers.subprocess.run", return_value=MagicMock(returncode=0)) as run:
         w.run()
     assert run.call_args[0][0][:3] == ["pkexec", "dpkg", "-i"]
     assert got == [(0, "")] and not deb.exists()
@@ -727,13 +727,13 @@ def test_deb_install_reports_failure_detail(tmp_path):
     w = workers.DebInstallWorker(str(deb))
     got = []
     w.done.connect(lambda code, detail: got.append((code, detail)))
-    with patch("workers.subprocess.run", return_value=MagicMock(returncode=126)):
+    with patch("simplelog.sources.workers.subprocess.run", return_value=MagicMock(returncode=126)):
         w.run()
     assert got[0][0] == 126 and got[0][1]
 
 
 def test_deb_update_failure_is_shown_to_the_user(window):
-    with patch("main_window.QMessageBox.warning") as warn:
+    with patch("simplelog.ui.main_window.QMessageBox.warning") as warn:
         window._on_deb_installed(1, "boom")
     warn.assert_called_once()
     assert "boom" in str(warn.call_args)
@@ -742,7 +742,7 @@ def test_deb_update_failure_is_shown_to_the_user(window):
 # ── background workers: safe lifetime, never an uncaught exception ───────────
 
 def test_call_worker_returns_the_result(qapp):
-    from ui_workers import CallWorker
+    from simplelog.ui.ui_workers import CallWorker
     got = []
     w = CallWorker(lambda a, b=0: a + b, 1, b=2)
     w.success.connect(got.append)
@@ -751,7 +751,7 @@ def test_call_worker_returns_the_result(qapp):
 
 
 def test_call_worker_turns_any_exception_into_a_failure(qapp):
-    from ui_workers import CallWorker
+    from simplelog.ui.ui_workers import CallWorker
 
     def boom():
         raise ValueError("bad")
@@ -764,7 +764,7 @@ def test_call_worker_turns_any_exception_into_a_failure(qapp):
 
 
 def test_started_workers_stay_referenced_until_they_finish(qapp):
-    import ui_workers
+    from simplelog.ui import ui_workers
     gate = threading.Event()
     w = ui_workers.CallWorker(gate.wait, 5)
     w.start()
@@ -779,11 +779,11 @@ def test_started_workers_stay_referenced_until_they_finish(qapp):
 # ── panels: background loading ───────────────────────────────────────────────
 
 def test_ssh_open_connects_in_the_background(qapp, tmp_path, monkeypatch):
-    import profiles_store
-    import ssh_utils
-    from panels.ssh import SSHPanel
+    from simplelog.core import profiles_store
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import SSHPanel
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
-    monkeypatch.setattr("panels.ssh.SSHRecentManager._path", tmp_path / "recents.json")
+    monkeypatch.setattr("simplelog.ui.panels.ssh.SSHRecentManager._path", tmp_path / "recents.json")
     release = threading.Event()
     client = MagicMock()
 
@@ -810,9 +810,9 @@ def test_ssh_open_connects_in_the_background(qapp, tmp_path, monkeypatch):
 
 
 def test_ssh_open_failure_is_reported(qapp, tmp_path, monkeypatch):
-    import ssh_utils
-    from panels.ssh import SSHPanel
-    monkeypatch.setattr("panels.ssh.SSHRecentManager._path", tmp_path / "recents.json")
+    from simplelog.sources import ssh_utils
+    from simplelog.ui.panels.ssh import SSHPanel
+    monkeypatch.setattr("simplelog.ui.panels.ssh.SSHRecentManager._path", tmp_path / "recents.json")
 
     def fail(*a, **k):
         raise RuntimeError("refused")
@@ -823,7 +823,7 @@ def test_ssh_open_failure_is_reported(qapp, tmp_path, monkeypatch):
     p._host_input.setText("h")
     p._user_input.setText("u")
     p._path_input.setText("/x")
-    with patch("panels.ssh.QMessageBox.critical") as crit:
+    with patch("simplelog.ui.panels.ssh.QMessageBox.critical") as crit:
         p._on_open()
         assert _wait_for(lambda: crit.called)
     assert "refused" in str(crit.call_args)
@@ -832,8 +832,8 @@ def test_ssh_open_failure_is_reported(qapp, tmp_path, monkeypatch):
 
 @pytest.fixture
 def cw_panel(qapp):
-    with patch("cloudwatch.list_profiles", return_value=[]):
-        from panels.cloudwatch import CloudWatchPanel
+    with patch("simplelog.sources.cloudwatch.list_profiles", return_value=[]):
+        from simplelog.ui.panels.cloudwatch import CloudWatchPanel
         yield CloudWatchPanel()
 
 
@@ -844,8 +844,8 @@ def test_cloudwatch_groups_load_in_the_background(cw_panel):
         release.wait(5)
         return ["/g1", "/g2"]
 
-    with patch("cloudwatch.make_client", return_value=MagicMock()), \
-         patch("cloudwatch.list_log_groups", side_effect=slow_groups):
+    with patch("simplelog.sources.cloudwatch.make_client", return_value=MagicMock()), \
+         patch("simplelog.sources.cloudwatch.list_log_groups", side_effect=slow_groups):
         t0 = time.monotonic()
         cw_panel._on_connect()
         assert time.monotonic() - t0 < 0.5
@@ -872,9 +872,9 @@ def test_cloudwatch_ignores_an_outdated_streams_answer(cw_panel):
 
 
 def test_cloudwatch_connect_failure_resets_the_panel(cw_panel):
-    with patch("cloudwatch.make_client", return_value=MagicMock()), \
-         patch("cloudwatch.list_log_groups", side_effect=RuntimeError("denied")), \
-         patch("panels.cloudwatch.QMessageBox.critical") as crit:
+    with patch("simplelog.sources.cloudwatch.make_client", return_value=MagicMock()), \
+         patch("simplelog.sources.cloudwatch.list_log_groups", side_effect=RuntimeError("denied")), \
+         patch("simplelog.ui.panels.cloudwatch.QMessageBox.critical") as crit:
         cw_panel._on_connect()
         assert _wait_for(lambda: crit.called)
     assert "denied" in str(crit.call_args)
@@ -891,8 +891,8 @@ def test_cloudwatch_second_connect_click_is_ignored_while_connecting(cw_panel):
         release.wait(5)
         return []
 
-    with patch("cloudwatch.make_client", return_value=MagicMock()), \
-         patch("cloudwatch.list_log_groups", side_effect=slow):
+    with patch("simplelog.sources.cloudwatch.make_client", return_value=MagicMock()), \
+         patch("simplelog.sources.cloudwatch.list_log_groups", side_effect=slow):
         cw_panel._on_connect()
         cw_panel._on_connect()
         release.set()
@@ -901,7 +901,7 @@ def test_cloudwatch_second_connect_click_is_ignored_while_connecting(cw_panel):
 
 
 def test_docker_refresh_runs_in_the_background(qapp, monkeypatch):
-    import docker_utils
+    from simplelog.sources import docker_utils
     monkeypatch.setattr(docker_utils, "is_docker_available", lambda: True)
     release = threading.Event()
     calls = []
@@ -914,7 +914,7 @@ def test_docker_refresh_runs_in_the_background(qapp, monkeypatch):
 
     monkeypatch.setattr(docker_utils, "list_containers", slow_ps)
     monkeypatch.setattr(docker_utils, "list_compose_stacks", lambda: [])
-    from panels.docker import DockerPanel
+    from simplelog.ui.panels.docker import DockerPanel
     t0 = time.monotonic()
     p = DockerPanel()
     assert time.monotonic() - t0 < 1.0               # building the panel does not wait for docker
@@ -925,11 +925,11 @@ def test_docker_refresh_runs_in_the_background(qapp, monkeypatch):
 
 
 def test_docker_error_shows_an_empty_list(qapp, monkeypatch):
-    import docker_utils
+    from simplelog.sources import docker_utils
     monkeypatch.setattr(docker_utils, "is_docker_available", lambda: True)
     monkeypatch.setattr(docker_utils, "list_containers", MagicMock(side_effect=RuntimeError("no daemon")))
     monkeypatch.setattr(docker_utils, "list_compose_stacks", lambda: [])
-    from panels.docker import DockerPanel
+    from simplelog.ui.panels.docker import DockerPanel
     p = DockerPanel()
     assert _wait_for(lambda: p._container_list.isHidden())
     assert p._container_list.count() == 0

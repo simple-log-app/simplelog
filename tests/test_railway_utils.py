@@ -2,7 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import railway_utils
+from simplelog.sources import railway_utils
 
 
 def _fake_urlopen(payload: dict) -> MagicMock:

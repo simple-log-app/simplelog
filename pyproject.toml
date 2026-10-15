@@ -19,11 +19,10 @@ dependencies = [
 ]
 
 [project.scripts]
-simplelog = "main:main"
+simplelog = "simplelog.main:main"
 
-[tool.setuptools]
-packages = ["panels"]
-py-modules = ["ui_theme", "providers", "ui_workers", "worker_base", "ui_widgets", "remote_dialogs", "log_model", "log_view", "sidebar", "main_window", "main", "ui", "workers", "changelog", "cloudwatch", "cloudflare_utils", "ssh_utils", "docker_utils", "vercel_utils", "gcp_utils", "azure_utils", "config_store", "profiles_store", "i18n", "version", "datadog_utils", "elastic_utils", "flyio_utils", "kubernetes_utils", "loki_utils", "railway_utils", "highlight_rules", "highlight_dialog", "connection_state", "http_utils", "heroku_utils", "render_utils", "splunk_utils", "betterstack_utils", "sentry_utils", "journald_utils"]
+[tool.setuptools.packages.find]
+include = ["simplelog*"]
 
 [tool.ruff]
 target-version = "py311"
@@ -41,6 +40,9 @@ ignore = [
     "E501",  # line too long — handled per-file where needed
     "UP007", # X | Y union syntax — Qt overloads complain on older interpreters
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["simplelog"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401"]  # allow unused imports in test helpers

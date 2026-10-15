@@ -22,12 +22,12 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-import azure_utils
-import cloudwatch
-import flyio_utils
-import main_window
-from log_model import LogModel, TermRow, _line_matches
-from worker_base import DockerStreamWorker, LogWorker, PollingWorker, ProcessStreamWorker
+from simplelog.sources import azure_utils
+from simplelog.sources import cloudwatch
+from simplelog.sources import flyio_utils
+from simplelog.ui import main_window
+from simplelog.core.log_model import LogModel, TermRow, _line_matches
+from simplelog.sources.worker_base import DockerStreamWorker, LogWorker, PollingWorker, ProcessStreamWorker
 
 
 def _wait(cond, timeout=8.0):
@@ -171,7 +171,7 @@ def test_azure_since_keeps_the_other_conditions_of_the_line():
 
 
 def test_azure_worker_overlaps_late_rows():
-    import workers
+    from simplelog.sources import workers
     calls = []
     with patch.object(azure_utils, "fetch_logs_since", lambda *a: calls.append(a[3]) or []):
         w = workers.AzureWorker(None, "ws", "T")
@@ -205,7 +205,7 @@ def test_appimage_update_script_survives_a_quote_in_the_path(tmp_path, monkeypat
 
 
 def test_checksum_list_without_the_asset_is_refused():
-    import workers
+    from simplelog.sources import workers
     w = workers.DownloadWorker("https://x/rel/app.deb", "/tmp/none", "1.0.0")
 
     class R:
@@ -226,7 +226,7 @@ def test_checksum_list_without_the_asset_is_refused():
 # ── CloudWatch: region of the AWS profile ───────────────────────────────────
 
 def test_connect_uses_the_region_of_the_aws_profile(monkeypatch):
-    from panels.cloudwatch import CloudWatchPanel
+    from simplelog.ui.panels.cloudwatch import CloudWatchPanel
     monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-west-3")
     panel = CloudWatchPanel()
     panel._apply_profile_region()
@@ -234,7 +234,7 @@ def test_connect_uses_the_region_of_the_aws_profile(monkeypatch):
 
 
 def test_region_unknown_to_the_list_is_added(monkeypatch):
-    from panels.cloudwatch import CloudWatchPanel
+    from simplelog.ui.panels.cloudwatch import CloudWatchPanel
     monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-south-2")
     panel = CloudWatchPanel()
     panel._apply_profile_region()
@@ -242,7 +242,7 @@ def test_region_unknown_to_the_list_is_added(monkeypatch):
 
 
 def test_region_chosen_by_the_user_is_kept(monkeypatch):
-    from panels.cloudwatch import CloudWatchPanel
+    from simplelog.ui.panels.cloudwatch import CloudWatchPanel
     monkeypatch.setattr(cloudwatch, "profile_region", lambda p: "eu-west-3")
     panel = CloudWatchPanel()
     panel.region_combo.setCurrentIndex(3)

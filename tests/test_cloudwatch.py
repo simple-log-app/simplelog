@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-import cloudwatch
+from simplelog.sources import cloudwatch
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ def test_list_profiles_empty(tmp_path):
 
 def test_make_client_with_profile():
     mock_session = MagicMock()
-    with patch("cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
+    with patch("simplelog.sources.cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
         cloudwatch.make_client(profile="dev", region="eu-west-1")
     mock_cls.assert_called_once_with(profile_name="dev", region_name="eu-west-1")
     mock_session.client.assert_called_once_with("logs")
@@ -49,7 +49,7 @@ def test_make_client_with_profile():
 
 def test_make_client_with_access_keys():
     mock_session = MagicMock()
-    with patch("cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
+    with patch("simplelog.sources.cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
         cloudwatch.make_client(
             region="us-east-1",
             access_key_id="AKID",
@@ -65,7 +65,7 @@ def test_make_client_with_access_keys():
 
 def test_make_client_default():
     mock_session = MagicMock()
-    with patch("cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
+    with patch("simplelog.sources.cloudwatch.boto3.Session", return_value=mock_session) as mock_cls:
         cloudwatch.make_client()
     mock_cls.assert_called_once_with(profile_name=None, region_name="us-east-1")
 

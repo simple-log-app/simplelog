@@ -9,10 +9,9 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QLineEdit, QPushButton
 
-import profiles_store
-import providers
-import remote_dialogs
-import ui_theme
+from simplelog.core import profiles_store
+from simplelog.sources import providers
+from simplelog.ui import remote_dialogs, ui_theme
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -151,7 +150,7 @@ def test_escape_closes_when_there_is_no_picker_to_return_to(store):
 
 
 def test_open_as_lives_in_the_dialog_footer_and_decides_the_mode(store):
-    from ui_widgets import OpenModeWidget
+    from simplelog.ui.ui_widgets import OpenModeWidget
     dlg = remote_dialogs.AddConnectionDialog(preselect="railway")
     panel = dlg._embedded_panel
     assert dlg._open_mode_w.get_mode() == "tab"                    # new tab by default
@@ -178,7 +177,7 @@ def test_split_choices_are_greyed_out_when_no_log_is_open(store):
 
 
 def test_disabling_split_falls_back_to_a_new_tab_and_can_be_undone():
-    from ui_widgets import OpenModeWidget
+    from simplelog.ui.ui_widgets import OpenModeWidget
     w = OpenModeWidget()
     w._btns["horizontal"].setChecked(True)
     w.set_split_enabled(False)
@@ -188,8 +187,8 @@ def test_disabling_split_falls_back_to_a_new_tab_and_can_be_undone():
 
 
 def test_main_window_tells_the_dialog_whether_a_tab_exists(store):
-    import main_window
-    import ui
+    from simplelog.ui import facade as ui
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         assert win._remote_panel.split_available() is False

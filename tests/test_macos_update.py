@@ -7,7 +7,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from main_window import macos_app_bundle, macos_update_script  # noqa: E402
+from simplelog.ui.main_window import macos_app_bundle, macos_update_script  # noqa: E402
 
 EXE = "/Applications/SimpleLog.app/Contents/MacOS/simplelog"
 

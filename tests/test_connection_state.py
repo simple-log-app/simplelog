@@ -8,9 +8,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import connection_state as cs
-import providers
-from worker_base import LogWorker
+from simplelog.core import connection_state as cs
+from simplelog.sources import providers
+from simplelog.sources.worker_base import LogWorker
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -65,8 +65,8 @@ class FakeWorker(LogWorker):
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    import config_store
-    import main_window
+    from simplelog.core import config_store
+    from simplelog.ui import main_window
     monkeypatch.setattr(config_store, "_PREFS_PATH", tmp_path / "prefs.json")
     made: list[FakeWorker] = []
 
@@ -78,7 +78,7 @@ def env(tmp_path, monkeypatch):
 
     cfg_seen: list[dict] = []
     provider = providers.Provider(
-        "fake", "Fake", "F", "#ffffff", "<svg/>", "fake", "panels.railway:RailwayPanel", session)
+        "fake", "Fake", "F", "#ffffff", "<svg/>", "fake", "simplelog.ui.panels.railway:RailwayPanel", session)
     dialogs: list = []
     monkeypatch.setattr(main_window.QMessageBox, "critical",
                         staticmethod(lambda *a, **k: dialogs.append(a[2])))
@@ -157,7 +157,7 @@ def test_gives_up_after_the_last_attempt_and_then_tells_the_user(env):
 
 
 def test_turning_auto_reconnect_off_restores_the_old_behaviour(env):
-    import config_store
+    from simplelog.core import config_store
     win, viewer, made, dialogs, _ = env
     win._act_reconnect.setChecked(False)
     assert config_store.get_pref("auto_reconnect", True) is False
@@ -185,7 +185,7 @@ def test_a_stream_that_ends_quietly_is_shown_as_ended(env):
 
 
 def test_resync_filter_ignores_only_lines_already_shown():
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     v.append_events([(1000, "a"), (2000, "b")])
     v.begin_resync()
@@ -201,7 +201,7 @@ def test_resync_filter_ignores_only_lines_already_shown():
 def test_with_status_dot_changes_only_a_corner():
     from PyQt6.QtGui import QColor, QPixmap
 
-    import ui_theme
+    from simplelog.ui import ui_theme
     base = QPixmap(14, 14)
     base.fill(QColor("#000000"))
     out = ui_theme.with_status_dot(base, "#5fc48a")

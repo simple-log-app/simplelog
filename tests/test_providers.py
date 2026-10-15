@@ -10,10 +10,9 @@ import pytest
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
-import i18n
-import providers
-import workers
-from panels.base import ProviderPanel
+from simplelog.core import i18n
+from simplelog.sources import providers, workers
+from simplelog.ui.panels.base import ProviderPanel
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -77,7 +76,7 @@ def test_source_colors_cover_every_viewer_source():
     colors = providers.source_colors()
     assert set(IDS) <= set(colors)
     assert {"docker_compose", "docker_exec_file"} <= set(colors)
-    import log_view
+    from simplelog.ui import log_view
     assert log_view._SOURCE_COLORS["file"] and log_view._SOURCE_COLORS["stdin"]
     for source, color in colors.items():
         assert log_view._SOURCE_COLORS[source] == color
@@ -85,7 +84,7 @@ def test_source_colors_cover_every_viewer_source():
 
 @pytest.mark.parametrize("source", [*providers.source_colors(), "file", "stdin"])
 def test_viewer_badge_names_its_source(source):
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type=source)
     assert viewer._source_badge.text() == source.replace("_", " ").upper()
     i18n.set_locale("fr")
@@ -189,16 +188,16 @@ def test_loki_and_elastic_pass_only_the_credentials_of_the_chosen_auth_mode():
 
 
 def test_connect_functions_use_the_cfg():
-    with patch("providers.ssh_utils.make_client", return_value="ssh-client") as ssh:
+    with patch("simplelog.sources.providers.ssh_utils.make_client", return_value="ssh-client") as ssh:
         assert providers.get("ssh").connect(
             {"host": "h", "user": "u", "port": 2200, "key_path": "/k", "password": ""}
         ) == "ssh-client"
     ssh.assert_called_once_with("h", "u", 2200, key_path="/k", password=None)
-    with patch("providers.gcp_utils.make_client", return_value="gcp-client") as gcp:
+    with patch("simplelog.sources.providers.gcp_utils.make_client", return_value="gcp-client") as gcp:
         assert providers.get("gcp").connect({"project_id": "p", "key_path": ""}) == "gcp-client"
     gcp.assert_called_once_with("p", None)
-    with patch("providers.azure_utils.make_credential", return_value="cred") as cred, \
-         patch("providers.azure_utils.make_logs_client", return_value="logs") as logs:
+    with patch("simplelog.sources.providers.azure_utils.make_credential", return_value="cred") as cred, \
+         patch("simplelog.sources.providers.azure_utils.make_logs_client", return_value="logs") as logs:
         assert providers.get("azure").connect(
             {"tenant_id": "t", "client_id": "c", "client_secret": "s"}
         ) == "logs"
@@ -228,7 +227,7 @@ class _FakeWorker(QObject):
 
 @pytest.fixture
 def window(qapp):
-    import ui
+    from simplelog.ui import facade as ui
     win = ui.MainWindow()
     win.show()
     qapp.processEvents()
@@ -256,14 +255,14 @@ def test_open_remote_tab_opens_a_labelled_tab(window, pid, cfg, cls, source, tit
 def test_the_ready_client_is_consumed_from_the_cfg(window):
     client = MagicMock()
     cfg = {"type": "azure", "workspace_id": "w", "query": "q", "_logs_client": client}
-    with patch("providers.AzureWorker", _FakeWorker) as _:
+    with patch("simplelog.sources.providers.AzureWorker", _FakeWorker) as _:
         window.open_remote_tab(cfg)
     assert "_logs_client" not in cfg and window._top_tabs.count() == 1
 
 
 def test_a_provider_without_connect_keeps_its_cfg_untouched(window):
     cfg = {"type": "loki", "url": "http://l", "query": "q", "_client": "keep"}
-    with patch("providers.LokiWorker", _FakeWorker):
+    with patch("simplelog.sources.providers.LokiWorker", _FakeWorker):
         window.open_remote_tab(cfg)
     assert cfg["_client"] == "keep"
 
@@ -278,7 +277,7 @@ def test_a_missing_connection_is_made_in_the_background_with_the_provider_title(
     provider = providers.get("ssh")
     fake = providers.Provider(**{**provider.__dict__, "connect": slow})
     with patch.dict(providers._BY_TYPE, {"ssh": fake}), \
-         patch("main_window.QMessageBox.critical") as crit:
+         patch("simplelog.ui.main_window.QMessageBox.critical") as crit:
         t0 = time.monotonic()
         window.open_remote_tab({"type": "ssh", "host": "h", "user": "u", "remote_path": "/x"})
         assert time.monotonic() - t0 < 0.5
@@ -290,8 +289,8 @@ def test_a_missing_connection_is_made_in_the_background_with_the_provider_title(
 # ── saved-connection list uses the registry ──────────────────────────────────
 
 def test_saved_connections_are_listed_for_every_provider(qapp, tmp_path, monkeypatch):
-    import profiles_store
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     for pid in IDS:
         profiles_store.upsert(pid, f"{pid}-conn", {})
@@ -311,7 +310,7 @@ def test_saved_connections_are_listed_for_every_provider(qapp, tmp_path, monkeyp
     ("unknown", {"host": "x"}, ""),
 ])
 def test_subtitle_comes_from_the_registry(svc, profile, expected):
-    import ui
+    from simplelog.ui import facade as ui
     assert ui.RemoteHomePanel._get_subtitle(svc, profile) == expected
 
 
@@ -319,9 +318,7 @@ def test_subtitle_comes_from_the_registry(svc, profile, expected):
 
 @pytest.fixture
 def make_panel(monkeypatch):
-    import cloudwatch
-    import docker_utils
-    import kubernetes_utils
+    from simplelog.sources import cloudwatch, docker_utils, kubernetes_utils
     monkeypatch.setattr(cloudwatch, "list_profiles", lambda: [])
     monkeypatch.setattr(docker_utils, "is_docker_available", lambda: True)
     monkeypatch.setattr(docker_utils, "list_containers", lambda: [])
@@ -397,9 +394,9 @@ def test_docker_panel_is_openable_only_with_a_selection(make_panel):
 
 
 def test_docker_without_docker_installed(monkeypatch):
-    import docker_utils
+    from simplelog.sources import docker_utils
     monkeypatch.setattr(docker_utils, "is_docker_available", lambda: False)
-    from panels.docker import DockerPanel
+    from simplelog.ui.panels.docker import DockerPanel
     p = DockerPanel()
     assert p.can_open() is True        # nothing to wait for
     p.open_selected()                  # and nothing to open: must not raise
@@ -407,9 +404,9 @@ def test_docker_without_docker_installed(monkeypatch):
 
 
 def test_kubernetes_without_kubectl(monkeypatch):
-    import kubernetes_utils
+    from simplelog.sources import kubernetes_utils
     monkeypatch.setattr(kubernetes_utils, "is_available", lambda: False)
-    from panels.kubernetes import KubernetesPanel
+    from simplelog.ui.panels.kubernetes import KubernetesPanel
     p = KubernetesPanel()
     assert p.can_open() is False and p.profile_data() == {}
     p.embed()
@@ -507,14 +504,14 @@ def test_ssh_connects_only_for_key_auth(make_panel):
 
 @pytest.fixture
 def dialog_env(tmp_path, monkeypatch, make_panel):
-    import profiles_store
+    from simplelog.core import profiles_store
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     return tmp_path
 
 
 @pytest.mark.parametrize("pid", IDS)
 def test_dialog_embeds_every_provider(dialog_env, pid):
-    import ui
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect=pid)
     panel = dlg._embedded_panel
     assert isinstance(panel, providers.get(pid).panel_class())
@@ -529,7 +526,7 @@ def test_dialog_embeds_every_provider(dialog_env, pid):
 
 
 def test_dialog_footer_follows_the_panel(dialog_env):
-    import ui
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect="railway")
     p = dlg._embedded_panel
     dlg._sync_embedded_footer()
@@ -542,8 +539,8 @@ def test_dialog_footer_follows_the_panel(dialog_env):
 
 
 def test_dialog_saves_credentials_extras_and_selection(dialog_env):
-    import profiles_store
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect="railway")
     p = dlg._embedded_panel
     p._railway_token_input.setText("tok")
@@ -561,8 +558,8 @@ def test_dialog_saves_credentials_extras_and_selection(dialog_env):
 
 
 def test_dialog_open_without_saving_stores_nothing(dialog_env):
-    import profiles_store
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect="railway")
     dlg._embedded_panel._railway_token_input.setText("tok")
     dlg._fields["name"].setText("prod")
@@ -572,9 +569,9 @@ def test_dialog_open_without_saving_stores_nothing(dialog_env):
 
 
 def test_dialog_adds_panel_extras_for_cloudwatch(dialog_env):
-    import profiles_store
-    import ui
-    with patch("cloudwatch.list_profiles", return_value=[]):
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
+    with patch("simplelog.sources.cloudwatch.list_profiles", return_value=[]):
         dlg = ui.AddConnectionDialog(preselect="cloudwatch")
     p = dlg._embedded_panel
     dlg._fields["name"].setText("aws")
@@ -589,8 +586,8 @@ def test_dialog_adds_panel_extras_for_cloudwatch(dialog_env):
 
 
 def test_dialog_without_a_name_saves_nothing(dialog_env):
-    import profiles_store
-    import ui
+    from simplelog.core import profiles_store
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect="railway")
     dlg._save_pending = True
     dlg._on_embedded_panel_tab({"type": "railway"}, "tab")
@@ -598,10 +595,10 @@ def test_dialog_without_a_name_saves_nothing(dialog_env):
 
 
 def test_dialog_reopening_restores_the_selection_through_the_contract(dialog_env):
-    import ui
+    from simplelog.ui import facade as ui
     profile = {"name": "prod", "token": "tok",
                "state": {"_interval_spin_railway": 42}}
-    with patch("panels.railway.RailwayPanel._do_connect", lambda self: None):
+    with patch("simplelog.ui.panels.railway.RailwayPanel._do_connect", lambda self: None):
         dlg = ui.AddConnectionDialog(preselect="railway", prefill_profile=profile)
     p = dlg._embedded_panel
     assert p._railway_token_input.text() == "tok"
@@ -612,9 +609,9 @@ def test_dialog_reopening_restores_the_selection_through_the_contract(dialog_env
 
 
 def test_dialog_gives_up_restoring_after_the_deadline(dialog_env):
-    import ui
+    from simplelog.ui import facade as ui
     profile = {"name": "prod", "token": "t", "state": {"_project_list": "never-listed"}}
-    with patch("panels.railway.RailwayPanel._do_connect", lambda self: None):
+    with patch("simplelog.ui.panels.railway.RailwayPanel._do_connect", lambda self: None):
         dlg = ui.AddConnectionDialog(preselect="railway", prefill_profile=profile)
     dlg._embedded_panel._card_proj.setVisible(True)
     dlg._restore_ticks_left = 0
@@ -624,7 +621,7 @@ def test_dialog_gives_up_restoring_after_the_deadline(dialog_env):
 
 
 def test_dialog_ignores_an_unknown_provider(dialog_env):
-    import ui
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog(preselect="martian")
     assert dlg._embedded_panel is None
     dlg._on_open()
@@ -634,7 +631,7 @@ def test_dialog_ignores_an_unknown_provider(dialog_env):
 
 
 def test_provider_cards_come_from_the_registry(dialog_env):
-    import ui
+    from simplelog.ui import facade as ui
     dlg = ui.AddConnectionDialog()
     from PyQt6.QtWidgets import QLabel, QPushButton
     cards = [b for b in dlg.findChildren(QPushButton) if b.findChild(QLabel)]

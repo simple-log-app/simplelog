@@ -10,9 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 
-import azure_utils
-import railway_utils
-import workers
+from simplelog.sources import azure_utils, railway_utils, workers
 
 # ── Azure ────────────────────────────────────────────────────────────────────
 
@@ -104,7 +102,7 @@ def _download(tmp_path, payload, sums):
     done, errors = [], []
     w.finished.connect(done.append)
     w.error.connect(errors.append)
-    with patch("workers.urllib.request.urlopen", opener):
+    with patch("simplelog.sources.workers.urllib.request.urlopen", opener):
         w.run()
     return done, errors
 

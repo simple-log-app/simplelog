@@ -12,14 +12,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import betterstack_utils
-import heroku_utils
-import http_utils
-import journald_utils
-import render_utils
-import sentry_utils
-import splunk_utils
-import workers
+from simplelog.core import http_utils
+from simplelog.sources import (
+    betterstack_utils,
+    heroku_utils,
+    journald_utils,
+    render_utils,
+    sentry_utils,
+    splunk_utils,
+    workers,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -126,8 +128,8 @@ def test_heroku_worker_streams_then_reports_a_closed_stream():
     w = workers.HerokuWorker("tok", "shop")
     w.new_lines.connect(lambda ev: got.extend(ev))
     w.error.connect(errors.append)
-    with patch("heroku_utils.create_log_session", return_value="https://logplex/x") as sess, \
-            patch("heroku_utils.open_log_stream", return_value=iter(stream)):
+    with patch("simplelog.sources.heroku_utils.create_log_session", return_value="https://logplex/x") as sess, \
+            patch("simplelog.sources.heroku_utils.open_log_stream", return_value=iter(stream)):
         w.run()
     assert [m for _, m in got] == ["app[web.1]: one", "app[web.1]: two"]
     assert sess.call_args.kwargs["tail"] is True
@@ -139,8 +141,8 @@ def test_heroku_worker_stays_quiet_when_stopped():
     errors = []
     w.error.connect(errors.append)
     w.stop()
-    with patch("heroku_utils.create_log_session", return_value="u"), \
-            patch("heroku_utils.open_log_stream", return_value=iter([])):
+    with patch("simplelog.sources.heroku_utils.create_log_session", return_value="u"), \
+            patch("simplelog.sources.heroku_utils.open_log_stream", return_value=iter([])):
         w.run()
     assert errors == []
 

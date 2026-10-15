@@ -8,8 +8,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import highlight_rules
-from highlight_rules import Rule
+from simplelog.core import highlight_rules
+from simplelog.core.highlight_rules import Rule
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -57,7 +57,7 @@ def test_changing_rules_bumps_the_version():
 
 
 def test_rows_cache_their_matches_until_the_rules_change():
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type="file")
     viewer.append_events([(1, "disk full on node-3")])
     item = viewer._model.visible_items()[0]
@@ -70,7 +70,7 @@ def test_rows_cache_their_matches_until_the_rules_change():
 
 
 def test_painting_rows_with_rules_works_for_plain_and_json_rows():
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type="file")
     viewer.resize(600, 300)
     viewer.show()
@@ -83,7 +83,7 @@ def test_painting_rows_with_rules_works_for_plain_and_json_rows():
 
 
 def test_dialog_edits_and_applies_the_rules(rules_file):
-    import ui
+    from simplelog.ui import facade as ui
     highlight_rules.set_rules([Rule("one", "#5fc48a")], persist=False)
     dlg = ui.HighlightRulesDialog()
     assert [r.text for r in dlg.rules()] == ["one"]
@@ -96,7 +96,7 @@ def test_dialog_edits_and_applies_the_rules(rules_file):
 
 
 def test_dialog_caps_the_number_of_rules():
-    import ui
+    from simplelog.ui import facade as ui
     dlg = ui.HighlightRulesDialog()
     for i in range(30):
         dlg._add_row(Rule(f"r{i}"))

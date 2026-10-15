@@ -2,7 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import docker_utils
+from simplelog.sources import docker_utils
 
 
 def _mock_run_ok(stdout: str) -> MagicMock:

@@ -8,26 +8,26 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 
 UI_MODULES = [
-    "ui_theme", "ui_widgets", "log_model", "log_view", "sidebar", "remote_dialogs",
-    "main_window", "highlight_dialog", "panels.base",
-    "panels.cloudwatch", "panels.file", "panels.ssh", "panels.docker", "panels.vercel",
-    "panels.gcp", "panels.azure", "panels.loki", "panels.datadog", "panels.elastic",
-    "panels.railway", "panels.flyio", "panels.kubernetes", "panels.cloudflare",
-    "panels.form", "panels.heroku", "panels.render", "panels.splunk", "panels.betterstack",
-    "panels.sentry", "panels.journald",
+    "simplelog.ui.ui_theme", "simplelog.ui.ui_widgets", "simplelog.core.log_model", "simplelog.ui.log_view", "simplelog.ui.sidebar", "simplelog.ui.remote_dialogs",
+    "simplelog.ui.main_window", "simplelog.ui.highlight_dialog", "simplelog.ui.panels.base",
+    "simplelog.ui.panels.cloudwatch", "simplelog.ui.panels.file", "simplelog.ui.panels.ssh", "simplelog.ui.panels.docker", "simplelog.ui.panels.vercel",
+    "simplelog.ui.panels.gcp", "simplelog.ui.panels.azure", "simplelog.ui.panels.loki", "simplelog.ui.panels.datadog", "simplelog.ui.panels.elastic",
+    "simplelog.ui.panels.railway", "simplelog.ui.panels.flyio", "simplelog.ui.panels.kubernetes", "simplelog.ui.panels.cloudflare",
+    "simplelog.ui.panels.form", "simplelog.ui.panels.heroku", "simplelog.ui.panels.render", "simplelog.ui.panels.splunk", "simplelog.ui.panels.betterstack",
+    "simplelog.ui.panels.sentry", "simplelog.ui.panels.journald",
 ]
 
 PANELS = {
-    "panels.cloudwatch": "CloudWatchPanel", "panels.file": "FilePanel",
-    "panels.ssh": "SSHPanel", "panels.docker": "DockerPanel",
-    "panels.vercel": "VercelPanel", "panels.gcp": "GCPPanel",
-    "panels.azure": "AzurePanel", "panels.loki": "LokiPanel",
-    "panels.datadog": "DatadogPanel", "panels.elastic": "ElasticPanel",
-    "panels.railway": "RailwayPanel", "panels.flyio": "FlyioPanel",
-    "panels.kubernetes": "KubernetesPanel", "panels.cloudflare": "CloudflarePanel",
-    "panels.heroku": "HerokuPanel", "panels.render": "RenderPanel",
-    "panels.splunk": "SplunkPanel", "panels.betterstack": "BetterStackPanel",
-    "panels.sentry": "SentryPanel", "panels.journald": "JournaldPanel",
+    "simplelog.ui.panels.cloudwatch": "CloudWatchPanel", "simplelog.ui.panels.file": "FilePanel",
+    "simplelog.ui.panels.ssh": "SSHPanel", "simplelog.ui.panels.docker": "DockerPanel",
+    "simplelog.ui.panels.vercel": "VercelPanel", "simplelog.ui.panels.gcp": "GCPPanel",
+    "simplelog.ui.panels.azure": "AzurePanel", "simplelog.ui.panels.loki": "LokiPanel",
+    "simplelog.ui.panels.datadog": "DatadogPanel", "simplelog.ui.panels.elastic": "ElasticPanel",
+    "simplelog.ui.panels.railway": "RailwayPanel", "simplelog.ui.panels.flyio": "FlyioPanel",
+    "simplelog.ui.panels.kubernetes": "KubernetesPanel", "simplelog.ui.panels.cloudflare": "CloudflarePanel",
+    "simplelog.ui.panels.heroku": "HerokuPanel", "simplelog.ui.panels.render": "RenderPanel",
+    "simplelog.ui.panels.splunk": "SplunkPanel", "simplelog.ui.panels.betterstack": "BetterStackPanel",
+    "simplelog.ui.panels.sentry": "SentryPanel", "simplelog.ui.panels.journald": "JournaldPanel",
 }
 
 
@@ -43,7 +43,7 @@ def test_module_imports(module):
 
 @pytest.mark.parametrize("module", UI_MODULES)
 def test_facade_reexports_public_classes(module):
-    import ui
+    from simplelog.ui import facade as ui
     mod = importlib.import_module(module)
     for name, obj in vars(mod).items():
         if isinstance(obj, type) and obj.__module__ == module:
@@ -58,7 +58,7 @@ def test_panel_can_be_built(module, cls):
 
 
 def test_main_window_builds_and_applies_style():
-    import ui
+    from simplelog.ui import facade as ui
     ui.apply_style(QApplication.instance())
     win = ui.MainWindow()
     assert win is not None
@@ -66,7 +66,7 @@ def test_main_window_builds_and_applies_style():
 
 
 def test_log_viewer_and_sidebar_build():
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type="file")
     sidebar = ui.FilterSearchSidebar()
     assert viewer is not None and sidebar is not None
@@ -85,7 +85,7 @@ def _run_worker(worker):
 def test_background_worker_emits_success_values():
     from PyQt6.QtCore import pyqtSignal
 
-    from ui_workers import BackgroundWorker
+    from simplelog.ui.ui_workers import BackgroundWorker
 
     class W(BackgroundWorker):
         success = pyqtSignal(list, list)
@@ -99,7 +99,7 @@ def test_background_worker_emits_success_values():
 def test_background_worker_emits_no_value():
     from PyQt6.QtCore import pyqtSignal
 
-    from ui_workers import BackgroundWorker
+    from simplelog.ui.ui_workers import BackgroundWorker
 
     class W(BackgroundWorker):
         success = pyqtSignal()
@@ -113,7 +113,7 @@ def test_background_worker_emits_no_value():
 def test_background_worker_turns_runtime_error_into_failure():
     from PyQt6.QtCore import pyqtSignal
 
-    from ui_workers import BackgroundWorker
+    from simplelog.ui.ui_workers import BackgroundWorker
 
     class W(BackgroundWorker):
         success = pyqtSignal(list)
@@ -125,8 +125,8 @@ def test_background_worker_turns_runtime_error_into_failure():
 
 
 def test_provider_workers_report_errors_and_results(monkeypatch):
-    import railway_utils
-    from panels.railway import _RailwayConnectWorker
+    from simplelog.sources import railway_utils
+    from simplelog.ui.panels.railway import _RailwayConnectWorker
 
     monkeypatch.setattr(railway_utils, "list_projects", lambda token: [{"name": "p"}])
     assert _run_worker(_RailwayConnectWorker("t")) == {"success": ([{"name": "p"}],)}
@@ -139,8 +139,8 @@ def test_provider_workers_report_errors_and_results(monkeypatch):
 
 
 def test_vercel_deploy_worker_without_deployment_fails(monkeypatch):
-    import vercel_utils
-    from panels.vercel import _VercelFetchDeployWorker
+    from simplelog.sources import vercel_utils
+    from simplelog.ui.panels.vercel import _VercelFetchDeployWorker
 
     monkeypatch.setattr(vercel_utils, "get_latest_deployment", lambda *a: None)
     got = _run_worker(_VercelFetchDeployWorker("t", "p", "production"))
@@ -148,7 +148,7 @@ def test_vercel_deploy_worker_without_deployment_fails(monkeypatch):
 
 
 def test_provider_panels_share_the_base_class():
-    from panels.base import ProviderPanel
+    from simplelog.ui.panels.base import ProviderPanel
 
     for module, cls in PANELS.items():
         if cls == "FilePanel":   # opens plain files: different open_tab signature
@@ -159,7 +159,7 @@ def test_provider_panels_share_the_base_class():
 def test_provider_panel_scaffold_returns_content_layout():
     from PyQt6.QtWidgets import QScrollArea, QVBoxLayout
 
-    from panels.base import ProviderPanel
+    from simplelog.ui.panels.base import ProviderPanel
 
     panel = ProviderPanel()
     lay = panel._scaffold()
@@ -169,7 +169,7 @@ def test_provider_panel_scaffold_returns_content_layout():
 
 
 def test_cross_on_the_only_term_row_empties_it():
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     row = sidebar._search_term_widgets[0]
     row._input.setText("error")
@@ -184,7 +184,7 @@ def test_cross_on_the_only_term_row_empties_it():
 def test_search_prev_next_have_f3_shortcuts_and_tooltips():
     from PyQt6.QtGui import QShortcut
 
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     keys = {sc.key().toString() for sc in sidebar.findChildren(QShortcut)}
     assert {"F3", "Shift+F3"} <= keys
@@ -193,8 +193,8 @@ def test_search_prev_next_have_f3_shortcuts_and_tooltips():
 
 
 def test_and_or_toggle_follows_the_language_and_keeps_its_value():
-    import i18n
-    from sidebar import _TermRowWidget
+    from simplelog.core import i18n
+    from simplelog.ui.sidebar import _TermRowWidget
     w = _TermRowWidget("AND")
     try:
         i18n.set_locale("fr")
@@ -213,8 +213,8 @@ def test_and_or_toggle_follows_the_language_and_keeps_its_value():
 def test_right_sidebar_fits_its_default_width_in_every_language(locale):
     from PyQt6.QtWidgets import QWidget
 
-    import i18n
-    import ui
+    from simplelog.core import i18n
+    from simplelog.ui import facade as ui
     i18n.set_locale(locale)
     try:
         sidebar = ui.FilterSearchSidebar()
@@ -230,7 +230,7 @@ def test_right_sidebar_fits_its_default_width_in_every_language(locale):
 
 
 def test_level_chips_filter_the_active_viewer():
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type="file")
     sidebar = ui.FilterSearchSidebar()
     sidebar.set_active_viewer(viewer)
@@ -251,13 +251,13 @@ def test_level_chips_filter_the_active_viewer():
 
 @pytest.fixture
 def history_file(tmp_path, monkeypatch):
-    import sidebar
+    from simplelog.ui import sidebar
     monkeypatch.setattr(sidebar, "_HISTORY_PATH", tmp_path / "history.json")
     return tmp_path / "history.json"
 
 
 def test_search_options_reach_the_viewer(history_file):
-    import ui
+    from simplelog.ui import facade as ui
     viewer = ui.LogViewer(source_type="file")
     sidebar = ui.FilterSearchSidebar()
     sidebar.set_active_viewer(viewer)
@@ -275,7 +275,7 @@ def test_search_options_reach_the_viewer(history_file):
 
 
 def test_invalid_regex_turns_the_term_red(history_file):
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     sidebar.set_active_viewer(ui.LogViewer(source_type="file"))
     row = sidebar._search_term_widgets[0]
@@ -292,7 +292,7 @@ def test_invalid_regex_turns_the_term_red(history_file):
 def test_term_history_is_kept_deduplicated_and_persisted(history_file):
     import json
 
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     for term in ("alpha", "beta", "alpha", "  ", "gamma"):
         sidebar._remember(term)
@@ -305,7 +305,7 @@ def test_term_history_is_kept_deduplicated_and_persisted(history_file):
 
 
 def test_history_is_capped(history_file):
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     for i in range(50):
         sidebar._remember(f"term{i}")
@@ -313,7 +313,7 @@ def test_history_is_capped(history_file):
 
 
 def test_editing_finished_remembers_the_term(history_file):
-    import ui
+    from simplelog.ui import facade as ui
     sidebar = ui.FilterSearchSidebar()
     row = sidebar._search_term_widgets[0]
     row._input.setText("needle")
@@ -322,7 +322,7 @@ def test_editing_finished_remembers_the_term(history_file):
 
 
 def _viewer_with_lines(n=6):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     v.resize(500, 300)
     v.show()
@@ -356,7 +356,7 @@ def test_goto_bookmark_wraps_in_both_directions():
 
 
 def test_main_window_bookmark_actions_use_the_active_viewer(tmp_path):
-    import main_window
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         win._action_goto_bookmark(1)                          # no viewer: nothing happens
@@ -390,7 +390,7 @@ def test_bookmarked_rows_paint_a_marker():
 
 
 def test_export_writes_the_filtered_lines(tmp_path):
-    from log_model import TermRow
+    from simplelog.core.log_model import TermRow
     v = _viewer_with_lines(5)
     v.append_events([(10, "ERROR special")])
     v.flush_pending()
@@ -418,14 +418,14 @@ def test_export_of_the_selection_only(tmp_path):
 
 
 def test_export_with_nothing_to_show_gives_an_empty_file(tmp_path):
-    import ui
+    from simplelog.ui import facade as ui
     v = ui.LogViewer(source_type="file")
     out = tmp_path / "empty.log"
     assert v.export_lines(str(out)) == 0 and out.read_text() == ""
 
 
 def test_main_window_export_action(tmp_path, monkeypatch):
-    import main_window
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         win._action_export()
@@ -451,8 +451,8 @@ def test_main_window_export_action(tmp_path, monkeypatch):
 
 
 def test_merge_viewers_shows_both_logs_in_time_order_and_follows_new_lines():
-    import main_window
-    import ui
+    from simplelog.ui import facade as ui
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         a = ui.LogViewer(source_type="file")
@@ -483,8 +483,8 @@ def test_merge_viewers_shows_both_logs_in_time_order_and_follows_new_lines():
 def test_merge_action_needs_two_logs_and_the_dialog_lists_them():
     from PyQt6.QtCore import Qt
 
-    import main_window
-    import ui
+    from simplelog.ui import facade as ui
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         win._action_merge_tabs()
@@ -500,7 +500,7 @@ def test_merge_action_needs_two_logs_and_the_dialog_lists_them():
 
 
 def test_remove_all_bookmarks_from_the_menu_and_the_viewer():
-    import main_window
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         v = _viewer_with_lines(5)
@@ -518,7 +518,7 @@ def test_remove_all_bookmarks_from_the_menu_and_the_viewer():
 
 
 def test_bookmark_entries_of_the_edit_menu_are_in_reading_order():
-    import main_window
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         order = [a for a in win._menu_edit.actions()]
@@ -530,7 +530,7 @@ def test_bookmark_entries_of_the_edit_menu_are_in_reading_order():
 
 
 def test_merge_logs_lives_in_the_edit_menu_not_the_file_menu():
-    import main_window
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         assert win._act_merge in win._menu_edit.actions()
@@ -564,8 +564,8 @@ class _Worker:
 def test_merge_logs_is_in_the_context_menu_of_a_log_and_a_merged_view(monkeypatch):
     from PyQt6.QtWidgets import QMenu
 
-    import main_window
-    import ui
+    from simplelog.ui import facade as ui
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         asked = []
@@ -590,8 +590,8 @@ def test_merge_logs_is_in_the_context_menu_of_a_log_and_a_merged_view(monkeypatc
 def test_merge_logs_is_greyed_out_with_fewer_than_two_logs(monkeypatch):
     from PyQt6.QtWidgets import QMenu
 
-    import main_window
-    import ui
+    from simplelog.ui import facade as ui
+    from simplelog.ui import main_window
     win = main_window.MainWindow()
     try:
         viewer = ui.LogViewer(source_type="file")
@@ -616,7 +616,7 @@ def test_remote_home_panel_never_shows_a_top_level_window_while_building():
     from PyQt6.QtCore import QEvent, QObject
     from PyQt6.QtWidgets import QApplication
 
-    import ui
+    from simplelog.ui import facade as ui
 
     class Spy(QObject):
         shown: list = []
@@ -641,8 +641,8 @@ def test_add_connection_dialog_never_shows_a_top_level_window_while_building():
     from PyQt6.QtCore import QEvent, QObject
     from PyQt6.QtWidgets import QApplication, QWidget
 
-    import providers
-    import remote_dialogs
+    from simplelog.sources import providers
+    from simplelog.ui import remote_dialogs
 
     class Spy(QObject):
         shown: list = []

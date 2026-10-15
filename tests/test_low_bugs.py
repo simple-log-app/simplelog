@@ -5,8 +5,7 @@ from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import azure_utils
-import workers
+from simplelog.sources import azure_utils, workers
 
 DT = datetime(2025, 1, 2, 3, 4, 5, tzinfo=UTC)
 
@@ -54,7 +53,7 @@ def test_azure_existing_filter_replaced():
 
 
 def test_railway_dedup_is_bounded_and_skips_known(monkeypatch):
-    import railway_utils
+    from simplelog.sources import railway_utils
     w = workers.RailwayWorker("t", "p", "s", "sid", interval_s=1)
     monkeypatch.setattr(railway_utils, "get_latest_deployment", lambda *a: {"id": "d1"})
     now = int(__import__("time").time() * 1000)
@@ -67,7 +66,7 @@ def test_railway_dedup_is_bounded_and_skips_known(monkeypatch):
 
 
 def test_cloudwatch_late_event_is_not_lost(monkeypatch):
-    import cloudwatch
+    from simplelog.sources import cloudwatch
     w = workers.TailWorker(MagicMock(), "g", "s", "", 1, 3600)
     calls = []
     results = [[(10_000, "a")], [(10_000, "a"), (8_000, "late"), (11_000, "b")]]
