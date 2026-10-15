@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Corrigé
+- Le curseur de souris « chargement » ne reste plus affiché plusieurs secondes quand vous cliquez sur « Ajouter » ou ouvrez une connexion enregistrée (Linux/GNOME).
+
 ## [2.1.0] - 2026-10-14
 
 ### Ajouté

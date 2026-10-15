@@ -123,8 +123,8 @@ class FormPanel(ProviderPanel):
         else:
             self._connect_btn.setVisible(False)
         self._cred_card = card
-        card.setVisible(bool(self.fields or self.switches) or self.needs_connect)
         vlay.addWidget(card)
+        card.setVisible(bool(self.fields or self.switches) or self.needs_connect)  # once parented
 
         # ── targets ───────────────────────────────────────────────────────────
         self._targets_card: QWidget | None = None
@@ -165,8 +165,8 @@ class FormPanel(ProviderPanel):
             row.addWidget(self._lookback)
             olay.addLayout(row)
         self._options_card = ocard
-        ocard.setVisible(not self.needs_connect)
         vlay.addWidget(ocard)
+        ocard.setVisible(not self.needs_connect)  # once parented
         vlay.addStretch()
 
     # ── values ────────────────────────────────────────────────────────────────

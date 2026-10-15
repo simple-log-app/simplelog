@@ -635,3 +635,31 @@ def test_remote_home_panel_never_shows_a_top_level_window_while_building():
         panel.deleteLater()
     finally:
         app.removeEventFilter(spy)
+
+
+def test_add_connection_dialog_never_shows_a_top_level_window_while_building():
+    from PyQt6.QtCore import QEvent, QObject
+    from PyQt6.QtWidgets import QApplication, QWidget
+
+    import providers
+    import remote_dialogs
+
+    class Spy(QObject):
+        shown: list = []
+
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Type.Show and obj.isWidgetType() and obj.isWindow():
+                self.shown.append(type(obj).__name__)
+            return False
+
+    spy = Spy()
+    app = QApplication.instance()
+    app.installEventFilter(spy)
+    try:
+        host = QWidget()
+        remote_dialogs.AddConnectionDialog(parent=host)
+        for provider in providers.PROVIDERS:
+            remote_dialogs.AddConnectionDialog(parent=host, preselect=provider.id)
+        assert spy.shown == []
+    finally:
+        app.removeEventFilter(spy)

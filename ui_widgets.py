@@ -499,9 +499,11 @@ class _ProfileBar(QWidget):
         for p in profiles_store.load_all(self._service):
             self._combo.addItem(p["name"], userData=p)
         vis = self._combo.count() > 0 and not self._suppressed
-        self.setVisible(vis)
-        if self._wrapper is not None:
-            self._wrapper.setVisible(vis)
+        # A parentless widget told to show becomes a flashing top-level window: while the
+        # panel is still being built, only hide (showing happens once it is parented).
+        for w in (self, self._wrapper):
+            if w is not None and (not vis or w.parent() is not None):
+                w.setVisible(vis)
 
     def suppress(self) -> None:
         """Hide the bar for good (the dialog hosting the panel lists saved connections)."""

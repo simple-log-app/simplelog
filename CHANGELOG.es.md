@@ -4,6 +4,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+### Corregido
+- El cursor de ratón de «carga» ya no se queda varios segundos al pulsar «Añadir» o abrir una conexión guardada (Linux/GNOME).
+
 ## [2.1.0] - 2026-10-14
 
 ### Añadido

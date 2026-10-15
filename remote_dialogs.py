@@ -288,10 +288,10 @@ class AddConnectionDialog(QDialog):
         n = 0
         for provider, card in self._cards:
             visible = provider.id in shown_ids
-            card.setVisible(visible)
             if visible:
                 self._grid.addWidget(card, n // _GRID_COLUMNS, n % _GRID_COLUMNS)
                 n += 1
+            card.setVisible(visible)  # after addWidget: shown parentless it flashes as a window
 
     def _apply_provider_filter(self, text: str) -> None:
         needle = text.strip().lower()
