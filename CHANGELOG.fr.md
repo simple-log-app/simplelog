@@ -4,6 +4,8 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [2.2.2] - 2026-10-15
+
 ### Corrigé
 - Les boutons Fermer/OK/Annuler/Oui/Non des dialogues suivent désormais la langue de l'application.
 

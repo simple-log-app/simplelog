@@ -4,6 +4,8 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.2.2] - 2026-10-15
+
 ### Corregido
 - Los botones Cerrar/Aceptar/Cancelar/Sí/No de los diálogos ahora siguen el idioma de la aplicación.
 
