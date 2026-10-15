@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.2.1] - 2026-10-15
+
 ### Behoben
 - Auch die Meldungsfenster („Über“, Update, Fehler, Bestätigungen) haben jetzt keine System-Titelleiste mehr, wie die übrigen Dialoge.
 
