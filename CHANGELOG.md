@@ -4,6 +4,11 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-10-15
+
+### Changed
+- Internal reorganisation of the application; nothing changes in how SimpleLog looks or works.
+
 ## [2.1.1] - 2026-10-15
 
 ### Fixed
