@@ -759,6 +759,7 @@ class MainWindow(QMainWindow):
         progress.setCancelButton(None)
         progress.setMinimumDuration(0)
         progress.setValue(0)
+        make_frameless(progress)
 
         self._dl_worker = DownloadWorker(asset_url, tmp_path, __version__)
         self._dl_worker.progress.connect(progress.setValue)

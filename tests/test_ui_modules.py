@@ -764,3 +764,26 @@ def test_standard_buttons_follow_the_app_language():
     finally:
         i18n.set_locale(previous)
         install_qt_translations()
+
+
+def test_update_progress_dialog_has_no_system_title_bar(monkeypatch, tmp_path):
+    from unittest.mock import MagicMock
+
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QApplication, QProgressDialog
+
+    import simplelog.sources.workers as workers
+    import simplelog.ui.ui_theme as ui_theme
+    from simplelog.ui import facade as ui
+
+    monkeypatch.setattr(workers, "DownloadWorker", MagicMock())
+    monkeypatch.setattr(ui_theme, "_PREFS_PATH", tmp_path / "prefs.json")
+    win = ui.MainWindow()
+    monkeypatch.setattr(win, "_auto_update_asset_url", lambda tag: "https://x/app.deb")
+    try:
+        win._install_update("v9.9.9")
+        dlg = next(w for w in QApplication.topLevelWidgets() if isinstance(w, QProgressDialog))
+        assert dlg.windowFlags() & Qt.WindowType.FramelessWindowHint
+        dlg.close()
+    finally:
+        win.close()

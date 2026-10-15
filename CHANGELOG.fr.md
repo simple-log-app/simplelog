@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Corrigé
+- La fenêtre de téléchargement de la mise à jour n'affiche plus la barre de titre du système.
+
 ## [2.2.3] - 2026-10-15
 
 ### Modifié

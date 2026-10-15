@@ -4,6 +4,9 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+### Behoben
+- Das Download-Fenster für Updates zeigt keine System-Titelleiste mehr.
+
 ## [2.2.3] - 2026-10-15
 
 ### Geändert
