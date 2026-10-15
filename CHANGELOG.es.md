@@ -4,6 +4,11 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.2.3] - 2026-10-15
+
+### Cambiado
+- Las conexiones WebSocket de Cloudflare ahora requieren TLS 1.2 o superior.
+
 ## [2.2.2] - 2026-10-15
 
 ### Corregido
