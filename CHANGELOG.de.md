@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.1.1] - 2026-10-15
+
 ### Behoben
 - Der Mauszeiger „Laden“ bleibt nicht mehr mehrere Sekunden sichtbar, wenn Sie auf „Hinzufügen“ klicken oder eine gespeicherte Verbindung öffnen (Linux/GNOME).
 

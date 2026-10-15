@@ -4,6 +4,8 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-15
+
 ### Fixed
 - The "loading" mouse cursor no longer stays on for several seconds when you click “Add” or open a saved connection (Linux/GNOME).
 
