@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.2.0] - 2026-10-15
+
 ### Geändert
 - Dialoge haben keine System-Titelleiste mehr: keine Schaltflächen zum Minimieren / Maximieren und sie lassen sich nicht mehr verschieben; schließen Sie sie mit ✕ oder Esc.
 
