@@ -4,6 +4,9 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- The Close/OK/Cancel/Yes/No buttons of dialogs now follow the app language.
+
 ## [2.2.1] - 2026-10-15
 
 ### Fixed

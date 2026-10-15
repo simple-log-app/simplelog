@@ -4,6 +4,9 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+### Behoben
+- Die Schaltflächen Schließen/OK/Abbrechen/Ja/Nein in Dialogen folgen jetzt der App-Sprache.
+
 ## [2.2.1] - 2026-10-15
 
 ### Behoben

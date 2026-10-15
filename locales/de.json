@@ -445,5 +445,10 @@
   "msg_journald_ended": "Der Journal-Stream ist beendet",
   "help_journald": "<h3>systemd-Journal</h3><p>Verfolgt das Journal <b>dieses Computers</b> mit <code>journalctl</code>.</p><p>Geben Sie eine <b>Unit</b> an (z. B. <code>nginx.service</code>), um nur diesen Dienst zu sehen, und eine <b>Priorität</b>, um unwichtigere Zeilen auszublenden. Für das gesamte Journal kann die Mitgliedschaft in der Gruppe <code>systemd-journal</code> nötig sein.</p>",
   "action_clear_bookmarks": "Alle Lesezeichen entfernen",
-  "open_mode_no_split": "Öffnen Sie zuerst ein Log: Es gibt noch nichts zu teilen"
+  "open_mode_no_split": "Öffnen Sie zuerst ein Log: Es gibt noch nichts zu teilen",
+  "button_close": "Schließen",
+  "button_ok": "OK",
+  "button_cancel": "Abbrechen",
+  "button_yes": "Ja",
+  "button_no": "Nein"
 }

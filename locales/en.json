@@ -458,5 +458,10 @@
   "msg_journald_ended": "The journal stream ended",
   "help_journald": "<h3>systemd journal</h3><p>Follows the journal of <b>this computer</b> with <code>journalctl</code>.</p><p>Give a <b>unit</b> (e.g. <code>nginx.service</code>) to see just that service, and a <b>priority</b> to hide the less important lines. Reading the whole journal may require being in the <code>systemd-journal</code> group.</p>",
   "action_clear_bookmarks": "Remove all bookmarks",
-  "open_mode_no_split": "Open a log first: there is nothing to split yet"
+  "open_mode_no_split": "Open a log first: there is nothing to split yet",
+  "button_close": "Close",
+  "button_ok": "OK",
+  "button_cancel": "Cancel",
+  "button_yes": "Yes",
+  "button_no": "No"
 }

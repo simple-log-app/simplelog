@@ -418,6 +418,22 @@ def _ghost_btn(text: str = "") -> QPushButton:
     return btn
 
 
+def translate_buttons(box: QDialogButtonBox) -> QDialogButtonBox:
+    """Label the standard buttons through i18n (Qt's own translations are not loaded)."""
+    names = {
+        QDialogButtonBox.StandardButton.Close: "button_close",
+        QDialogButtonBox.StandardButton.Ok: "button_ok",
+        QDialogButtonBox.StandardButton.Cancel: "button_cancel",
+        QDialogButtonBox.StandardButton.Yes: "button_yes",
+        QDialogButtonBox.StandardButton.No: "button_no",
+    }
+    for std, key in names.items():
+        btn = box.button(std)
+        if btn is not None:
+            btn.setText(i18n.tr(key))
+    return box
+
+
 def make_frameless(dialog: QDialog, layout=None) -> None:
     """Drop the system title bar (its buttons and drag): the dialog stays where it opens.
 
@@ -496,7 +512,7 @@ class MessageBox(QDialog):
         label.setMaximumWidth(460)
         body.addWidget(label, 1)
         lay.addLayout(body)
-        box = QDialogButtonBox(buttons)
+        box = translate_buttons(QDialogButtonBox(buttons))
         action = (box.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
                   if action_label else None)
         box.clicked.connect(lambda b: self._finish(box.standardButton(b), b is action))

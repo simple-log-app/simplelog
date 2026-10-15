@@ -458,5 +458,10 @@
   "msg_journald_ended": "日志流已结束",
   "help_journald": "<h3>systemd 日志</h3><p>使用 <code>journalctl</code> 跟踪<b>本机</b>的日志。</p><p>指定<b>单元</b>（如 <code>nginx.service</code>）只查看该服务，指定<b>优先级</b>可隐藏次要行。读取完整日志可能需要加入 <code>systemd-journal</code> 组。</p>",
   "action_clear_bookmarks": "移除所有书签",
-  "open_mode_no_split": "请先打开日志：目前没有可拆分的内容"
+  "open_mode_no_split": "请先打开日志：目前没有可拆分的内容",
+  "button_close": "关闭",
+  "button_ok": "确定",
+  "button_cancel": "取消",
+  "button_yes": "是",
+  "button_no": "否"
 }

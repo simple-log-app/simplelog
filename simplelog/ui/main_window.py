@@ -90,6 +90,7 @@ from simplelog.ui.ui_widgets import (
     _SLTabWidget,
     _TabCloseBtn,
     make_frameless,
+    translate_buttons,
 )
 from simplelog.ui.ui_workers import CallWorker
 
@@ -170,7 +171,7 @@ class ChangelogDialog(QDialog):
         self.browser.setOpenExternalLinks(True)
         self.browser.setMarkdown(markdown)
         lay.addWidget(self.browser, 1)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons = translate_buttons(QDialogButtonBox(QDialogButtonBox.StandardButton.Close))
         if action_label:
             buttons.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.accepted.connect(self.accept)
@@ -866,7 +867,7 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(text)
 
-        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        btns = translate_buttons(QDialogButtonBox(QDialogButtonBox.StandardButton.Close))
         btns.rejected.connect(dlg.accept)
         btns.setStyleSheet(f"color: {C_TEXT};")
         layout.addWidget(btns)

@@ -458,5 +458,10 @@
   "msg_journald_ended": "Le flux du journal est terminé",
   "help_journald": "<h3>Journal systemd</h3><p>Suit le journal de <b>cet ordinateur</b> avec <code>journalctl</code>.</p><p>Indiquez une <b>unité</b> (ex. <code>nginx.service</code>) pour ne voir que ce service, et une <b>priorité</b> pour masquer les lignes moins importantes. Lire tout le journal peut nécessiter d'appartenir au groupe <code>systemd-journal</code>.</p>",
   "action_clear_bookmarks": "Retirer tous les marque-pages",
-  "open_mode_no_split": "Ouvrez d'abord un log : il n'y a encore rien à scinder"
+  "open_mode_no_split": "Ouvrez d'abord un log : il n'y a encore rien à scinder",
+  "button_close": "Fermer",
+  "button_ok": "OK",
+  "button_cancel": "Annuler",
+  "button_yes": "Oui",
+  "button_no": "Non"
 }
