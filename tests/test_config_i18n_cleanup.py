@@ -81,7 +81,7 @@ def test_save_profile_stores_profile_data(app, tmp_path, monkeypatch, provider):
     assert panel.profile_type == provider.id
     fake = {k: "v" for k in panel.profile_required} | {"extra": 1}
     with patch.object(type(panel), "profile_data", return_value=fake), \
-         patch("simplelog.ui.panels.base.QInputDialog.getText", return_value=("  mine ", True)) as ask:
+         patch("simplelog.ui.panels.base.TextInputDialog.get_text", return_value=("  mine ", True)) as ask:
         panel._save_profile()
     assert ask.call_args.args[1:3] == (i18n.tr("profile_save_title"), i18n.tr("profile_name_prompt"))
     assert [p["name"] for p in profiles_store.load_all(provider.id)] == ["mine"]
@@ -91,11 +91,11 @@ def test_save_profile_ignores_cancel_and_missing_fields(app, tmp_path, monkeypat
     monkeypatch.setattr(profiles_store, "_DIR", tmp_path)
     from simplelog.ui.panels.loki import LokiPanel
     panel = LokiPanel()
-    with patch("simplelog.ui.panels.base.QInputDialog.getText") as ask:
+    with patch("simplelog.ui.panels.base.TextInputDialog.get_text") as ask:
         panel._save_profile()                 # no URL yet: nothing to save, no prompt
     ask.assert_not_called()
     panel._url_input.setText("http://loki:3100")
-    with patch("simplelog.ui.panels.base.QInputDialog.getText", return_value=("x", False)) as ask:
+    with patch("simplelog.ui.panels.base.TextInputDialog.get_text", return_value=("x", False)) as ask:
         panel._save_profile()
     assert ask.call_args.kwargs["text"] == "loki:3100"       # default name from the URL
     assert profiles_store.load_all("loki") == []

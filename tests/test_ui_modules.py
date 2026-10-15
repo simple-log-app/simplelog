@@ -787,3 +787,26 @@ def test_update_progress_dialog_has_no_system_title_bar(monkeypatch, tmp_path):
         dlg.close()
     finally:
         win.close()
+
+
+def test_text_input_dialog_is_frameless_and_returns_the_text():
+    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtWidgets import QApplication, QDialogButtonBox
+
+    from simplelog.ui.ui_widgets import TextInputDialog
+
+    def answer(ok):
+        def _go():
+            dlg = next(w for w in QApplication.topLevelWidgets()
+                       if isinstance(w, TextInputDialog) and w.isVisible())
+            assert dlg.windowFlags() & Qt.WindowType.FramelessWindowHint
+            dlg.edit.setText("mine")
+            which = (QDialogButtonBox.StandardButton.Ok if ok
+                     else QDialogButtonBox.StandardButton.Cancel)
+            dlg.findChild(QDialogButtonBox).button(which).click()
+        QTimer.singleShot(0, _go)
+
+    answer(True)
+    assert TextInputDialog.get_text(None, "t", "name?", "dflt") == ("mine", True)
+    answer(False)
+    assert TextInputDialog.get_text(None, "t", "name?", "dflt")[1] is False

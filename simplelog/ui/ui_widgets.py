@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QPushButton,
@@ -482,6 +483,37 @@ def make_frameless(dialog: QDialog, layout=None) -> None:
     row.addWidget(title, 1)
     row.addWidget(close)
     layout.insertWidget(0, bar)
+
+
+class TextInputDialog(QDialog):
+    """Single-line prompt without the system title bar (replaces ``QInputDialog.getText``)."""
+
+    def __init__(self, parent, title: str, label: str, text: str = "") -> None:
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(10)
+        prompt = QLabel(label)
+        prompt.setWordWrap(True)
+        self.edit = QLineEdit(text)
+        self.edit.setMinimumWidth(320)
+        self.edit.selectAll()
+        box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        box.accepted.connect(self.accept)
+        box.rejected.connect(self.reject)
+        lay.addWidget(prompt)
+        lay.addWidget(self.edit)
+        lay.addWidget(box)
+        make_frameless(self, lay)
+
+    @staticmethod
+    def get_text(parent, title: str, label: str, text: str = "") -> tuple[str, bool]:
+        dlg = TextInputDialog(parent, title, label, text)
+        ok = dlg.exec() == QDialog.DialogCode.Accepted
+        return dlg.edit.text(), ok
 
 
 class MessageBox(QDialog):

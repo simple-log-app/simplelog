@@ -4,6 +4,9 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+### Corrigé
+- La demande de nom lors de l'enregistrement d'une connexion n'affiche plus la barre de titre du système.
+
 ## [2.2.4] - 2026-10-15
 
 ### Corrigé

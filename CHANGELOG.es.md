@@ -4,6 +4,9 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+### Corregido
+- La petición de nombre al guardar una conexión ya no muestra la barra de título del sistema.
+
 ## [2.2.4] - 2026-10-15
 
 ### Corregido

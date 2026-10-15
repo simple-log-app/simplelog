@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QFrame, QInputDialog, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from simplelog.core import i18n, profiles_store
 from simplelog.ui.ui_theme import (
@@ -15,7 +15,7 @@ from simplelog.ui.ui_theme import (
     C_SIDE,
     C_TEXT,
 )
-from simplelog.ui.ui_widgets import OpenModeWidget, _field_label, _ProfileBar
+from simplelog.ui.ui_widgets import OpenModeWidget, TextInputDialog, _field_label, _ProfileBar
 
 FIELD_STYLE = (
     f"background: {C_BG}; color: {C_TEXT}; border: 1px solid {C_BORDER2};"
@@ -51,7 +51,7 @@ class ProviderPanel(QWidget):
         data = self.profile_data()
         if any(not data.get(key) for key in self.profile_required):
             return
-        name, ok = QInputDialog.getText(
+        name, ok = TextInputDialog.get_text(
             self, i18n.tr("profile_save_title"), i18n.tr("profile_name_prompt"),
             text=self.default_profile_name())
         if not ok or not name.strip():

@@ -188,6 +188,7 @@ from simplelog.ui.ui_widgets import (  # noqa: F401
     NavRail,
     NoScrollComboBox,
     OpenModeWidget,
+    TextInputDialog,
     _field_label,
     _FieldLabel,
     _ghost_btn,
