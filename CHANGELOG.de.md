@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.2.5] - 2026-10-15
+
 ### Behoben
 - Die Namensabfrage beim Speichern einer Verbindung zeigt keine System-Titelleiste mehr.
 

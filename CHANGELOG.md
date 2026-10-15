@@ -4,6 +4,8 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.5] - 2026-10-15
+
 ### Fixed
 - The “save connection” name prompt no longer shows the system title bar.
 
