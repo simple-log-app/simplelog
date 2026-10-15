@@ -4,6 +4,12 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-10-15
+
+### Fixed
+- Linux: “Add” and saved connections work again in the installed app (they did nothing in 2.1.2).
+- The Auto / Day / Night menu is no longer dark in Day mode.
+
 ## [2.1.2] - 2026-10-15
 
 ### Changed

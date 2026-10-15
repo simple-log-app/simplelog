@@ -4,6 +4,12 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.1.3] - 2026-10-15
+
+### Corregido
+- Linux: «Añadir» y las conexiones guardadas vuelven a funcionar en la aplicación instalada (no hacían nada en la 2.1.2).
+- El menú Auto / Día / Noche ya no se ve oscuro en modo Día.
+
 ## [2.1.2] - 2026-10-15
 
 ### Cambiado

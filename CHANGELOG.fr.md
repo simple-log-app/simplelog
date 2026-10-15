@@ -4,6 +4,12 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [2.1.3] - 2026-10-15
+
+### Corrigé
+- Linux : « Ajouter » et les connexions enregistrées fonctionnent de nouveau dans l'application installée (elles ne faisaient rien en 2.1.2).
+- Le menu Auto / Jour / Nuit n'est plus sombre en mode Jour.
+
 ## [2.1.2] - 2026-10-15
 
 ### Modifié
