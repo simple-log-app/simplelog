@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import (
+    QLibraryInfo,
     QRectF,
     QSize,
     Qt,
     QTimer,
+    QTranslator,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
@@ -418,20 +420,27 @@ def _ghost_btn(text: str = "") -> QPushButton:
     return btn
 
 
-def translate_buttons(box: QDialogButtonBox) -> QDialogButtonBox:
-    """Label the standard buttons through i18n (Qt's own translations are not loaded)."""
-    names = {
-        QDialogButtonBox.StandardButton.Close: "button_close",
-        QDialogButtonBox.StandardButton.Ok: "button_ok",
-        QDialogButtonBox.StandardButton.Cancel: "button_cancel",
-        QDialogButtonBox.StandardButton.Yes: "button_yes",
-        QDialogButtonBox.StandardButton.No: "button_no",
-    }
-    for std, key in names.items():
-        btn = box.button(std)
-        if btn is not None:
-            btn.setText(i18n.tr(key))
-    return box
+_QT_LOCALES = {"fr": "fr", "de": "de", "es": "es", "zh": "zh_CN"}
+_qt_translator: QTranslator | None = None
+
+
+def install_qt_translations() -> None:
+    """Load Qt's own translations for the active language (standard dialog buttons)."""
+    global _qt_translator
+    app = QApplication.instance()
+    if app is None:
+        return
+    if _qt_translator is not None:
+        app.removeTranslator(_qt_translator)
+        _qt_translator = None
+    code = _QT_LOCALES.get(i18n.get_locale())
+    if code is None:
+        return
+    translator = QTranslator(app)
+    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    if translator.load(f"qtbase_{code}", folder):
+        app.installTranslator(translator)
+        _qt_translator = translator
 
 
 def make_frameless(dialog: QDialog, layout=None) -> None:
@@ -512,7 +521,7 @@ class MessageBox(QDialog):
         label.setMaximumWidth(460)
         body.addWidget(label, 1)
         lay.addLayout(body)
-        box = translate_buttons(QDialogButtonBox(buttons))
+        box = QDialogButtonBox(buttons)
         action = (box.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
                   if action_label else None)
         box.clicked.connect(lambda b: self._finish(box.standardButton(b), b is action))

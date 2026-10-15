@@ -89,8 +89,8 @@ from simplelog.ui.ui_widgets import (
     _SidebarEdgeBtn,
     _SLTabWidget,
     _TabCloseBtn,
+    install_qt_translations,
     make_frameless,
-    translate_buttons,
 )
 from simplelog.ui.ui_workers import CallWorker
 
@@ -171,7 +171,7 @@ class ChangelogDialog(QDialog):
         self.browser.setOpenExternalLinks(True)
         self.browser.setMarkdown(markdown)
         lay.addWidget(self.browser, 1)
-        buttons = translate_buttons(QDialogButtonBox(QDialogButtonBox.StandardButton.Close))
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         if action_label:
             buttons.addButton(action_label, QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.accepted.connect(self.accept)
@@ -867,7 +867,7 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(text)
 
-        btns = translate_buttons(QDialogButtonBox(QDialogButtonBox.StandardButton.Close))
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         btns.rejected.connect(dlg.accept)
         btns.setStyleSheet(f"color: {C_TEXT};")
         layout.addWidget(btns)
@@ -878,6 +878,7 @@ class MainWindow(QMainWindow):
     def _action_set_language(self, locale: str) -> None:
         i18n.set_locale(locale)
         i18n.save_locale()
+        install_qt_translations()
         i18n.retranslate_all()
         self._retranslate_menubar()
         self._status.showMessage(i18n.tr("status_ready"))

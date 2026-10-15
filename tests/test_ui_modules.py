@@ -748,18 +748,19 @@ def test_message_box_is_frameless_and_returns_the_clicked_button(monkeypatch):
     assert MessageBox.offer(None, "t", "new version", "Install") is True
 
 
-def test_standard_buttons_are_translated():
-    from PyQt6.QtWidgets import QDialogButtonBox
+def test_standard_buttons_follow_the_app_language():
+    from PyQt6.QtWidgets import QApplication, QDialogButtonBox
 
     from simplelog.core import i18n
-    from simplelog.ui.ui_widgets import translate_buttons
+    from simplelog.ui.ui_widgets import install_qt_translations
 
+    QApplication.instance() or QApplication([])
     previous = i18n.get_locale()
     try:
         i18n.set_locale("fr")
-        box = translate_buttons(QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Close | QDialogButtonBox.StandardButton.Cancel))
-        assert box.button(QDialogButtonBox.StandardButton.Close).text() == "Fermer"
-        assert box.button(QDialogButtonBox.StandardButton.Cancel).text() == "Annuler"
+        install_qt_translations()
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        assert "Fermer" in box.button(QDialogButtonBox.StandardButton.Close).text()
     finally:
         i18n.set_locale(previous)
+        install_qt_translations()

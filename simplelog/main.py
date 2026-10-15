@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import QApplication
 from simplelog.core import highlight_rules, i18n
 from simplelog.ui.main_window import MainWindow
 from simplelog.ui.ui_theme import apply_mode, load_theme
-from simplelog.ui.ui_widgets import MessageBox
+from simplelog.ui.ui_widgets import MessageBox, install_qt_translations
 from simplelog.version import __version__  # noqa: F401  (imported for UpdateWorker)
 
 # Unique socket name for this app's IPC channel
@@ -164,6 +164,7 @@ def main():
 
     # ── First (primary) instance ───────────────────────────────────────────────
     i18n.load_locale()
+    install_qt_translations()
     highlight_rules.load()
     window = MainWindow()
     window.show()

@@ -39,7 +39,6 @@ from simplelog.ui.ui_widgets import (
     _ProfileBar,
     make_card,
     make_frameless,
-    translate_buttons,
 )
 from simplelog.ui.ui_workers import CallWorker
 
@@ -96,9 +95,9 @@ class _SftpBrowserDialog(QDialog):
         self._list.itemDoubleClicked.connect(self._on_double_click)
         layout.addWidget(self._list)
 
-        btns = translate_buttons(QDialogButtonBox(
+        btns = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        ))
+        )
         btns.accepted.connect(self._on_ok)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
