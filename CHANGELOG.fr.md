@@ -4,6 +4,11 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [2.2.6] - 2026-10-23
+
+### Corrigé
+- Correction d'un plantage pouvant survenir en fermant le panneau Docker pendant que la liste des conteneurs ou des piles était encore en cours de chargement.
+
 ## [2.2.5] - 2026-10-15
 
 ### Corrigé

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PyQt6 import sip
 from PyQt6.QtCore import (
     Qt,
 )
@@ -326,13 +327,23 @@ class DockerPanel(ProviderPanel):
         self._fetch("_containers_worker", docker_utils.list_containers, self._show_containers)
 
     def _fetch(self, attr: str, fn, on_done) -> None:
-        """Run a docker CLI query off the UI thread; an error shows an empty list."""
+        """Run a docker CLI query off the UI thread; an error shows an empty list.
+
+        The worker stays alive (via `BackgroundWorker`'s own bookkeeping) even if this
+        panel is closed first, so its result can arrive after the panel's widgets are
+        gone — guard against touching them then.
+        """
         running = getattr(self, attr, None)
         if running is not None and running.isRunning():
             return
+
+        def safe_done(result: list) -> None:
+            if not sip.isdeleted(self):
+                on_done(result)
+
         worker = CallWorker(fn)
-        worker.success.connect(on_done)
-        worker.failure.connect(lambda _msg: on_done([]))
+        worker.success.connect(safe_done)
+        worker.failure.connect(lambda _msg: safe_done([]))
         setattr(self, attr, worker)
         worker.start()
 

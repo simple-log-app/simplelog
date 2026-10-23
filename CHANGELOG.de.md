@@ -4,6 +4,11 @@ Alle nennenswerten Änderungen an SimpleLog werden in dieser Datei dokumentiert.
 
 ## [Unveröffentlicht]
 
+## [2.2.6] - 2026-10-23
+
+### Behoben
+- Ein Absturz behoben, der auftreten konnte, wenn das Docker-Panel geschlossen wurde, während die Container- oder Stack-Liste noch geladen wurde.
+
 ## [2.2.5] - 2026-10-15
 
 ### Behoben

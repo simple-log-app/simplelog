@@ -4,6 +4,11 @@ All notable changes to SimpleLog are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.6] - 2026-10-23
+
+### Fixed
+- Fixed a crash that could happen when the Docker panel was closed while its container or stack list was still loading.
+
 ## [2.2.5] - 2026-10-15
 
 ### Fixed

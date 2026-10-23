@@ -4,6 +4,11 @@ Todos los cambios relevantes de SimpleLog se documentan en este archivo.
 
 ## [Sin publicar]
 
+## [2.2.6] - 2026-10-23
+
+### Corregido
+- Se corrigió un fallo que podía ocurrir al cerrar el panel de Docker mientras la lista de contenedores o pilas todavía se estaba cargando.
+
 ## [2.2.5] - 2026-10-15
 
 ### Corregido
