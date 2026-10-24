@@ -69,7 +69,7 @@ exe = EXE(
     console=False,          # no terminal window; stdin pipe still works
     disable_windowed_traceback=False,
     argv_emulation=False,   # set True only if needed on macOS CLI
-    target_arch=None,
+    target_arch="arm64",
     codesign_identity=None,
     entitlements_file=None,
 )

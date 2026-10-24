@@ -29,7 +29,8 @@ title ""
 
 if [ "$OS" = "Darwin" ]; then
     PLATFORM="macOS"
-    ASSET_PATTERN="SimpleLog-macOS-universal.dmg"
+    [ "$ARCH" = "arm64" ] || err "SimpleLog requires an Apple Silicon Mac (Intel is not supported)."
+    ASSET_PATTERN="SimpleLog-macOS-arm64.dmg"
 elif [ "$OS" = "Linux" ]; then
     PLATFORM="Linux"
     if command -v dpkg &>/dev/null && [ -f /etc/debian_version ]; then

@@ -47,8 +47,7 @@ jobs:
             dist/simplelog-*.AppImage
             dist/simplelog_amd64.deb
 
-  # ── macOS (x86_64 via Rosetta on ARM runner — runs natively on Intel,
-  #          via Rosetta 2 on Apple Silicon) ──────────────────────────────────
+  # ── macOS (Apple Silicon / arm64 only, native build) ───────────────────────
   build-macos:
     name: Build · macOS
     runs-on: macos-latest
@@ -56,23 +55,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Python 3.11 universal2 from python.org
-        run: |
-          curl -fsSL -o /tmp/python.pkg \
-            https://www.python.org/ftp/python/3.11.9/python-3.11.9-macos11.pkg
-          sudo installer -pkg /tmp/python.pkg -target /
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
 
-      - name: Install Python deps (x86_64 via Rosetta)
-        run: |
-          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.11/bin/pip3.11 \
-            install pyinstaller -r requirements.txt
+      - name: Install Python deps
+        run: pip install pyinstaller -r requirements.txt
 
-      - name: Build x86_64 app with PyInstaller
+      - name: Build arm64 app with PyInstaller
         env:
           VERSION: ${{ github.ref_name }}
-        run: |
-          arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.11/bin/python3.11 \
-            -m PyInstaller simplelog.spec --noconfirm --clean
+        run: pyinstaller simplelog.spec --noconfirm --clean
 
       - name: Package as .dmg
         env:
@@ -89,15 +82,15 @@ jobs:
               -srcfolder "$DMG_STAGING" \
               -ov -format UDZO \
               -imagekey zlib-level=9 \
-              dist/SimpleLog-macOS-universal.dmg && break
+              dist/SimpleLog-macOS-arm64.dmg && break
             echo "hdiutil attempt ${attempt} failed, retrying in 10s…"
             sleep 10
           done
 
       - uses: actions/upload-artifact@v7
         with:
-          name: macos-universal-dmg
-          path: dist/SimpleLog-macOS-universal.dmg
+          name: macos-arm64-dmg
+          path: dist/SimpleLog-macOS-arm64.dmg
 
   # ── GitHub Release ─────────────────────────────────────────────────────────
   release:
@@ -115,7 +108,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: macos-universal-dmg
+          name: macos-arm64-dmg
           path: release-assets/
 
       - name: Checksums
@@ -136,8 +129,8 @@ jobs:
           brew tap simple-log-app/tap
           brew install --cask simplelog
           ```
-          Or download **SimpleLog-macOS-universal.dmg** below and drag **SimpleLog.app** to Applications.
-          Works on both Apple Silicon and Intel Macs.
+          Or download **SimpleLog-macOS-arm64.dmg** below and drag **SimpleLog.app** to Applications.
+          Requires an Apple Silicon Mac (Intel Macs are no longer supported).
 
           ### Debian / Ubuntu
           ```bash

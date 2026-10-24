@@ -9,7 +9,7 @@ Origine : *mesuré* (reproduit par un script), *code* (lu dans le code), *probab
   - [x] Corriger le calcul du bundle (2 niveaux) et refuser tout chemin qui ne finit pas par `.app`.
   - [x] Copier la nouvelle app **avant** de supprimer l'ancienne (et restaurer l'ancienne si la copie échoue).
   - [x] Monter le DMG avec `-mountpoint` : `awk '{print $NF}'` casse sur « SimpleLog 1.0.9 » (espace dans le nom du volume).
-  - [x] Renommer l'asset macOS en `SimpleLog-macOS-universal.dmg` partout (release.yml, README, install.sh, html, update_tap.sh, build_macos.sh, `_auto_update_asset_url`) : les anciennes versions (≤ 1.0.8) obtiendront un 404 au lieu d'exécuter l'ancien script dangereux.
+  - [x] Renommer l'asset macOS en `SimpleLog-macOS-arm64.dmg` partout (release.yml, README, install.sh, html, update_tap.sh, build_macos.sh, `_auto_update_asset_url`) : les anciennes versions (≤ 1.0.8) obtiendront un 404 au lieu d'exécuter l'ancien script dangereux.
   - [x] Tests pour le script et le calcul du bundle.
 
 ## 🔴 Bugs de gravité haute

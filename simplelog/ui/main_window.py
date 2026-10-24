@@ -731,7 +731,7 @@ class MainWindow(QMainWindow):
             return f"{base}/simplelog-x86_64.AppImage"
         if (getattr(sys, "frozen", False) and platform.system() == "Darwin"
                 and macos_app_bundle(sys.executable) is not None):
-            return f"{base}/SimpleLog-macOS-universal.dmg"
+            return f"{base}/SimpleLog-macOS-arm64.dmg"
         if getattr(sys, "frozen", False) and platform.system() == "Linux" and shutil.which("pkexec"):
             return f"{base}/simplelog_amd64.deb"
         return None

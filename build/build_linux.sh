@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build/build_linux.sh — Build SimpleLog for Linux
 # Produces:
-#   dist/simplelog-x86_64.AppImage   (universal, no install needed)
+#   dist/simplelog-x86_64.AppImage   (no install needed)
 #   dist/simplelog_amd64.deb         (Debian / Ubuntu)
 set -euo pipefail
 

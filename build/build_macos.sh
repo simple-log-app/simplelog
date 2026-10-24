@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build/build_macos.sh — Build SimpleLog for macOS
 # Produces:
-#   dist/SimpleLog-macOS-universal.dmg   (drag-and-drop installer)
+#   dist/SimpleLog-macOS-arm64.dmg   (drag-and-drop installer)
 set -euo pipefail
 
 VERSION="${VERSION:-1.0.0}"
@@ -26,7 +26,7 @@ ok "PyInstaller done → dist/SimpleLog.app"
 log "Creating .dmg…"
 
 DMG_STAGING="dist/dmg_staging"
-DMG_NAME="dist/SimpleLog-macOS-universal.dmg"
+DMG_NAME="dist/SimpleLog-macOS-arm64.dmg"
 
 rm -rf "$DMG_STAGING"
 mkdir -p "$DMG_STAGING"

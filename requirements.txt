@@ -7,7 +7,4 @@ google-cloud-logging>=3.5.0
 google-cloud-resource-manager>=1.10.0
 azure-monitor-query>=1.2.0
 azure-identity>=1.15.0
-# 49+ dropped macOS x86_64/universal2 wheels (needed for the Rosetta cross-build in release.yml);
-# 48.x has known CVEs but only affects X.509 verification / PKCS7, which SimpleLog does not use
-cryptography>=50.0.2; sys_platform != "darwin"
-cryptography>=41.0.0,<49; sys_platform == "darwin"
+cryptography>=50.0.2
