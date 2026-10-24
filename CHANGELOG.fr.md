@@ -4,6 +4,8 @@ Toutes les évolutions notables de SimpleLog sont listées dans ce fichier.
 
 ## [Non publié]
 
+## [2.3.0] - 2026-10-24
+
 ### Modifié
 - L'application macOS est désormais compilée nativement pour Apple Silicon et ne nécessite plus Rosetta. Les Mac Intel ne sont plus pris en charge.
 

@@ -4,6 +4,8 @@ SimpleLog 的所有重要变更都记录在此文件中。
 
 ## [未发布]
 
+## [2.3.0] - 2026-10-24
+
 ### 变更
 - macOS 应用现已针对 Apple Silicon 原生构建,不再需要 Rosetta。不再支持 Intel Mac。
 
