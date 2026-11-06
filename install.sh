@@ -104,7 +104,14 @@ if [ "$PLATFORM" = "macOS" ]; then
 
 elif [ "$INSTALL_METHOD" = "deb" ]; then
     info "Installing .deb package (requires sudo)…"
-    sudo dpkg -i "$TMP_FILE"
+    # apt (not dpkg -i) so missing dependencies (libxcb-*, …) get pulled in.
+    # Path must contain a "/" for apt to treat it as a local file.
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq || true
+        sudo apt-get install -y "$TMP_FILE"
+    else
+        sudo dpkg -i "$TMP_FILE"
+    fi
     rm -f "$TMP_FILE"
 
     ok "Installed: /usr/bin/simplelog"
